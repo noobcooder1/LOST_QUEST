@@ -1,0 +1,17 @@
+.api-health-status { width:min(1160px,calc(100% - 80px)); margin:24px auto 0; padding:15px 17px; display:flex; align-items:center; gap:17px; border:1px solid #e5edf2; border-radius:9px; background:#f5f8fa; color:#6d8393; font-size:.875rem; line-height:1.65; }
+.api-health-title { display:flex; align-items:center; gap:7px; flex-shrink:0; color:#506c81; }
+.api-health-title strong { font-weight:600; }
+.api-health-message { display:flex; align-items:flex-start; gap:7px; flex:1; min-width:0; }
+.api-health-message>svg { flex-shrink:0; margin-top:3px; }
+.api-health-message>span { overflow-wrap:anywhere; }
+.api-health-success .api-health-message { color:#387c62; }
+.api-health-error .api-health-message { color:#a65755; }
+.api-health-button { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex-shrink:0; min-height:38px; padding:7px 13px; border:1px solid #d7e2ea; border-radius:6px; background:white; color:#456a85; font:inherit; line-height:1.4; cursor:pointer; }
+.api-health-button:hover:not(:disabled) { background:#eaf2f8; border-color:#abc4d5; }
+.api-health-button:focus-visible { outline:2px solid #2874ed; outline-offset:3px; }
+.api-health-button:disabled { color:#92a1ac; background:#edf2f5; cursor:default; }
+.api-health-spinner { animation:api-health-spin 1s linear infinite; }
+@keyframes api-health-spin { to { transform:rotate(360deg); } }
+@media(max-width:1100px) { .api-health-status { width:calc(100% - 56px); flex-wrap:wrap; gap:12px; }.api-health-message { flex-basis:calc(100% - 200px); } }
+@media(max-width:640px) { .api-health-status { width:calc(100% - 36px); padding:14px; gap:12px; }.api-health-title { flex-basis:100%; }.api-health-message { flex-basis:100%; }.api-health-button { margin-left:23px; } }
+@media(prefers-reduced-motion:reduce) { .api-health-spinner { animation:none; } }

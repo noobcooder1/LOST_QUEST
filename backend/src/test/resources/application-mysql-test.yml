@@ -1,0 +1,11 @@
+# Real MySQL only. MySqlIntegrationIT requires explicit MYSQL_TEST_* settings
+# and checks the database name before connecting. It never falls back to H2.
+spring:
+  config:
+    import: ""
+  jpa:
+    hibernate:
+      ddl-auto: update
+app:
+  cors:
+    allowed-origins: http://localhost:5173,http://127.0.0.1:5173

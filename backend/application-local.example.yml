@@ -1,0 +1,7 @@
+# Copy to backend/application-local.yml (gitignored) and fill locally.
+# Run Maven from backend/. Spring Boot does not automatically load .env files.
+spring:
+  datasource:
+    username: YOUR_LOCAL_DB_USER
+    password: YOUR_LOCAL_DB_PASSWORD
+# Environment-variable mode is documented in ../README.md. Use one mode at a time.
