@@ -2,7 +2,7 @@
 
 분실물 통합 탐색 팀 프로젝트입니다. 기존 React 프론트엔드 프로토타입에 Java 21 + Spring Boot + JPA + MySQL 백엔드의 기본 틀을 추가했습니다.
 
-현재 서버 기능은 **상태 확인과 분실물·습득물 조회**입니다. 기존 화면의 회원·물품 등록·매칭·반환·QR·경험치 기능은 여전히 브라우저 가상 데이터로 동작합니다. 이 데이터를 MySQL에 자동 전송하거나 서버 기능으로 바꾸지 않았습니다. 실제 회원가입/JWT, 쓰기 CRUD, 경찰청 API, AI, AWS 배포는 이번 범위에 포함하지 않습니다.
+현재 서버 기능은 **상태 확인, 분실물·습득물 조회, 회원가입·로그인(JWT Bearer)·내 정보 조회**입니다. React 로그인/회원가입 화면은 실제 API에 연결되어 있습니다. 물품 등록·매칭·반환·QR·경험치 기능은 여전히 브라우저 가상 데이터로 동작하며, 이 데이터를 MySQL에 자동 전송하거나 서버 기능으로 바꾸지 않았습니다. 쓰기 CRUD, 경찰청 API, AI, AWS 배포는 이번 범위에 포함하지 않습니다.
 
 ## 프로젝트 구조
 
@@ -27,7 +27,7 @@ LOST_QUEST/
 │       │   ├── entity/          # User, LostItem, FoundItem, 상태 enum
 │       │   ├── dto/             # 비밀번호·이메일을 제외한 응답
 │       │   ├── config/          # 설정값 바인딩, CORS
-│       │   ├── security/        # SecurityFilterChain, BCrypt
+│       │   ├── security/        # SecurityFilterChain, BCrypt, JWT 발급·검증 설정
 │       │   └── exception/       # JSON 오류와 RestControllerAdvice
 │       ├── main/resources/     # application.yml, application-dev.yml
 │       └── test/               # H2 계약 테스트, 선택적 실제 MySQL 테스트
@@ -85,6 +85,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES
 | `SPRING_PROFILES_ACTIVE` | 생략하면 `dev` |
 | `JPA_DDL_AUTO` | `dev`: `update`, 그 외: `validate` |
 | `APP_CORS_ALLOWED_ORIGINS` | `dev`: `http://localhost:5173,http://127.0.0.1:5173` |
+| `JWT_SECRET` | **필수**, 32바이트 이상 임의 문자열. 기본값 없음 (미설정·짧으면 시작 실패) |
+| `JWT_ACCESS_TOKEN_EXPIRATION` | `1h` (Spring Duration 형식, 예: `30m`, `2h`) |
 
 환경변수 방식의 PowerShell 예시:
 
@@ -93,6 +95,8 @@ cd backend
 $env:DB_USERNAME = 'lostquest_app'
 $env:DB_PASSWORD = Read-Host '로컬 MySQL 비밀번호' -MaskInput
 $env:APP_CORS_ALLOWED_ORIGINS = 'http://localhost:5173,http://127.0.0.1:5173'
+# 로컬 전용 JWT 서명 키: 실행할 때마다 새로 만들면 재시작 시 기존 토큰은 무효화됩니다.
+$env:JWT_SECRET = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
 .\mvnw.cmd spring-boot:run
 ```
 
@@ -103,11 +107,13 @@ $env:APP_CORS_ALLOWED_ORIGINS = 'http://localhost:5173,http://127.0.0.1:5173'
 ```powershell
 cd backend
 Copy-Item application-local.example.yml application-local.yml
-# application-local.yml의 계정/비밀번호 자리표시자를 로컬 값으로 편집
+# application-local.yml의 DB 계정/비밀번호와 app.jwt.secret 자리표시자를 로컬 값으로 편집
 .\mvnw.cmd spring-boot:run
 ```
 
 `backend/`를 작업 디렉터리로 실행해야 `./application-local.yml`을 읽습니다. 두 방식을 동시에 사용하면 YAML의 직접 지정한 `spring.datasource.*` 값이 `DB_*` 자리표시자보다 우선하므로, 한 방식을 선택하세요. `.env*`, `application-local.*`, 개인 키, 빌드 결과는 루트 `.gitignore`로 제외합니다. 예시 파일은 추적 가능합니다.
+
+인증 기능 추가 전에 만든 `application-local.yml`을 그대로 쓰는 경우, `JWT_SECRET` 환경변수가 없으면 `app.jwt.secret (JWT_SECRET) must be configured` 오류로 시작이 실패합니다. 예시 파일의 `app.jwt` 블록을 기존 파일에 추가하고, 위 PowerShell 명령으로 직접 생성한 값을 넣으세요. 이 값은 팀원끼리 공유하거나 Git 추적 파일에 적지 않습니다.
 
 ## API
 
@@ -118,10 +124,37 @@ Copy-Item application-local.example.yml application-local.yml
 | GET | `/api/found-items` | 습득물 DTO 배열, 비어 있으면 `[]` |
 | GET | `/api/lost-items/{id}` | 분실물 단건, 없으면 JSON 404 |
 | GET | `/api/found-items/{id}` | 습득물 단건, 없으면 JSON 404 |
+| POST | `/api/auth/signup` | 회원가입, 공개. `201` + 사용자 DTO |
+| POST | `/api/auth/login` | 로그인, 공개. `200` + Access Token |
+| GET | `/api/auth/me` | 현재 사용자, `Authorization: Bearer <token>` 필요 |
 
 목록은 ID 오름차순입니다. 아직 필터·페이지네이션·등록·수정·삭제 API는 없습니다. 응답에는 `id`, `userId`, 물품 정보, 문자열 상태, `createdAt`이 포함됩니다. 날짜는 `YYYY-MM-DD`, 생성 시각은 UTC ISO 8601입니다. 프론트엔드의 데모 ID·필드·상태와 서버 DTO는 아직 별개이므로 이후 CRUD 연동 단계에서 변환 계층을 추가해야 합니다.
 
-상태: User의 `USER / ADMIN`, 분실물의 `LOST / RETURNED / CLOSED`, 습득물의 `STORED / RETURNED / CLOSED`를 enum 문자열로 저장합니다. 이메일은 고유하며 비밀번호는 BCrypt 해시만 허용합니다. 현재 실제 회원 생성·로그인 API는 제공하지 않습니다.
+상태: User의 `USER / ADMIN`, 분실물의 `LOST / RETURNED / CLOSED`, 습득물의 `STORED / RETURNED / CLOSED`를 enum 문자열로 저장합니다. 이메일은 고유하며 비밀번호는 BCrypt 해시만 허용합니다.
+
+### 인증 API
+
+```jsonc
+// POST /api/auth/signup  — email(형식, ≤254), password(8~64자, ≤72바이트), nickname(공백 불가, ≤20)
+{ "email": "hunter@example.com", "password": "********", "nickname": "로스트헌터" }
+// 201
+{ "id": 1, "email": "hunter@example.com", "nickname": "로스트헌터", "role": "USER", "createdAt": "2026-09-29T01:30:49Z" }
+
+// POST /api/auth/login
+{ "email": "hunter@example.com", "password": "********" }
+// 200
+{ "accessToken": "<JWT>", "tokenType": "Bearer", "expiresIn": 3600,
+  "user": { "id": 1, "email": "hunter@example.com", "nickname": "로스트헌터", "role": "USER", "createdAt": "..." } }
+
+// GET /api/auth/me  (Authorization: Bearer <JWT>) → 200, signup 응답과 같은 사용자 DTO
+```
+
+- 이메일은 앞뒤 공백 제거·소문자로 저장하며 중복 가입은 `409 EMAIL_ALREADY_EXISTS`입니다.
+- 회원가입 요청에는 권한 필드가 없으며 요청 JSON에 `role`을 넣어도 무시되고 항상 `USER`로 생성됩니다. `ADMIN`은 DB에서 직접 지정해야 합니다.
+- 로그인 실패는 이메일 미존재와 비밀번호 불일치를 구분하지 않고 같은 `401 INVALID_CREDENTIALS`를 반환합니다.
+- JWT(HS256)에는 `sub`(사용자 ID), `role`, `iat`, `exp`, `iss`만 담고 이메일·비밀번호는 넣지 않습니다. 서명·만료(허용 오차 60초)·발급자를 검증하며, `role`은 `ROLE_USER`/`ROLE_ADMIN` Authority로 매핑되어 `@PreAuthorize("hasRole('ADMIN')")` 등에 사용할 수 있습니다.
+- 토큰 없음은 `401 UNAUTHORIZED`, 변조·만료·다른 키 서명은 `401 INVALID_TOKEN`, 인증은 되었지만 허용되지 않은 요청은 `403 FORBIDDEN`입니다.
+- 공개 GET API도 잘못된 `Authorization` 헤더를 보내면 401이 됩니다. 공개 API에는 토큰을 붙이지 마세요.
 
 `/api/health`는 HTTP 서버 응답 확인용이며 DB의 지속적인 readiness 점검은 아닙니다. **JPA·MySQL 경로 확인에는 목록 API도 호출하세요.** DB 연결 및 스키마 준비에 실패하면 정상 애플리케이션 시작이 완료되지 않습니다.
 
@@ -133,9 +166,11 @@ Invoke-WebRequest http://localhost:8080/api/found-items | Select-Object -ExpandP
 
 ## 보안·오류 처리
 
-위 GET API만 공개하며 나머지 요청은 기본 차단합니다. 폼 로그인·HTTP Basic·기본 생성 계정은 사용하지 않습니다. BCrypt `PasswordEncoder`와 메서드 권한 설정을 준비했으며 JWT 발급·검증은 구현하지 않았습니다. 기존 프론트엔드 테스트 로그인은 서버 권한을 부여하지 않습니다. CSRF 방어는 유지합니다. 인증 방식을 결정한 후 쓰기 API, CSRF 정책, CORS 허용 메서드를 함께 설계하세요.
+위 공개 GET API와 `POST /api/auth/signup`·`/api/auth/login`만 인증 없이 허용하고, `GET /api/auth/me`는 인증을 요구하며, 나머지 요청은 기본 차단합니다. 폼 로그인·HTTP Basic·기본 생성 계정·서버 세션은 사용하지 않습니다(Stateless). JWT 검증은 Spring Security OAuth2 Resource Server(Nimbus)를 사용하며 자체 토큰 파서는 없습니다.
 
-CORS는 설정에 등록된 **정확한 Origin**만 허용합니다. 와일드카드는 거부하며 현재 GET/OPTIONS만 허용합니다. 쿠키 자격증명은 보내지 않습니다. 개발 서버 포트를 변경했다면 Origin도 변경해야 합니다. [Spring Security CORS 안내](https://docs.spring.io/spring-security/reference/6.5/servlet/integrations/cors.html)
+**CSRF 비활성화 이유:** CSRF는 브라우저가 쿠키·세션 같은 자격증명을 요청에 *자동으로* 붙이는 점을 악용합니다. 이 API는 세션·인증 쿠키를 만들지 않고, 자격증명은 프론트엔드 코드가 명시적으로 설정하는 `Authorization: Bearer` 헤더로만 전달되며, 다른 사이트는 이 헤더를 붙인 요청을 만들 수 없습니다(CORS 허용 Origin 제한, `credentials: omit`). 따라서 CSRF 토큰 없이도 위조 요청이 인증되지 않아 CSRF 보호를 끕니다. 이후 쿠키 기반 인증(예: HttpOnly Refresh Token 쿠키)을 도입하면 CSRF 정책을 다시 설계해야 합니다.
+
+CORS는 설정에 등록된 **정확한 Origin**만 허용합니다. 와일드카드는 거부하며 현재 GET/POST/OPTIONS만 허용합니다(POST는 인증 API용). 허용 헤더는 `Accept`, `Content-Type`, `Authorization`입니다. 쿠키 자격증명은 보내지 않습니다. 개발 서버 포트를 변경했다면 Origin도 변경해야 합니다. [Spring Security CORS 안내](https://docs.spring.io/spring-security/reference/6.5/servlet/integrations/cors.html)
 
 정상 응답에는 불필요한 Wrapper를 사용하지 않습니다. MVC·Validation 및 인증/인가 오류는 다음 형태로 응답합니다. 필드의 원래 입력값이나 비밀번호는 오류 JSON에 포함하지 않습니다.
 
@@ -150,7 +185,7 @@ CORS는 설정에 등록된 **정확한 Origin**만 허용합니다. 와일드�
 }
 ```
 
-필드 메시지는 Validation 언어 설정에 따라 달라질 수 있습니다. 존재하지 않는 ID는 404, 잘못된 타입·입력은 400, 데이터 충돌은 409, DB 접근 실패는 503으로 처리합니다. 허용되지 않은 Origin은 Spring의 CORS 계층에서 차단하며 위 MVC JSON 형식을 사용하지 않을 수 있습니다.
+필드 메시지는 Validation 언어 설정에 따라 달라질 수 있습니다. 존재하지 않는 ID는 404, 잘못된 타입·입력은 400, 인증 실패는 401, 권한 부족은 403, 데이터 충돌은 409, DB 접근 실패는 503으로 처리합니다. 허용되지 않은 Origin은 Spring의 CORS 계층에서 차단하며 위 MVC JSON 형식을 사용하지 않을 수 있습니다.
 
 ## React 실행 및 서버 연결 확인
 
@@ -169,6 +204,8 @@ npm.cmd run dev
 2. `http://127.0.0.1:5173`의 페이지 하단 **서버 연결 확인** 버튼을 누릅니다.
 3. 연결 성공 문구를 확인합니다. 서버 미실행·잘못된 주소·CORS 오류·시간 초과는 화면에 오류로 표시되며 기존 데모 화면은 계속 사용할 수 있습니다.
 4. API 주소를 설정하지 않으면 설정 안내가 표시됩니다. 자동 폴링이나 가짜 성공 응답은 없습니다.
+
+**로그인·회원가입**은 `/login`, `/signup` 화면에서 실제 서버 API를 호출합니다(서버가 꺼져 있으면 로그인할 수 없습니다). 가입 후 자동으로 로그인합니다. Access Token은 `sessionStorage`에만 저장되어 같은 탭 새로고침에는 유지되고, 탭·브라우저를 닫으면 사라집니다. 앱 시작 시 저장된 토큰은 `/api/auth/me`로 서버에 확인하며, 401이면 즉시 삭제합니다. 만료 시각이 되면 자동 로그아웃합니다. 토큰은 URL·로그·콘솔에 출력하지 않습니다. 인증이 필요한 요청은 `apiRequest(path, { accessToken })`(`frontend/src/services/apiClient.ts`)로 `Authorization` 헤더를 붙입니다. 물품·매칭·반환·경험치는 여전히 브라우저 데모 데이터입니다.
 
 기존 화면과 체험 흐름은 [프론트엔드 README](frontend/README.md)를 참고하세요.
 

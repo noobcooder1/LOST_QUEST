@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
-// Authentication is intentionally not implemented yet; do not create a default login account.
+// Users authenticate with DB accounts and JWT Bearer tokens; never create a default in-memory login account.
 @SpringBootApplication(exclude = UserDetailsServiceAutoConfiguration.class)
 @ConfigurationPropertiesScan
 public class LostQuestApplication {

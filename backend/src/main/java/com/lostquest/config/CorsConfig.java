@@ -12,7 +12,8 @@ public class CorsConfig {
     public UrlBasedCorsConfigurationSource corsConfigurationSource(CorsProperties properties) {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(properties.allowedOrigins());
-        config.setAllowedMethods(List.of("GET", "OPTIONS"));
+        // POST is needed only for /api/auth/signup and /api/auth/login.
+        config.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
         config.setAllowedHeaders(List.of("Accept", "Content-Type", "Authorization"));
         config.setAllowCredentials(false);
         config.setMaxAge(3600L);
