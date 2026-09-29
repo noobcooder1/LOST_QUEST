@@ -19,6 +19,9 @@ export interface Item {
   secretAnswer?: string;
   agency?: string;
   phone?: string;
+  /** Set only for items loaded from the Spring Boot API (createdBy === 'server'). */
+  serverId?: number;
+  ownerId?: number;
 }
 
 export type ReturnStatus =
