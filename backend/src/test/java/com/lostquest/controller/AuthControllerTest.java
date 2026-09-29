@@ -42,6 +42,7 @@ import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -345,7 +346,8 @@ class AuthControllerTest {
         signup("forbidden@lostquest.test", PASSWORD, "금지").andExpect(status().isCreated());
         String token = accessToken("forbidden@lostquest.test");
 
-        mockMvc.perform(post("/api/lost-items").header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+        // POST /api/lost-items is now an authenticated API; updates are still not exposed.
+        mockMvc.perform(put("/api/lost-items/1").header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.status").value(403))

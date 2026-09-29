@@ -47,6 +47,11 @@ public class LostItem extends BaseEntity {
     @Column(name = "lost_date", nullable = false)
     private LocalDate lostDate;
 
+    /** One of the frontend's 17 province-level regions; nullable only for rows created before this column existed. */
+    @Size(max = 20)
+    @Column(length = 20)
+    private String region;
+
     @NotBlank
     @Size(max = 255)
     @Column(nullable = false, length = 255)
@@ -65,13 +70,14 @@ public class LostItem extends BaseEntity {
     }
 
     public LostItem(User user, String title, String category, String color, String description,
-                    LocalDate lostDate, String location, String imageUrl, LostItemStatus status) {
+                    LocalDate lostDate, String region, String location, String imageUrl, LostItemStatus status) {
         this.user = user;
         this.title = title;
         this.category = category;
         this.color = color;
         this.description = description;
         this.lostDate = lostDate;
+        this.region = region;
         this.location = location;
         this.imageUrl = imageUrl;
         this.status = status;
@@ -99,6 +105,10 @@ public class LostItem extends BaseEntity {
 
     public LocalDate getLostDate() {
         return lostDate;
+    }
+
+    public String getRegion() {
+        return region;
     }
 
     public String getLocation() {

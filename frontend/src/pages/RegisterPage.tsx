@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Camera, Check, CheckCircle2, ChevronRight, ClipboardCheck, FileImage, HeartHandshake, ImagePlus, Info, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import { ApiClientError } from '../services/apiClient'
+import { createServerItem, describeItemError } from '../services/itemApi'
 import type { Item } from '../types'
 import './JourneyPages.css'
 
@@ -15,7 +17,7 @@ const examples = [
 ]
 
 export default function RegisterPage() {
-  const { isLoggedIn, addItem } = useApp()
+  const { isLoggedIn, logout } = useApp()
   const [params] = useSearchParams()
   const navigate = useNavigate()
   const location = useLocation()
@@ -32,6 +34,9 @@ export default function RegisterPage() {
   const [suggestion, setSuggestion] = useState({ title: '', category: '', color: '' })
   const [registered, setRegistered] = useState<Item | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [sessionExpired, setSessionExpired] = useState(false)
+  // Synchronous guard: state updates land after re-render, so two quick submits could both POST.
+  const submittingRef = useRef(false)
   const fileInput = useRef<HTMLInputElement>(null)
   const inputVersion = useRef(0)
 
@@ -91,28 +96,32 @@ export default function RegisterPage() {
     if (form.date > current) { setError('미래 날짜는 선택할 수 없어요.'); return }
     setError(''); setStep(1); window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault()
-    if (submitting || registered) return
+    if (submittingRef.current || registered) return
     if (form.description.trim().length < 10) { setError('물품을 알아볼 수 있도록 상세 설명을 10자 이상 입력해 주세요.'); return }
-    if (found && !form.secretAnswer.trim()) { setError('테스트용 비공개 특징을 확인해 주세요.'); return }
+    submittingRef.current = true
     setSubmitting(true)
     try {
-      const item = addItem({ ...form, title: form.title.trim(), color: form.color.trim(), location: form.location.trim(), description: form.description.trim(), type, image, source: 'community', secretAnswer: found ? form.secretAnswer.trim() : undefined })
+      // The photo and demo secret answer stay in the browser; only item fields go to the server.
+      const item = await createServerItem(type, { title: form.title, category: form.category, color: form.color, description: form.description, date: form.date, region: form.region, location: form.location })
       setRegistered(item); setStep(2); setError(''); window.scrollTo({ top: 0, behavior: 'smooth' })
-    } catch (cause) { setError(cause instanceof Error ? cause.message : '등록하지 못했어요. 다시 시도해 주세요.') }
-    finally { setSubmitting(false) }
+    } catch (cause) {
+      // An expired/invalid token follows the app's auth policy: drop the local session and ask to sign in again.
+      if (cause instanceof ApiClientError && cause.status === 401) { setSessionExpired(true); logout() }
+      setError(describeItemError(cause))
+    } finally { submittingRef.current = false; setSubmitting(false) }
   }
 
-  if (!isLoggedIn) return <div className="page-container register-gate"><span className="gate-icon"><LockKeyhole size={32} /></span><span className="eyebrow">소중한 일상을 되찾는 여정</span><h1>소중한 물건을 위한 첫걸음</h1><p className="muted">물품을 등록하고 반환 과정을 확인하려면<br />테스트 계정으로 로그인해 주세요.</p><Link className="button button-primary" to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`}>테스트 계정으로 시작하기 <ArrowRight size={18} /></Link><Link className="text-link" to="/search">먼저 등록된 물품 둘러보기</Link><div className="gate-note"><ShieldCheck size={17} /> 실제 개인정보나 계정 가입은 필요하지 않아요.</div></div>
+  if (!isLoggedIn) return <div className="page-container register-gate"><span className="gate-icon"><LockKeyhole size={32} /></span><span className="eyebrow">소중한 일상을 되찾는 여정</span><h1>{sessionExpired ? '로그인이 만료되었어요' : '소중한 물건을 위한 첫걸음'}</h1><p className="muted">{sessionExpired ? <>보안을 위해 다시 로그인한 뒤<br />물품을 등록해 주세요.</> : <>물품을 등록하고 반환 과정을 확인하려면<br />로그인해 주세요.</>}</p><Link className="button button-primary" to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`}>테스트 계정으로 시작하기 <ArrowRight size={18} /></Link><Link className="text-link" to="/search">먼저 등록된 물품 둘러보기</Link><div className="gate-note"><ShieldCheck size={17} /> 실제 개인정보나 계정 가입은 필요하지 않아요.</div></div>
 
   return <div className="page-container register-page">
     <div className="journey-breadcrumb"><Link to="/">홈</Link><ChevronRight size={14} /><span>{found ? '습득물' : '분실물'} 등록</span></div>
-    <div className="page-heading"><div><span className="eyebrow">{found ? '작은 친절로 시작되는 연결' : '다시 찾는 여정을 시작해요'}</span><h1>{found ? '주인을 기다리는 물건이 있나요?' : '어떤 물건을 잃어버리셨나요?'}</h1><p>{found ? '당신의 작은 친절이 누군가의 소중한 일상을 되찾아 줘요.' : '기억나는 단서를 남겨 주세요. 다시 만나는 여정을 함께할게요.'}</p></div><span className="badge badge-blue">프론트엔드 체험</span></div>
+    <div className="page-heading"><div><span className="eyebrow">{found ? '작은 친절로 시작되는 연결' : '다시 찾는 여정을 시작해요'}</span><h1>{found ? '주인을 기다리는 물건이 있나요?' : '어떤 물건을 잃어버리셨나요?'}</h1><p>{found ? '당신의 작은 친절이 누군가의 소중한 일상을 되찾아 줘요.' : '기억나는 단서를 남겨 주세요. 다시 만나는 여정을 함께할게요.'}</p></div><span className="badge badge-blue">서버 저장</span></div>
     <div className="register-tabs"><button className={!found ? 'active' : ''} disabled={step === 2} onClick={() => { navigate('/register?type=lost'); setStep(0); setError('') }}>분실물 등록</button><button className={found ? 'active' : ''} disabled={step === 2} onClick={() => { navigate('/register?type=found'); setStep(0); setError('') }}>습득물 등록</button></div>
     <ol className="register-steps" aria-label="등록 진행 단계">{['물품 정보', '상세 정보 및 확인', '등록 완료'].map((label, index) => <li key={label} className={step === index ? 'active' : step > index ? 'done' : ''}><span>{step > index ? <Check size={16} /> : String(index + 1).padStart(2, '0')}</span><strong>{label}</strong></li>)}</ol>
 
-    {step === 2 && registered ? <section className="card register-success"><div className="success-illustration"><CheckCircle2 size={48} strokeWidth={1.7} /><span className="success-spark"><Sparkles size={21} /></span></div><span className="eyebrow">다시 만나는 여정의 시작</span><h2>{found ? '소중한 연결을 만들었어요!' : '물품 등록이 완료되었어요!'}</h2><p className="muted">{found ? '등록된 습득물은 전국 검색에서 확인할 수 있어요.' : '이제 등록한 단서로 비슷한 습득물을 찾아볼까요?'}<br />테스트 물품 정보는 이 브라우저에 저장돼요.</p><div className="registered-item-summary"><img src={registered.image} alt={registered.title} /><div><span className="badge badge-blue">{found ? '습득물' : '분실물'}</span><strong>{registered.title}</strong><span className="muted">{registered.region} · {registered.date}</span></div></div><div className="success-buttons">{!found && <Link className="button button-primary" to={`/matches?item=${registered.id}`}><Sparkles size={17} /> AI 자동 매칭 체험 <ArrowRight size={17} /></Link>}<Link className={`button ${found ? 'button-primary' : 'button-secondary'}`} to={`/items/${registered.id}`}>등록한 물품 보기 <ArrowRight size={17} /></Link></div><Link className="text-link" to="/mypage">마이페이지에서 활동 확인하기</Link></section> : <div className="register-layout">
+    {step === 2 && registered ? <section className="card register-success"><div className="success-illustration"><CheckCircle2 size={48} strokeWidth={1.7} /><span className="success-spark"><Sparkles size={21} /></span></div><span className="eyebrow">다시 만나는 여정의 시작</span><h2>{found ? '소중한 연결을 만들었어요!' : '물품 등록이 완료되었어요!'}</h2><p className="muted">{found ? '등록된 습득물은 전국 검색에서 확인할 수 있어요.' : '등록한 분실물은 전국 검색에서 누구나 확인할 수 있어요.'}<br />물품 정보가 LOST QUEST 서버에 저장되었어요. (등록 번호 {registered.serverId})</p><div className="registered-item-summary"><img src={registered.image} alt={registered.title} /><div><span className="badge badge-blue">{found ? '습득물' : '분실물'}</span><strong>{registered.title}</strong><span className="muted">{registered.region} · {registered.date}</span></div></div><div className="success-buttons"><Link className="button button-primary" to={`/items/${registered.id}`}>등록한 물품 보기 <ArrowRight size={17} /></Link><Link className="button button-secondary" to="/search?source=community">자체 등록 물품 목록 <ArrowRight size={17} /></Link></div></section> : <div className="register-layout">
       <form className="card register-form" onSubmit={step === 0 ? nextStep : submit}>
         {step === 0 ? <>
           <div className="journey-section-title"><span>01</span><div><h2>사진으로 남기는 첫 번째 단서</h2><p className="muted">물품의 전체 모습이 잘 보이는 사진을 선택해 주세요.</p></div></div>
@@ -126,12 +135,12 @@ export default function RegisterPage() {
           <div className="journey-section-title"><span>03</span><div><h2>물건을 알아볼 수 있는 작은 특징</h2><p className="muted">개인정보 대신 물품의 특징을 구체적으로 적어 주세요.</p></div></div>
           <div className="form-field"><label htmlFor="item-description">상세 설명 <span className="required-star">*</span></label><textarea id="item-description" rows={5} maxLength={600} minLength={10} required value={form.description} onChange={event => update('description', event.target.value)} placeholder="모양, 크기, 무늬 등 기억나는 특징을 적어 주세요." /><small className="register-character-count muted">{form.description.length} / 600</small></div>
           {found && <div className="secret-answer-panel"><div><LockKeyhole size={19} /><strong>소유자 확인을 위한 비공개 단서</strong><span className="badge badge-blue">테스트용</span></div><p>반환 요청 시 ‘물품 안쪽의 특징 색상은?’이라는 질문으로 확인해요. 실제 개인 정보는 입력하지 마세요.</p><div className="form-field"><label htmlFor="secret-answer">데모 정답 (보안 정보 저장 없음)</label><input id="secret-answer" value="파란색" readOnly /></div><small>이 값은 브라우저에서 확인할 수 있는 데모 데이터이며, 실제 보안 기능이 아니에요.</small></div>}
-          <div className="register-review"><h3><ClipboardCheck size={20} /> 등록 전 한 번 더 확인해 주세요</h3><div className="register-review-item"><img src={image} alt={form.title} /><div><span className="badge badge-blue">{found ? '습득물' : '분실물'}</span><h3>{form.title}</h3><p>{form.category} · {form.color}</p></div></div><dl><div><dt>{found ? '습득' : '분실'} 날짜</dt><dd>{form.date}</dd></div><div><dt>지역 및 장소</dt><dd>{form.region} · {form.location}</dd></div></dl><p className="register-review-note"><Info size={16} /> 가상 물품으로만 체험해 주세요. 연락처·주소 등 개인정보는 입력하지 않아요.</p></div>
+          <div className="register-review"><h3><ClipboardCheck size={20} /> 등록 전 한 번 더 확인해 주세요</h3><div className="register-review-item"><img src={image} alt={form.title} /><div><span className="badge badge-blue">{found ? '습득물' : '분실물'}</span><h3>{form.title}</h3><p>{form.category} · {form.color}</p></div></div><dl><div><dt>{found ? '습득' : '분실'} 날짜</dt><dd>{form.date}</dd></div><div><dt>지역 및 장소</dt><dd>{form.region} · {form.location}</dd></div></dl><p className="register-review-note"><Info size={16} /> 등록한 정보는 서버에 저장되어 누구나 볼 수 있어요. 연락처·주소 등 개인정보는 입력하지 마세요.</p></div>
         </>}
         {error && <p className="field-error register-error" role="alert"><Info size={16} /> {error}</p>}
         <div className="register-actions">{step === 1 ? <button type="button" className="button button-secondary" onClick={() => { setStep(0); setError('') }}><ArrowLeft size={16} /> 이전 단계</button> : <Link to="/" className="button button-ghost">취소</Link>}<button type="submit" className="button button-primary" disabled={analyzing || submitting}>{step === 0 ? '다음 단계' : submitting ? '등록 중…' : `${found ? '습득물' : '분실물'} 등록하기`} <ArrowRight size={17} /></button></div>
       </form>
-      <aside className="register-aside"><div className="register-help card"><span className="register-help-icon"><HeartHandshake size={25} /></span><h3>다시 만날 가능성을<br />조금 더 높이는 방법</h3><ul><li><CheckCircle2 size={17} /><div><strong>사진은 선명하게</strong><p>물품 전체와 눈에 띄는 특징이 잘 보이도록 올려 주세요.</p></div></li><li><CheckCircle2 size={17} /><div><strong>장소는 구체적으로</strong><p>역 이름이나 건물명 등 기억나는 단서를 남겨 주세요.</p></div></li><li><CheckCircle2 size={17} /><div><strong>특징은 자세하게</strong><p>색상, 무늬, 흠집 등 작은 차이가 중요한 단서가 돼요.</p></div></li></ul></div><div className="register-safety"><ShieldCheck size={20} /><div><strong>안심하고 체험하세요</strong><p>사진은 서버로 전송되지 않아요. 새로고침 후 업로드 사진은 종류별 샘플 이미지로 표시돼요.</p><p>AI 분석과 매칭은 가상 데이터를 사용하는 시뮬레이션이에요.</p></div></div></aside>
+      <aside className="register-aside"><div className="register-help card"><span className="register-help-icon"><HeartHandshake size={25} /></span><h3>다시 만날 가능성을<br />조금 더 높이는 방법</h3><ul><li><CheckCircle2 size={17} /><div><strong>사진은 선명하게</strong><p>물품 전체와 눈에 띄는 특징이 잘 보이도록 올려 주세요.</p></div></li><li><CheckCircle2 size={17} /><div><strong>장소는 구체적으로</strong><p>역 이름이나 건물명 등 기억나는 단서를 남겨 주세요.</p></div></li><li><CheckCircle2 size={17} /><div><strong>특징은 자세하게</strong><p>색상, 무늬, 흠집 등 작은 차이가 중요한 단서가 돼요.</p></div></li></ul></div><div className="register-safety"><ShieldCheck size={20} /><div><strong>안심하고 등록하세요</strong><p>사진은 아직 서버로 전송되지 않아요. 등록된 물품은 종류별 기본 이미지로 표시돼요.</p><p>AI 분석과 매칭은 가상 데이터를 사용하는 시뮬레이션이에요.</p></div></div></aside>
     </div>}
   </div>
 }

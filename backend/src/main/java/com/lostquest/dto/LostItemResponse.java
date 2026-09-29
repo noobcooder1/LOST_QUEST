@@ -14,6 +14,7 @@ public record LostItemResponse(
         String color,
         String description,
         LocalDate lostDate,
+        String region,
         String location,
         String imageUrl,
         LostItemStatus status,
@@ -22,6 +23,6 @@ public record LostItemResponse(
     public static LostItemResponse from(LostItem item) {
         return new LostItemResponse(item.getId(), item.getUser().getId(), item.getTitle(),
                 item.getCategory(), item.getColor(), item.getDescription(), item.getLostDate(),
-                item.getLocation(), item.getImageUrl(), item.getStatus(), item.getCreatedAt());
+                item.getRegion(), item.getLocation(), item.getImageUrl(), item.getStatus(), item.getCreatedAt());
     }
 }

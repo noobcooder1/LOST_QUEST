@@ -55,6 +55,7 @@ class EntityMappingTest {
                 "갈색",
                 "신분증과 카드가 들어있는 지갑입니다.",
                 LocalDate.now(),
+                "서울",
                 "강남역 2번 출구",
                 "/images/wallet.svg",
                 LostItemStatus.LOST
@@ -65,6 +66,7 @@ class EntityMappingTest {
         assertThat(savedLostItem.getCreatedAt()).isNotNull();
         assertThat(savedLostItem.getUser().getId()).isEqualTo(savedUser.getId());
         assertThat(savedLostItem.getStatus()).isEqualTo(LostItemStatus.LOST);
+        assertThat(savedLostItem.getRegion()).isEqualTo("서울");
 
         // 3. FoundItem 저장 및 매핑 검증
         FoundItem foundItem = new FoundItem(
@@ -74,6 +76,7 @@ class EntityMappingTest {
                 "흰색",
                 "충전 케이스만 습득했습니다.",
                 LocalDate.now(),
+                "서울",
                 "홍대입구역 9번 출구",
                 "/images/earbuds.svg",
                 FoundItemStatus.STORED
@@ -84,6 +87,7 @@ class EntityMappingTest {
         assertThat(savedFoundItem.getCreatedAt()).isNotNull();
         assertThat(savedFoundItem.getUser().getId()).isEqualTo(savedUser.getId());
         assertThat(savedFoundItem.getStatus()).isEqualTo(FoundItemStatus.STORED);
+        assertThat(savedFoundItem.getRegion()).isEqualTo("서울");
 
         // 4. Repository 조회 검증
         Optional<LostItem> foundLostOpt = lostItemRepository.findById(savedLostItem.getId());

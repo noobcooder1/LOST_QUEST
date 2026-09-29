@@ -47,6 +47,11 @@ public class FoundItem extends BaseEntity {
     @Column(name = "found_date", nullable = false)
     private LocalDate foundDate;
 
+    /** One of the frontend's 17 province-level regions; nullable only for rows created before this column existed. */
+    @Size(max = 20)
+    @Column(length = 20)
+    private String region;
+
     @NotBlank
     @Size(max = 255)
     @Column(nullable = false, length = 255)
@@ -65,13 +70,14 @@ public class FoundItem extends BaseEntity {
     }
 
     public FoundItem(User user, String title, String category, String color, String description,
-                     LocalDate foundDate, String location, String imageUrl, FoundItemStatus status) {
+                     LocalDate foundDate, String region, String location, String imageUrl, FoundItemStatus status) {
         this.user = user;
         this.title = title;
         this.category = category;
         this.color = color;
         this.description = description;
         this.foundDate = foundDate;
+        this.region = region;
         this.location = location;
         this.imageUrl = imageUrl;
         this.status = status;
@@ -99,6 +105,10 @@ public class FoundItem extends BaseEntity {
 
     public LocalDate getFoundDate() {
         return foundDate;
+    }
+
+    public String getRegion() {
+        return region;
     }
 
     public String getLocation() {
