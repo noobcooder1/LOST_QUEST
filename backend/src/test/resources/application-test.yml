@@ -13,3 +13,7 @@ spring:
 app:
   cors:
     allowed-origins: http://localhost:5173,http://127.0.0.1:5173
+  jwt:
+    # Test-only signing key; never reuse outside automated tests.
+    secret: test-only-jwt-secret-not-for-real-use-0123456789
+    access-token-expiration: 1h

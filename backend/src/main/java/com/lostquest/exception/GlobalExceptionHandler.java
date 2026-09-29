@@ -11,6 +11,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -25,6 +27,27 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiError> handleNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
         return ResponseEntity.status(404).body(ApiError.of(404, "NOT_FOUND", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(AuthenticationFailedException.class)
+    public ResponseEntity<ApiError> handleAuthenticationFailed(AuthenticationFailedException ex, HttpServletRequest request) {
+        return ResponseEntity.status(401).body(ApiError.of(401, ex.getCode(), ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(DuplicateEmailException.class)
+    public ResponseEntity<ApiError> handleDuplicateEmail(DuplicateEmailException ex, HttpServletRequest request) {
+        return ResponseEntity.status(409).body(ApiError.of(409, "EMAIL_ALREADY_EXISTS", ex.getMessage(), request.getRequestURI()));
+    }
+
+    // Method-security failures surface inside MVC; without these the catch-all below would return 500.
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiError> handleSecurityAuthentication(AuthenticationException ex, HttpServletRequest request) {
+        return ResponseEntity.status(401).body(ApiError.of(401, "UNAUTHORIZED", "인증이 필요한 요청입니다.", request.getRequestURI()));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        return ResponseEntity.status(403).body(ApiError.of(403, "FORBIDDEN", "허용되지 않은 요청입니다.", request.getRequestURI()));
     }
 
     @Override
