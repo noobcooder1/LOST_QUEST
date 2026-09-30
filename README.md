@@ -2,7 +2,7 @@
 
 분실물 통합 탐색 팀 프로젝트입니다. 기존 React 프론트엔드 프로토타입에 Java 21 + Spring Boot + JPA + MySQL 백엔드의 기본 틀을 추가했습니다.
 
-현재 서버 기능은 **상태 확인, 회원가입·로그인(JWT Bearer)·내 정보 조회, 분실물·습득물 등록(로그인 필요)과 조회**입니다. React의 로그인/회원가입, 물품 등록, 검색의 "자체 등록" 목록, 서버 물품 상세 화면은 실제 API에 연결되어 있습니다. 공공데이터 물품은 여전히 가상 seed 데이터이며, 매칭·반환·QR·경험치 기능과 이를 체험하기 위한 seed 예시 물품은 브라우저 가상 데이터로 동작합니다. 수정·삭제, 이미지 업로드, 경찰청 API, AI, AWS 배포는 아직 범위에 포함하지 않습니다.
+현재 서버 기능은 **상태 확인, 회원가입·로그인(JWT Bearer)·내 정보 조회, 분실물·습득물 등록(로그인 필요, 사진 1장 선택)과 조회, 등록 사진 조회**입니다. React의 로그인/회원가입, 물품 등록, 검색의 "자체 등록" 목록, 서버 물품 상세 화면은 실제 API에 연결되어 있습니다. 공공데이터 물품은 여전히 가상 seed 데이터이며, 매칭·반환·QR·경험치 기능과 이를 체험하기 위한 seed 예시 물품은 브라우저 가상 데이터로 동작합니다. 수정·삭제, S3 이미지 저장, 경찰청 API, AI, AWS 배포는 아직 범위에 포함하지 않습니다.
 
 ## 프로젝트 구조
 
@@ -87,6 +87,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES
 | `APP_CORS_ALLOWED_ORIGINS` | `dev`: `http://localhost:5173,http://127.0.0.1:5173` |
 | `JWT_SECRET` | **필수**, 32바이트 이상 임의 문자열. 기본값 없음 (미설정·짧으면 시작 실패) |
 | `JWT_ACCESS_TOKEN_EXPIRATION` | `1h` (Spring Duration 형식, 예: `30m`, `2h`) |
+| `IMAGE_STORAGE_LOCAL_DIR` | `./.local/uploads` (실행 디렉터리 기준, `.local/`은 Git 제외). 등록 사진 저장 위치 |
 
 환경변수 방식의 PowerShell 예시:
 
@@ -126,6 +127,7 @@ Copy-Item application-local.example.yml application-local.yml
 | GET | `/api/found-items/{id}` | 습득물 단건, 없으면 JSON 404 |
 | POST | `/api/lost-items` | 분실물 등록, `Authorization: Bearer <token>` 필요. `201` + 분실물 DTO |
 | POST | `/api/found-items` | 습득물 등록, `Authorization: Bearer <token>` 필요. `201` + 습득물 DTO |
+| GET | `/api/images/{filename}` | 등록 사진 조회(공개). 없으면 JSON 404 |
 | POST | `/api/auth/signup` | 회원가입, 공개. `201` + 사용자 DTO |
 | POST | `/api/auth/login` | 로그인, 공개. `200` + Access Token |
 | GET | `/api/auth/me` | 현재 사용자, `Authorization: Bearer <token>` 필요 |
@@ -141,7 +143,13 @@ Copy-Item application-local.example.yml application-local.yml
   "region": "서울", "location": "서울 성동구 서울숲역 3번 출구" }
 ```
 
-- 요청 본문에는 `userId`, `status`, `imageUrl`이 없습니다. 보내도 무시됩니다. 작성자는 JWT의 사용자 ID로 DB에서 조회한 사용자이고, 상태는 서버가 `LOST`/`STORED`로 정하며, 이미지 업로드는 아직 없어 `imageUrl`은 `null`입니다.
+- 요청 본문에는 `userId`, `status`, `imageUrl`이 없습니다. 보내도 무시됩니다. 작성자는 JWT의 사용자 ID로 DB에서 조회한 사용자이고, 상태는 서버가 `LOST`/`STORED`로 정하며, 사진 없이 등록하면 `imageUrl`은 `null`입니다.
+- **사진 포함 등록:** 같은 경로에 `multipart/form-data`로 보냅니다. `item` 파트는 위 JSON(`Content-Type: application/json`), `image` 파트는 선택 사항인 파일 1개입니다. 기존 JSON 요청은 그대로 동작합니다.
+  - JPEG·PNG·WebP만, 10MB 이하. 클라이언트가 보낸 Content-Type과 **파일 시그니처(매직 넘버)가 모두 일치**해야 하며 SVG·HTML·GIF 등은 `400 INVALID_IMAGE`, 10MB 초과는 `413 IMAGE_TOO_LARGE`입니다.
+  - 원본 파일명은 저장하지 않고 서버가 `UUID.확장자`로 이름을 만듭니다. DB `image_url`에는 `/api/images/{uuid}.{ext}` 형태의 **서버 기준 상대 경로**만 저장하며, 파일 시스템 경로나 `localhost` URL은 저장·응답하지 않습니다. 프론트엔드는 이 값을 `VITE_API_BASE_URL`과 결합해 표시하고, 그 외 형태의 값은 무시하고 종류별 기본 이미지를 씁니다.
+  - 사진 저장 후 DB 등록 트랜잭션이 커밋되지 않으면 저장한 파일을 즉시 삭제합니다. 인증 실패·입력 오류는 파일을 저장하기 전에 거부됩니다.
+  - 사진은 `GET /api/images/{filename}`로 제공되며 서버가 만든 UUID 형식 이름만 조회할 수 있습니다(경로 조작 불가). `nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`, 장기 캐시 헤더를 붙입니다.
+  - 저장소는 `ImageStorage` 인터페이스 뒤에 있습니다. 현재 구현은 로컬 디스크(`LocalImageStorage`)이며 S3 구현으로 교체할 수 있습니다. 로컬 사진은 서버를 실행한 PC에만 있으므로 팀원 간에 공유되지 않습니다.
 - 검증: 물품명 ≤100자, 종류는 `지갑/전자기기/가방/액세서리/기타`, 색상 ≤30자, 상세 설명 10~2000자, 날짜는 오늘 이전(미래 금지, 서버 JVM 시간대 기준), 지역은 17개 광역 지역(`서울`, `경기` 등), 상세 장소 ≤200자. 위반 시 `400 VALIDATION_ERROR`, 토큰 없음·만료·변조는 `401`입니다.
 - **DB 변경:** `lost_items`·`found_items`에 `region VARCHAR(20) NULL` 컬럼이 추가되었습니다. `dev` 프로필(`ddl-auto=update`)은 시작 시 자동으로 추가합니다. `JPA_DDL_AUTO=validate`로 실행하는 DB에는 먼저 다음을 실행하세요. 기존 행은 `region`이 `NULL`이며 화면에는 상세 장소만 표시됩니다.
 
@@ -186,7 +194,7 @@ Invoke-WebRequest http://localhost:8080/api/found-items | Select-Object -ExpandP
 
 ## 보안·오류 처리
 
-위 공개 GET API와 `POST /api/auth/signup`·`/api/auth/login`만 인증 없이 허용하고, `GET /api/auth/me`와 `POST /api/lost-items`·`/api/found-items`는 인증을 요구하며, 나머지 요청(수정·삭제 등)은 기본 차단합니다. 폼 로그인·HTTP Basic·기본 생성 계정·서버 세션은 사용하지 않습니다(Stateless). JWT 검증은 Spring Security OAuth2 Resource Server(Nimbus)를 사용하며 자체 토큰 파서는 없습니다.
+위 공개 GET API와 `POST /api/auth/signup`·`/api/auth/login`만 인증 없이 허용하고, `GET /api/images/{filename}`도 공개하며, `GET /api/auth/me`와 `POST /api/lost-items`·`/api/found-items`(JSON·multipart)는 인증을 요구하며, 나머지 요청(수정·삭제 등)은 기본 차단합니다. 폼 로그인·HTTP Basic·기본 생성 계정·서버 세션은 사용하지 않습니다(Stateless). JWT 검증은 Spring Security OAuth2 Resource Server(Nimbus)를 사용하며 자체 토큰 파서는 없습니다.
 
 **CSRF 비활성화 이유:** CSRF는 브라우저가 쿠키·세션 같은 자격증명을 요청에 *자동으로* 붙이는 점을 악용합니다. 이 API는 세션·인증 쿠키를 만들지 않고, 자격증명은 프론트엔드 코드가 명시적으로 설정하는 `Authorization: Bearer` 헤더로만 전달되며, 다른 사이트는 이 헤더를 붙인 요청을 만들 수 없습니다(CORS 허용 Origin 제한, `credentials: omit`). 따라서 CSRF 토큰 없이도 위조 요청이 인증되지 않아 CSRF 보호를 끕니다. 이후 쿠키 기반 인증(예: HttpOnly Refresh Token 쿠키)을 도입하면 CSRF 정책을 다시 설계해야 합니다.
 
@@ -258,7 +266,7 @@ $env:MYSQL_TEST_PASSWORD = Read-Host '테스트 DB 비밀번호' -MaskInput
 ## 다음 단계
 
 1. 분실물/습득물 수정·삭제(작성자 권한 확인), 서버 측 필터·페이지네이션, 내 등록 물품 조회
-2. 이미지 업로드, 경찰청 공공데이터 API로 공공데이터 seed 교체
+2. 이미지 저장소 S3 전환, 경찰청 공공데이터 API로 공공데이터 seed 교체
 3. DB 마이그레이션·트랜잭션 규칙을 정한 뒤 이미지 저장, 공공데이터, AI 매칭을 각각 추가
 
 AWS·PWA·QR·반환·보상은 이후 별도 단계에서 구현합니다. 현재 저장소에는 이 기능의 서버 구현이나 실제 배포가 없습니다.

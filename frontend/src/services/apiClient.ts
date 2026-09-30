@@ -98,6 +98,7 @@ export async function checkApiHealth(options: { baseUrl?: string; timeoutMs?: nu
 
 export interface ApiRequestOptions {
   method?: 'GET' | 'POST';
+  /** Plain values are sent as JSON; FormData is sent as multipart with a browser-generated boundary. */
   body?: unknown;
   /** Sent as `Authorization: Bearer <token>`. Tokens are never put in URLs or logged. */
   accessToken?: string | null;
@@ -130,7 +131,8 @@ export async function apiRequest(path: string, options: ApiRequestOptions = {}):
   const url = apiUrl(options.baseUrl ?? getApiBaseUrl(), path);
   const timeoutMs = options.timeoutMs ?? 10_000;
   const headers: Record<string, string> = { Accept: 'application/json' };
-  if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  if (options.body !== undefined && !isFormData) headers['Content-Type'] = 'application/json';
   if (options.accessToken) headers.Authorization = `Bearer ${options.accessToken}`;
   const controller = new AbortController();
   let timedOut = false;
@@ -140,7 +142,7 @@ export async function apiRequest(path: string, options: ApiRequestOptions = {}):
     const response = await fetch(url, {
       method: options.method ?? 'GET',
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body: options.body === undefined ? undefined : isFormData ? options.body as FormData : JSON.stringify(options.body),
       credentials: 'omit',
       cache: 'no-store',
       signal: controller.signal,

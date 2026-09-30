@@ -115,6 +115,17 @@ describe('shared API request', () => {
     await expect(apiRequest('/api/auth/me', { baseUrl: 'http://localhost:8080' })).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
   });
 
+  it('sends FormData bodies untouched and lets the browser set the multipart Content-Type', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ ok: true }));
+    vi.stubGlobal('fetch', fetchMock);
+    const form = new FormData();
+    form.append('item', new Blob(['{}'], { type: 'application/json' }));
+    await apiRequest('/api/lost-items', { baseUrl: 'http://localhost:8080', method: 'POST', body: form, accessToken: 'h.p.s' });
+    const init = (fetchMock.mock.calls[0] as [string, RequestInit])[1];
+    expect(init.body).toBe(form);
+    expect(init.headers).toEqual({ Accept: 'application/json', Authorization: 'Bearer h.p.s' });
+  });
+
   it('refuses to send requests without a configured API address', async () => {
     vi.stubEnv('VITE_API_BASE_URL', '');
     const fetchMock = vi.fn();

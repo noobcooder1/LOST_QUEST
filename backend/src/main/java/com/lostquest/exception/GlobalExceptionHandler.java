@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 @RestControllerAdvice
@@ -37,6 +39,23 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(DuplicateEmailException.class)
     public ResponseEntity<ApiError> handleDuplicateEmail(DuplicateEmailException ex, HttpServletRequest request) {
         return ResponseEntity.status(409).body(ApiError.of(409, "EMAIL_ALREADY_EXISTS", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(InvalidImageException.class)
+    public ResponseEntity<ApiError> handleInvalidImage(InvalidImageException ex, HttpServletRequest request) {
+        return ResponseEntity.badRequest().body(ApiError.of(400, "INVALID_IMAGE", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(ImageTooLargeException.class)
+    public ResponseEntity<ApiError> handleImageTooLarge(ImageTooLargeException ex, HttpServletRequest request) {
+        return ResponseEntity.status(413).body(ApiError.of(413, "IMAGE_TOO_LARGE", ex.getMessage(), request.getRequestURI()));
+    }
+
+    /** Malformed multipart bodies are client errors, not 500s. */
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ApiError> handleMultipart(MultipartException ex, HttpServletRequest request) {
+        return ResponseEntity.badRequest().body(ApiError.of(400, "INVALID_REQUEST",
+                "요청 경로, 방식 및 입력값을 확인해 주세요.", request.getRequestURI()));
     }
 
     // Method-security failures surface inside MVC; without these the catch-all below would return 500.
@@ -78,6 +97,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         log.error("Database access failed: {}", ex.getClass().getSimpleName());
         return ResponseEntity.status(503).body(ApiError.of(503, "DATABASE_UNAVAILABLE",
                 "데이터베이스에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.", request.getRequestURI()));
+    }
+
+    /** Raised by the servlet multipart limits (spring.servlet.multipart.*) before the controller runs. */
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException ex,
+            HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        return new ResponseEntity<>(ApiError.of(413, "IMAGE_TOO_LARGE", ImageTooLargeException.MESSAGE, path(request)),
+                headers, HttpStatusCode.valueOf(413));
     }
 
     @Override
