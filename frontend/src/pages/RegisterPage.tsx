@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { ArrowLeft, ArrowRight, Camera, Check, CheckCircle2, ChevronRight, ClipboardCheck, FileImage, HeartHandshake, ImagePlus, Info, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { ApiClientError } from '../services/apiClient'
-import { createServerItem, describeItemError } from '../services/itemApi'
+import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, createServerItem, describeItemError } from '../services/itemApi'
 import type { Item } from '../types'
 import './JourneyPages.css'
 
@@ -28,6 +28,8 @@ export default function RegisterPage() {
   const [form, setForm] = useState({ title: examples[0].title, category: examples[0].category, color: examples[0].color, date: '2026-09-16', region: '서울', location: '서울 성동구 서울숲역', description: examples[0].description, secretAnswer: '파란색' })
   const [image, setImage] = useState('/images/wallet.svg')
   const [fileName, setFileName] = useState('샘플 이미지 · 검은색 지갑')
+  // The chosen photo itself is uploaded; `image` stays the preview (data URL or sample illustration).
+  const [imageFile, setImageFile] = useState<File | null>(null)
   const [error, setError] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
   const [analyzed, setAnalyzed] = useState(false)
@@ -51,6 +53,7 @@ export default function RegisterPage() {
     inputVersion.current += 1
     setSelected(key)
     setImage(`/images/${key}.svg`)
+    setImageFile(null)
     setFileName(`샘플 이미지 · ${sample.label}`)
     setForm(previous => ({ ...previous, title: sample.title, category: sample.category, color: sample.color, description: sample.description }))
     setAnalyzed(false)
@@ -60,13 +63,14 @@ export default function RegisterPage() {
   }
   function choosePhoto(file?: File) {
     if (!file) return
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) { setError('PNG, JPG, WebP 이미지만 선택할 수 있어요.'); return }
-    if (file.size > 2 * 1024 * 1024) { setError('2MB 이하의 테스트 이미지를 선택해 주세요.'); return }
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) { setError('PNG, JPG, WebP 이미지만 선택할 수 있어요.'); return }
+    if (file.size > MAX_IMAGE_BYTES) { setError('10MB 이하의 이미지를 선택해 주세요.'); return }
     const version = ++inputVersion.current
     const reader = new FileReader()
     reader.onload = () => {
       if (version !== inputVersion.current) return
       setImage(String(reader.result))
+      setImageFile(file)
       setFileName(file.name)
       setSelected('')
       setAnalyzed(false)
@@ -104,7 +108,7 @@ export default function RegisterPage() {
     setSubmitting(true)
     try {
       // The photo and demo secret answer stay in the browser; only item fields go to the server.
-      const item = await createServerItem(type, { title: form.title, category: form.category, color: form.color, description: form.description, date: form.date, region: form.region, location: form.location })
+      const item = await createServerItem(type, { title: form.title, category: form.category, color: form.color, description: form.description, date: form.date, region: form.region, location: form.location }, { image: imageFile })
       setRegistered(item); setStep(2); setError(''); window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (cause) {
       // An expired/invalid token follows the app's auth policy: drop the local session and ask to sign in again.
@@ -125,7 +129,7 @@ export default function RegisterPage() {
       <form className="card register-form" onSubmit={step === 0 ? nextStep : submit}>
         {step === 0 ? <>
           <div className="journey-section-title"><span>01</span><div><h2>사진으로 남기는 첫 번째 단서</h2><p className="muted">물품의 전체 모습이 잘 보이는 사진을 선택해 주세요.</p></div></div>
-          <div className="register-photo-row"><div className="register-photo"><img src={image} alt="등록할 물품 미리보기" /><span><FileImage size={14} /> {selected ? '가상 샘플' : '선택한 사진'}</span></div><button type="button" className="photo-upload" onClick={() => fileInput.current?.click()}><ImagePlus size={30} strokeWidth={1.6} /><strong>사진 업로드</strong><span>JPG, PNG, WebP · 최대 2MB</span></button><input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" aria-label="물품 사진 선택" onChange={event => choosePhoto(event.target.files?.[0])} /></div>
+          <div className="register-photo-row"><div className="register-photo"><img src={image} alt="등록할 물품 미리보기" /><span><FileImage size={14} /> {selected ? '가상 샘플' : '선택한 사진'}</span></div><button type="button" className="photo-upload" onClick={() => fileInput.current?.click()}><ImagePlus size={30} strokeWidth={1.6} /><strong>사진 업로드</strong><span>JPG, PNG, WebP · 최대 10MB</span></button><input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" aria-label="물품 사진 선택" onChange={event => choosePhoto(event.target.files?.[0])} /></div>
           <p className="photo-file-name"><Camera size={14} /> {fileName}</p>
           <div className="register-examples"><span>샘플로 빠르게 체험하기</span><div>{examples.map(example => <button type="button" key={example.key} onClick={() => chooseExample(example.key)} className={selected === example.key ? 'selected' : ''}>{example.label}</button>)}</div></div>
           <div className="analysis-panel"><div className="analysis-panel-top"><span className="analysis-icon"><Sparkles size={21} /></span><div><strong>AI가 찾아주는 물품의 특징</strong><p>선택한 샘플·입력값을 바탕으로 제안하는 시뮬레이션이에요.</p></div><span className="badge badge-blue">데모</span></div>{analyzed ? <><dl className="analysis-results"><div><dt>물품명</dt><dd>{suggestion.title}</dd></div><div><dt>종류</dt><dd>{suggestion.category}</dd></div><div><dt>색상</dt><dd>{suggestion.color}</dd></div></dl><button type="button" className="button analysis-apply" onClick={() => { setForm(previous => ({ ...previous, ...suggestion })); setError('') }}><Check size={16} /> 이 정보로 입력하기</button></> : <button type="button" disabled={analyzing} onClick={simulateAnalysis} className="button analysis-apply"><Sparkles size={16} className={analyzing ? 'pulse-icon' : ''} /> {analyzing ? '샘플 특징을 준비하고 있어요…' : 'AI 분석 시뮬레이션 실행'}</button>}</div>
@@ -140,7 +144,7 @@ export default function RegisterPage() {
         {error && <p className="field-error register-error" role="alert"><Info size={16} /> {error}</p>}
         <div className="register-actions">{step === 1 ? <button type="button" className="button button-secondary" onClick={() => { setStep(0); setError('') }}><ArrowLeft size={16} /> 이전 단계</button> : <Link to="/" className="button button-ghost">취소</Link>}<button type="submit" className="button button-primary" disabled={analyzing || submitting}>{step === 0 ? '다음 단계' : submitting ? '등록 중…' : `${found ? '습득물' : '분실물'} 등록하기`} <ArrowRight size={17} /></button></div>
       </form>
-      <aside className="register-aside"><div className="register-help card"><span className="register-help-icon"><HeartHandshake size={25} /></span><h3>다시 만날 가능성을<br />조금 더 높이는 방법</h3><ul><li><CheckCircle2 size={17} /><div><strong>사진은 선명하게</strong><p>물품 전체와 눈에 띄는 특징이 잘 보이도록 올려 주세요.</p></div></li><li><CheckCircle2 size={17} /><div><strong>장소는 구체적으로</strong><p>역 이름이나 건물명 등 기억나는 단서를 남겨 주세요.</p></div></li><li><CheckCircle2 size={17} /><div><strong>특징은 자세하게</strong><p>색상, 무늬, 흠집 등 작은 차이가 중요한 단서가 돼요.</p></div></li></ul></div><div className="register-safety"><ShieldCheck size={20} /><div><strong>안심하고 등록하세요</strong><p>사진은 아직 서버로 전송되지 않아요. 등록된 물품은 종류별 기본 이미지로 표시돼요.</p><p>AI 분석과 매칭은 가상 데이터를 사용하는 시뮬레이션이에요.</p></div></div></aside>
+      <aside className="register-aside"><div className="register-help card"><span className="register-help-icon"><HeartHandshake size={25} /></span><h3>다시 만날 가능성을<br />조금 더 높이는 방법</h3><ul><li><CheckCircle2 size={17} /><div><strong>사진은 선명하게</strong><p>물품 전체와 눈에 띄는 특징이 잘 보이도록 올려 주세요.</p></div></li><li><CheckCircle2 size={17} /><div><strong>장소는 구체적으로</strong><p>역 이름이나 건물명 등 기억나는 단서를 남겨 주세요.</p></div></li><li><CheckCircle2 size={17} /><div><strong>특징은 자세하게</strong><p>색상, 무늬, 흠집 등 작은 차이가 중요한 단서가 돼요.</p></div></li></ul></div><div className="register-safety"><ShieldCheck size={20} /><div><strong>안심하고 등록하세요</strong><p>직접 선택한 사진은 등록할 때 LOST QUEST 서버에 함께 저장돼요. 샘플을 고르거나 사진이 없으면 종류별 기본 이미지로 표시돼요.</p><p>AI 분석과 매칭은 가상 데이터를 사용하는 시뮬레이션이에요.</p></div></div></aside>
     </div>}
   </div>
 }
