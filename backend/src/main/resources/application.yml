@@ -44,6 +44,18 @@ server:
 app:
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:}
+  police-api:
+    # 경찰청 OpenAPI (apis.data.go.kr). Keys are set via environment variables or application-local.yml only.
+    base-url: ${POLICE_API_BASE_URL:https://apis.data.go.kr/1320000}
+    connect-timeout: ${POLICE_API_CONNECT_TIMEOUT:5s}
+    # The lost-item list regularly takes 7-9 seconds upstream.
+    read-timeout: ${POLICE_API_READ_TIMEOUT:20s}
+    lost:
+      service-key: ${POLICE_LOST_API_SERVICE_KEY:}
+    found:
+      service-key: ${POLICE_FOUND_API_SERVICE_KEY:}
+    code:
+      service-key: ${POLICE_CODE_API_SERVICE_KEY:}
   image-storage:
     # Relative to the working directory (backend/ when run from there). .local/ is gitignored.
     local-dir: ${IMAGE_STORAGE_LOCAL_DIR:./.local/uploads}

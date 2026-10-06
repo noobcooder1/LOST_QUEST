@@ -19,6 +19,8 @@ export interface Item {
   secretAnswer?: string;
   agency?: string;
   phone?: string;
+  /** Extra labelled values shown on the detail page (경찰청 detail fields such as status or region). */
+  facts?: { label: string; value: string }[];
   /** Set only for items loaded from the Spring Boot API (createdBy === 'server'). */
   serverId?: number;
   ownerId?: number;

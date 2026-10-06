@@ -66,7 +66,8 @@ export function parseStoredData(raw: string): AppData | null {
         !Array.isArray(value.notifications) || value.notifications.length > 100 || !record(value.profile)) return null;
     const items = value.items.map(parseItem);
     if (items.some((item) => item === null)) return null;
-    const parsedItems = items as Item[];
+    // Earlier versions stored simulated 공공데이터 seed items; real 경찰청 data is never persisted here.
+    const parsedItems = (items as Item[]).filter((item) => item.source !== 'public');
     if (new Set(parsedItems.map((item) => item.id)).size !== parsedItems.length) return null;
     const requests = value.requests.map((request) => parseRequest(request, parsedItems));
     const notifications = value.notifications.map(parseNotification);

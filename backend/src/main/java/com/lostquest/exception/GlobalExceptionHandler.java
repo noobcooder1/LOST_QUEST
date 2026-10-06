@@ -41,6 +41,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(409).body(ApiError.of(409, "EMAIL_ALREADY_EXISTS", ex.getMessage(), request.getRequestURI()));
     }
 
+    /** 경찰청 OpenAPI failures. Only the kind and a key-free detail are logged; never the request URL. */
+    @ExceptionHandler(ExternalApiException.class)
+    public ResponseEntity<ApiError> handleExternalApi(ExternalApiException ex, HttpServletRequest request) {
+        log.warn("External API failure {}: {}", ex.getKind(), ex.getDetail());
+        ExternalApiException.Kind kind = ex.getKind();
+        return ResponseEntity.status(kind.status()).body(ApiError.of(kind.status(), kind.code(), kind.message(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(InvalidRequestParameterException.class)
+    public ResponseEntity<ApiError> handleInvalidParameter(InvalidRequestParameterException ex, HttpServletRequest request) {
+        return ResponseEntity.badRequest().body(new ApiError(Instant.now(), 400, "VALIDATION_ERROR", "입력값을 확인해 주세요.",
+                request.getRequestURI(), List.of(new ApiError.FieldViolation(ex.getField(), ex.getMessage()))));
+    }
+
     @ExceptionHandler(InvalidImageException.class)
     public ResponseEntity<ApiError> handleInvalidImage(InvalidImageException ex, HttpServletRequest request) {
         return ResponseEntity.badRequest().body(ApiError.of(400, "INVALID_IMAGE", ex.getMessage(), request.getRequestURI()));

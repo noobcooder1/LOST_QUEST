@@ -13,6 +13,17 @@ spring:
 app:
   cors:
     allowed-origins: http://localhost:5173,http://127.0.0.1:5173
+  police-api:
+    # Tests never reach the real 경찰청 API: police tests start their own local mock server.
+    base-url: http://127.0.0.1:9/police-api-disabled-in-tests
+    connect-timeout: 1s
+    read-timeout: 2s
+    lost:
+      service-key: ""
+    found:
+      service-key: ""
+    code:
+      service-key: ""
   image-storage:
     # A fresh temporary directory per test JVM; never the developer's .local/uploads.
     local-dir: ${java.io.tmpdir}/lost-quest-test-images/${random.uuid}

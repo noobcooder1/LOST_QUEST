@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE response [ <!ENTITY secret SYSTEM "file:///__SECRET_FILE__"> ]>
+<response><header><resultCode>00</resultCode></header><body><totalCount>1</totalCount><items><item><atcId>L2026100500001176</atcId><lstPrdtNm>&secret;</lstPrdtNm></item></items></body></response>

@@ -13,6 +13,7 @@ export function defaultItemImage(category: string, title = ''): string {
   return '/images/keys.svg';
 }
 
+// 경찰청 공공데이터 is loaded live from the backend (/api/public-items); seed items are LOST QUEST demo data only.
 const seedItems: Item[] = [
   {
     id: 'found-wallet-1', title: '검정 가죽 반지갑', type: 'found', category: '지갑',
@@ -27,12 +28,6 @@ const seedItems: Item[] = [
     image: '/images/earbuds.svg', source: 'community', status: 'open', createdBy: 'community', secretAnswer: '파란색',
   },
   {
-    id: 'public-phone-1', title: '실버 스마트폰', type: 'found', category: '전자기기',
-    color: '은색', date: '2026-09-21', region: '부산', location: '부산 해운대구 해운대역',
-    description: '해운대역에서 접수한 스마트폰 예시입니다. 투명 케이스가 장착되어 있습니다. 이 정보는 실제 공공데이터가 아닌 가상 데이터입니다.',
-    image: '/images/phone.svg', source: 'public', status: 'open', createdBy: 'public', agency: '해운대역 유실물 보관소 (가상)',
-  },
-  {
     id: 'found-backpack-1', title: '네이비 데일리 백팩', type: 'found', category: '가방',
     color: '네이비', date: '2026-09-19', region: '경기', location: '경기 수원시 광교중앙역 버스 정류장',
     description: '앞주머니가 있는 네이비색 백팩입니다. 개인 정보가 노출되지 않도록 내용물은 공개하지 않습니다.',
@@ -45,22 +40,10 @@ const seedItems: Item[] = [
     image: '/images/wallet.svg', source: 'community', status: 'open', createdBy: 'community', secretAnswer: '파란색',
   },
   {
-    id: 'public-keys-1', title: '키링이 달린 열쇠', type: 'found', category: '액세서리',
-    color: '은색', date: '2026-09-20', region: '대구', location: '대구 중구 반월당역',
-    description: '동그란 키링에 열쇠 세 개가 달린 예시 물품입니다. 실제 습득물 접수 정보가 아닙니다.',
-    image: '/images/keys.svg', source: 'public', status: 'open', createdBy: 'public', agency: '반월당역 고객센터 (가상)',
-  },
-  {
     id: 'found-camera-1', title: '검정 미러리스 카메라', type: 'found', category: '전자기기',
     color: '검정', date: '2026-09-17', region: '제주', location: '제주 제주시 이호테우해변 주차장',
     description: '짧은 스트랩이 달린 카메라입니다. 본체의 특징을 확인한 뒤 반환할 수 있습니다.',
     image: '/images/camera.svg', source: 'community', status: 'open', createdBy: 'community', secretAnswer: '파란색',
-  },
-  {
-    id: 'public-wallet-1', title: '브라운 가죽 지갑', type: 'found', category: '지갑',
-    color: '갈색', date: '2026-09-21', region: '인천', location: '인천 남동구 인천터미널역',
-    description: '갈색 가죽 장지갑 예시입니다. 공공기관 보관 물품의 이용 흐름을 보여 주는 가상 데이터입니다.',
-    image: '/images/wallet.svg', source: 'public', status: 'open', createdBy: 'public', agency: '인천터미널역 유실물센터 (가상)',
   },
   {
     id: 'lost-wallet-demo', title: '검정 가죽 지갑을 찾습니다', type: 'lost', category: '지갑',

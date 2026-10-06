@@ -10,6 +10,7 @@ import com.lostquest.repository.LostItemRepository;
 import com.lostquest.repository.UserRepository;
 import com.lostquest.security.JwtTokenProvider;
 import com.lostquest.service.ImageService;
+import com.lostquest.service.TestImages;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -61,9 +62,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ItemImageUploadTest {
 
     private static final String UUID_NAME = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
-    private static final byte[] JPEG = image(new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0, 0x10, 'J', 'F', 'I', 'F'}, 64);
-    private static final byte[] PNG = image(new byte[] {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n', 0, 0, 0, 0x0D, 'I', 'H', 'D', 'R'}, 64);
-    private static final byte[] WEBP = image(new byte[] {'R', 'I', 'F', 'F', 0x24, 0, 0, 0, 'W', 'E', 'B', 'P', 'V', 'P', '8', ' '}, 64);
+    // Real, decodable images: uploads must pass the decode check, not only the signature check.
+    private static final byte[] JPEG = TestImages.jpeg(48, 32);
+    private static final byte[] PNG = TestImages.png(48, 32);
+    private static final byte[] WEBP = TestImages.webp("valid-lossy.webp");
 
     @Autowired
     private MockMvc mockMvc;
@@ -251,10 +253,43 @@ class ItemImageUploadTest {
         assertThat(foundItemRepository.count()).isZero();
         assertThat(storedFiles()).isEmpty();
 
-        byte[] exactLimit = image(Arrays.copyOf(JPEG, 16), (int) ImageService.MAX_BYTES);
-        upload("/api/found-items", foundItem(), image("limit.jpg", "image/jpeg", exactLimit), token)
+        // A real PNG padded to exactly 10MB with an ancillary chunk still decodes and is accepted.
+        byte[] exactLimit = TestImages.pngPaddedTo((int) ImageService.MAX_BYTES);
+        assertThat(exactLimit).hasSize((int) ImageService.MAX_BYTES);
+        upload("/api/found-items", foundItem(), image("limit.png", "image/png", exactLimit), token)
                 .andExpect(status().isCreated());
         assertThat(storedFiles()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("signature만 있는 16-byte JPEG/PNG/WebP(QA에서 깨져 보이던 파일)·잘린 이미지·해상도 폭탄은 400 INVALID_IMAGE, 파일·행 미생성")
+    void rejectsUndecodableImages() throws Exception {
+        List<MockMultipartFile> undecodable = List.of(
+                image("qa.jpg", "image/jpeg", TestImages.signatureOnly("jpeg")),
+                image("qa.png", "image/png", TestImages.signatureOnly("png")),
+                image("qa.webp", "image/webp", TestImages.signatureOnly("webp")),
+                image("cut.jpg", "image/jpeg", TestImages.truncated(TestImages.jpeg(320, 240))),
+                image("cut.webp", "image/webp", TestImages.truncated(WEBP)),
+                image("bomb.png", "image/png", TestImages.pngHeaderOnly(20_000, 20_000)));
+        for (MockMultipartFile file : undecodable) {
+            upload("/api/lost-items", lostItem(), file, token)
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.status").value(400))
+                    .andExpect(jsonPath("$.code").value("INVALID_IMAGE"));
+        }
+        assertThat(lostItemRepository.count()).isZero();
+        assertThat(storedFiles()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("정상 lossless·alpha WebP 업로드 허용")
+    void acceptsLosslessAndAlphaWebp() throws Exception {
+        for (String fixture : List.of("valid-lossless.webp", "valid-alpha.webp")) {
+            upload("/api/lost-items", lostItem(), image(fixture, "image/webp", TestImages.webp(fixture)), token)
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.imageUrl", matchesPattern("^/api/images/" + UUID_NAME + "\\.webp$")));
+        }
+        assertThat(storedFiles()).hasSize(2);
     }
 
     @Test
