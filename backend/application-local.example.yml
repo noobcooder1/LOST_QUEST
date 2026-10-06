@@ -10,4 +10,12 @@ app:
     # [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
     secret: YOUR_LOCAL_RANDOM_JWT_SECRET
     # access-token-expiration: 1h
+  police-api:
+    # 공공데이터포털에서 발급받은 각 서비스의 인증키 (Encoding/Decoding 어느 쪽이든 가능). 공유·커밋 금지.
+    lost:
+      service-key: YOUR_POLICE_LOST_API_SERVICE_KEY
+    found:
+      service-key: YOUR_POLICE_FOUND_API_SERVICE_KEY
+    code:
+      service-key: YOUR_POLICE_CODE_API_SERVICE_KEY
 # Environment-variable mode is documented in ../README.md. Use one mode at a time.

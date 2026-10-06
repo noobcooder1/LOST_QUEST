@@ -49,6 +49,8 @@ public class SecurityConfig {
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/health", "/api/lost-items", "/api/found-items",
                                 "/api/lost-items/{id}", "/api/found-items/{id}", "/api/images/{filename}").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/public-items/lost", "/api/public-items/found", "/api/public-items/filters",
+                                "/api/public-items/lost/{atcId}", "/api/public-items/found/{atcId}/{fdSn}").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/lost-items", "/api/found-items").authenticated()

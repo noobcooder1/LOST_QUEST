@@ -61,6 +61,8 @@ public class ImageService {
             // The declared Content-Type is client-controlled, so it must also agree with the file signature.
             throw new InvalidImageException(INVALID_FORMAT);
         }
+        // Signature and Content-Type are only the first check: the bytes must really decode (no 16-byte stubs).
+        ImageDecodeValidator.validate(content, detected.decoderFormat);
 
         String key = UUID.randomUUID() + "." + detected.extension;
         storage.save(key, content);
@@ -100,18 +102,20 @@ public class ImageService {
     }
 
     private enum ImageType {
-        JPEG("jpg", MediaType.IMAGE_JPEG, Set.of("image/jpeg", "image/jpg", "image/pjpeg")),
-        PNG("png", MediaType.IMAGE_PNG, Set.of("image/png")),
-        WEBP("webp", MediaType.parseMediaType("image/webp"), Set.of("image/webp"));
+        JPEG("jpg", "jpeg", MediaType.IMAGE_JPEG, Set.of("image/jpeg", "image/jpg", "image/pjpeg")),
+        PNG("png", "png", MediaType.IMAGE_PNG, Set.of("image/png")),
+        WEBP("webp", "webp", MediaType.parseMediaType("image/webp"), Set.of("image/webp"));
 
         private static final byte[] PNG_SIGNATURE = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
 
         final String extension;
+        final String decoderFormat;
         final MediaType mediaType;
         final Set<String> declaredTypes;
 
-        ImageType(String extension, MediaType mediaType, Set<String> declaredTypes) {
+        ImageType(String extension, String decoderFormat, MediaType mediaType, Set<String> declaredTypes) {
             this.extension = extension;
+            this.decoderFormat = decoderFormat;
             this.mediaType = mediaType;
             this.declaredTypes = declaredTypes;
         }

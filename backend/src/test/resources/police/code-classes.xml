@@ -1,0 +1,1 @@
+<response><header><resultCode>00</resultCode><resultMsg>NORMAL SERVICE.</resultMsg></header><body><items><item><prdtCd>PRH000</prdtCd><prdtNm>지갑</prdtNm><hiPrdtCd/></item><item><prdtCd>PRA000</prdtCd><prdtNm>가방</prdtNm><hiPrdtCd/></item><item><prdtCd>BAD</prdtCd><prdtNm>잘못된코드</prdtNm><hiPrdtCd/></item></items></body></response>
