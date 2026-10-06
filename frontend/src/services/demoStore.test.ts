@@ -103,16 +103,16 @@ describe('versioned local storage', () => {
     expect(parseStoredData(JSON.stringify({ version: 1, data: invalidDate }))).toBeNull();
   });
 
-  it('does not persist uploaded photos or unexpected authentication fields', () => {
+  it('persists uploaded photos without unexpected authentication fields', () => {
     const seed = createSeedData();
-    seed.items[0].image = 'data:image/png;base64,PRIVATE_PHOTO';
+    seed.items[0].image = 'data:image/png;base64,iVBORw0KGgo=';
     const polluted = { ...seed, password: 'SECRET_PASSWORD', email: 'private@example.test', isLoggedIn: true };
     const raw = serializeData(polluted);
-    expect(raw).not.toContain('PRIVATE_PHOTO');
+    expect(raw).toContain(seed.items[0].image);
     expect(raw).not.toContain('SECRET_PASSWORD');
     expect(raw).not.toContain('private@example.test');
     expect(raw).not.toContain('isLoggedIn');
-    expect(parseStoredData(raw)?.items[0].image).toBe('/images/wallet.svg');
+    expect(parseStoredData(raw)?.items[0].image).toBe(seed.items[0].image);
   });
 
   it('rejects dangling requests and duplicate active claims', () => {
