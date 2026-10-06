@@ -36,6 +36,7 @@ export default function RegisterPage() {
   const [suggestion, setSuggestion] = useState({ title: '', category: '', color: '' })
   const [registered, setRegistered] = useState<Item | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [readingPhoto, setReadingPhoto] = useState(false)
   const [sessionExpired, setSessionExpired] = useState(false)
   // Synchronous guard: state updates land after re-render, so two quick submits could both POST.
   const submittingRef = useRef(false)
@@ -58,6 +59,7 @@ export default function RegisterPage() {
     setForm(previous => ({ ...previous, title: sample.title, category: sample.category, color: sample.color, description: sample.description }))
     setAnalyzed(false)
     setAnalyzing(false)
+    setReadingPhoto(false)
     setError('')
     if (fileInput.current) fileInput.current.value = ''
   }
@@ -66,6 +68,7 @@ export default function RegisterPage() {
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) { setError('PNG, JPG, WebP 이미지만 선택할 수 있어요.'); return }
     if (file.size > MAX_IMAGE_BYTES) { setError('10MB 이하의 이미지를 선택해 주세요.'); return }
     const version = ++inputVersion.current
+    setReadingPhoto(true)
     const reader = new FileReader()
     reader.onload = () => {
       if (version !== inputVersion.current) return
@@ -76,8 +79,13 @@ export default function RegisterPage() {
       setAnalyzed(false)
       setAnalyzing(false)
       setError('')
+      setReadingPhoto(false)
     }
-    reader.onerror = () => setError('이미지를 읽지 못했어요. 다른 파일을 선택해 주세요.')
+    reader.onerror = () => {
+      if (version !== inputVersion.current) return
+      setReadingPhoto(false)
+      setError('이미지를 읽지 못했어요. 다른 파일을 선택해 주세요.')
+    }
     reader.readAsDataURL(file)
   }
   function simulateAnalysis() {
@@ -95,6 +103,7 @@ export default function RegisterPage() {
   }
   function nextStep(event: React.FormEvent) {
     event.preventDefault()
+    if (readingPhoto) return
     if (!form.title.trim() || !form.color.trim() || !form.date || !form.location.trim()) { setError('물품명, 색상, 날짜와 상세 장소를 모두 입력해 주세요.'); return }
     const today = new Date(); const current = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
     if (form.date > current) { setError('미래 날짜는 선택할 수 없어요.'); return }
@@ -102,12 +111,12 @@ export default function RegisterPage() {
   }
   async function submit(event: React.FormEvent) {
     event.preventDefault()
-    if (submittingRef.current || registered) return
+    if (submittingRef.current || registered || readingPhoto) return
     if (form.description.trim().length < 10) { setError('물품을 알아볼 수 있도록 상세 설명을 10자 이상 입력해 주세요.'); return }
     submittingRef.current = true
     setSubmitting(true)
     try {
-      // The photo and demo secret answer stay in the browser; only item fields go to the server.
+      // Submit the selected photo together with the item; the demo secret answer stays local.
       const item = await createServerItem(type, { title: form.title, category: form.category, color: form.color, description: form.description, date: form.date, region: form.region, location: form.location }, { image: imageFile })
       setRegistered(item); setStep(2); setError(''); window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (cause) {
@@ -142,11 +151,10 @@ export default function RegisterPage() {
           <div className="register-review"><h3><ClipboardCheck size={20} /> 등록 전 한 번 더 확인해 주세요</h3><div className="register-review-item"><img src={image} alt={form.title} /><div><span className="badge badge-blue">{found ? '습득물' : '분실물'}</span><h3>{form.title}</h3><p>{form.category} · {form.color}</p></div></div><dl><div><dt>{found ? '습득' : '분실'} 날짜</dt><dd>{form.date}</dd></div><div><dt>지역 및 장소</dt><dd>{form.region} · {form.location}</dd></div></dl><p className="register-review-note"><Info size={16} /> 등록한 정보는 서버에 저장되어 누구나 볼 수 있어요. 연락처·주소 등 개인정보는 입력하지 마세요.</p></div>
         </>}
         {error && <p className="field-error register-error" role="alert"><Info size={16} /> {error}</p>}
-        <div className="register-actions">{step === 1 ? <button type="button" className="button button-secondary" onClick={() => { setStep(0); setError('') }}><ArrowLeft size={16} /> 이전 단계</button> : <Link to="/" className="button button-ghost">취소</Link>}<button type="submit" className="button button-primary" disabled={analyzing || submitting}>{step === 0 ? '다음 단계' : submitting ? '등록 중…' : `${found ? '습득물' : '분실물'} 등록하기`} <ArrowRight size={17} /></button></div>
+        <div className="register-actions">{step === 1 ? <button type="button" className="button button-secondary" disabled={submitting} onClick={() => { setStep(0); setError('') }}><ArrowLeft size={16} /> 이전 단계</button> : <Link to="/" className="button button-ghost">취소</Link>}<button type="submit" className="button button-primary" disabled={analyzing || submitting || readingPhoto}>{readingPhoto ? '사진을 불러오는 중…' : step === 0 ? '다음 단계' : submitting ? '등록 중…' : `${found ? '습득물' : '분실물'} 등록하기`} <ArrowRight size={17} /></button></div>
       </form>
       <aside className="register-aside"><div className="register-help card"><span className="register-help-icon"><HeartHandshake size={25} /></span><h3>다시 만날 가능성을<br />조금 더 높이는 방법</h3><ul><li><CheckCircle2 size={17} /><div><strong>사진은 선명하게</strong><p>물품 전체와 눈에 띄는 특징이 잘 보이도록 올려 주세요.</p></div></li><li><CheckCircle2 size={17} /><div><strong>장소는 구체적으로</strong><p>역 이름이나 건물명 등 기억나는 단서를 남겨 주세요.</p></div></li><li><CheckCircle2 size={17} /><div><strong>특징은 자세하게</strong><p>색상, 무늬, 흠집 등 작은 차이가 중요한 단서가 돼요.</p></div></li></ul></div><div className="register-safety"><ShieldCheck size={20} /><div><strong>안심하고 등록하세요</strong><p>직접 선택한 사진은 등록할 때 LOST QUEST 서버에 함께 저장돼요. 샘플을 고르거나 사진이 없으면 종류별 기본 이미지로 표시돼요.</p><p>AI 분석과 매칭은 가상 데이터를 사용하는 시뮬레이션이에요.</p></div></div></aside>
     </div>}
   </div>
 }
-
 
