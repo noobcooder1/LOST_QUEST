@@ -1,9 +1,13 @@
 package com.lostquest.controller;
 
 import com.lostquest.dto.CreateLostItemRequest;
+import com.lostquest.dto.ItemMatchResponse;
 import com.lostquest.dto.LostItemResponse;
 import com.lostquest.service.LostItemService;
+import com.lostquest.service.matching.MatchingService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -14,6 +18,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -28,9 +33,11 @@ import java.util.List;
 public class LostItemController {
 
     private final LostItemService lostItemService;
+    private final MatchingService matchingService;
 
-    public LostItemController(LostItemService lostItemService) {
+    public LostItemController(LostItemService lostItemService, MatchingService matchingService) {
         this.lostItemService = lostItemService;
+        this.matchingService = matchingService;
     }
 
     @GetMapping
@@ -41,6 +48,13 @@ public class LostItemController {
     @GetMapping("/{id}")
     public LostItemResponse getLostItem(@PathVariable @Positive Long id) {
         return lostItemService.findById(id);
+    }
+
+    /** Found-item recommendations for one of the caller's own lost items (owner only). */
+    @GetMapping("/{id}/matches")
+    public ItemMatchResponse getMatches(@AuthenticationPrincipal Jwt jwt, @PathVariable @Positive Long id,
+            @RequestParam(defaultValue = "" + MatchingService.DEFAULT_LIMIT) @Min(1) @Max(MatchingService.MAX_LIMIT) int limit) {
+        return matchingService.findMatches(jwt.getSubject(), id, limit);
     }
 
     @PostMapping
