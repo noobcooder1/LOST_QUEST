@@ -106,6 +106,31 @@ export async function getServerItem(type: ItemType, serverId: number, config: Re
   return fromServerItem(type, await apiRequest(`${collectionPath(type)}/${serverId}`, config), config.baseUrl);
 }
 
+export interface MyItems {
+  lostItems: Item[];
+  foundItems: Item[];
+}
+
+/**
+ * The signed-in user's own registrations (GET /api/me/items). The server decides whose items these are from the
+ * access token; no user id is sent. Each list keeps the server's newest-first order. There is no local/demo fallback:
+ * failures are thrown for the caller to show.
+ */
+export async function listMyItems(config: RequestConfig & { accessToken?: string | null } = {}): Promise<MyItems> {
+  const { accessToken = loadAuthSession()?.accessToken ?? null, ...requestConfig } = config;
+  const body = await apiRequest('/api/me/items', { ...requestConfig, accessToken });
+  const raw = body && typeof body === 'object' ? body as Record<string, unknown> : null;
+  if (!raw || !Array.isArray(raw.lostItems) || !Array.isArray(raw.foundItems)) throw invalidResponse();
+  return { lostItems: parseList('lost', raw.lostItems, requestConfig.baseUrl), foundItems: parseList('found', raw.foundItems, requestConfig.baseUrl) };
+}
+
+/** Korean message when the user's own item list cannot be loaded. */
+export function describeMyItemsError(error: unknown): string {
+  if (!(error instanceof ApiClientError)) return '등록 내역을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
+  if (error.status === 401) return '로그인이 만료되었어요. 다시 로그인해 주세요.';
+  return error.message;
+}
+
 /**
  * Registers an item as the signed-in user. Only item fields are sent: the server takes the
  * author from the JWT and sets the initial status itself. With an image, the same fields go in a

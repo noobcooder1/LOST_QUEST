@@ -141,6 +141,14 @@
 .profile-item h3 { font-size: 1.1875rem; margin: 11px 0 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .profile-item p { margin: 0 0 7px; font-size: 0.9375rem; color: #788a9d; }
 .profile-item .muted { font-size: 0.875rem; }
+.profile-item-photo { display: flex; flex-shrink: 0; width: 100px; height: 105px; border-radius: 9px; overflow: hidden; background: #edf0f3; }
+.profile-item-photo img { width: 100%; height: 100%; object-fit: cover; }
+.profile-item-photo .item-image-placeholder { min-height: 0; font-size: 0.6875rem; padding: 4px; }
+.my-item-list { list-style: none; padding: 0; margin: 0; }
+.my-item-group + .my-item-group { margin-top: 28px; }
+.my-item-group-title { font-size: 1.0625rem; margin: 0 0 12px; }
+.my-item-group-title span { color: #2874ed; margin-left: 4px; }
+.my-items-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .profile-return-list, .profile-notifications { display: flex; flex-direction: column; gap: 12px; }
 .profile-return { display: flex; align-items: center; padding: 22px; gap: 18px; text-decoration: none; color: inherit; }
 .profile-activity-icon { width: 47px; height: 47px; background: #edf5ff; color: #4287d6; display: grid; place-items: center; border-radius: 14px; flex-shrink: 0; }
