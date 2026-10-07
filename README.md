@@ -2,7 +2,7 @@
 
 분실물 통합 탐색 팀 프로젝트입니다. 기존 React 프론트엔드 프로토타입에 Java 21 + Spring Boot + JPA + MySQL 백엔드의 기본 틀을 추가했습니다.
 
-현재 서버 기능은 **상태 확인, 회원가입·로그인(JWT Bearer)·내 정보 조회, 분실물·습득물 등록(로그인 필요, 사진 1장 선택)과 조회, 등록 사진 조회, 경찰청 유실물 공공데이터 실시간 조회**입니다. React의 로그인/회원가입, 물품 등록, 검색 화면(LOST QUEST 자체 등록 + 경찰청 분실물·습득물), 상세 화면은 실제 API에 연결되어 있습니다. 매칭·반환·QR·경험치 기능과 이를 체험하기 위한 seed 예시 물품은 브라우저 가상 데이터로 동작합니다. 수정·삭제, S3 이미지 저장, AI, AWS 배포는 아직 범위에 포함하지 않습니다.
+현재 서버 기능은 **상태 확인, 회원가입·로그인(JWT Bearer)·내 정보 조회, 분실물·습득물 등록(로그인 필요, 사진 1장 선택)과 조회, 등록 사진 조회, 경찰청 유실물 공공데이터 실시간 조회, 내 분실물 기준 습득물 매칭 추천(규칙 기반 점수)**입니다. React의 로그인/회원가입, 물품 등록, 검색 화면(LOST QUEST 자체 등록 + 경찰청 분실물·습득물), 상세 화면, 매칭 추천 화면은 실제 API에 연결되어 있습니다. 반환·QR·경험치 기능과 이를 체험하기 위한 seed 예시 물품은 브라우저 가상 데이터로 동작합니다. 수정·삭제, S3 이미지 저장, AI, AWS 배포는 아직 범위에 포함하지 않습니다.
 
 ## 프로젝트 구조
 
@@ -130,6 +130,7 @@ Copy-Item application-local.example.yml application-local.yml
 | GET | `/api/found-items` | 습득물 DTO 배열, 비어 있으면 `[]` |
 | GET | `/api/lost-items/{id}` | 분실물 단건, 없으면 JSON 404 |
 | GET | `/api/found-items/{id}` | 습득물 단건, 없으면 JSON 404 |
+| GET | `/api/lost-items/{id}/matches` | 내 분실물의 습득물 매칭 추천(LOST QUEST + 경찰청), `Authorization: Bearer <token>` 필요, 작성자 본인만 |
 | POST | `/api/lost-items` | 분실물 등록, `Authorization: Bearer <token>` 필요. `201` + 분실물 DTO |
 | POST | `/api/found-items` | 습득물 등록, `Authorization: Bearer <token>` 필요. `201` + 습득물 DTO |
 | GET | `/api/images/{filename}` | 등록 사진 조회(공개). 없으면 JSON 404 |
@@ -216,9 +217,19 @@ LOST QUEST 백엔드가 경찰청 OpenAPI(XML)를 실시간으로 호출해 JSON
 - XML은 DTD·외부 엔티티를 거부하는 보안 파서로만 처리합니다(XXE 방지).
 - 자세한 실제 API·공통코드 조사 결과는 `계획서및회의록/06_경찰청_OpenAPI_연동.md`를 참고하세요.
 
+### 매칭 추천 API
+
+`GET /api/lost-items/{id}/matches?limit=10` — 로그인한 사용자가 **자신이 등록한 분실물**에 대해 LOST QUEST 습득물과 경찰청 습득물을 함께 비교해 추천합니다. 다른 사용자의 분실물은 403, 없는 분실물은 404, `limit`은 1~20(기본 10)입니다. 사용자는 JWT에서만 결정합니다.
+
+- 점수(총 100): 분류 35 · 지역 25 · 색상 20 · 날짜 20(분실 당일 20, 1~3일 18, 4~7일 12, 8~14일 6, 그 이후·분실 전 습득 0). 40점 미만은 제외하고 매칭도 → 날짜 차이 → ID 순으로 정렬합니다.
+- 각 결과에는 `score`, 항목별 `scoreBreakdown`(`MATCH`/`PARTIAL`/`MISMATCH`/`UNKNOWN`), 점수를 받은 항목만 담은 `reasons`, 출처(`LOST_QUEST`/`POLICE`)와 출처별 ID가 포함됩니다. 이미지·AI 점수는 없습니다.
+- 후보: LOST QUEST 보관 중 습득물(분실일~+30일, 최대 200건, 본인 등록 제외), 경찰청 습득물(분실일~+14일, 지역 조회 최대 2회 + 전국 1회, 각 50건, 병렬). 경찰청 습득물 목록에는 지역이 없어 지역 조회로 찾은 물품만 지역 점수를 받습니다.
+- `sources`에 출처별 상태(`OK`/`PARTIAL`/`UNAVAILABLE`/`SKIPPED`)가 있으며, 경찰청이 실패해도 LOST QUEST 추천은 그대로 반환합니다.
+- 자세한 규칙·한계는 `계획서및회의록/07_분실물_매칭_추천.md`를 참고하세요.
+
 ## 보안·오류 처리
 
-위 공개 GET API와 `POST /api/auth/signup`·`/api/auth/login`만 인증 없이 허용하고, `GET /api/images/{filename}`과 `GET /api/public-items/...`도 공개하며, `GET /api/auth/me`와 `POST /api/lost-items`·`/api/found-items`(JSON·multipart)는 인증을 요구하며, 나머지 요청(수정·삭제 등)은 기본 차단합니다. 폼 로그인·HTTP Basic·기본 생성 계정·서버 세션은 사용하지 않습니다(Stateless). JWT 검증은 Spring Security OAuth2 Resource Server(Nimbus)를 사용하며 자체 토큰 파서는 없습니다.
+위 공개 GET API와 `POST /api/auth/signup`·`/api/auth/login`만 인증 없이 허용하고, `GET /api/images/{filename}`과 `GET /api/public-items/...`도 공개하며, `GET /api/auth/me`, `GET /api/lost-items/{id}/matches`(작성자 본인만)와 `POST /api/lost-items`·`/api/found-items`(JSON·multipart)는 인증을 요구하며, 나머지 요청(수정·삭제 등)은 기본 차단합니다. 폼 로그인·HTTP Basic·기본 생성 계정·서버 세션은 사용하지 않습니다(Stateless). JWT 검증은 Spring Security OAuth2 Resource Server(Nimbus)를 사용하며 자체 토큰 파서는 없습니다.
 
 **CSRF 비활성화 이유:** CSRF는 브라우저가 쿠키·세션 같은 자격증명을 요청에 *자동으로* 붙이는 점을 악용합니다. 이 API는 세션·인증 쿠키를 만들지 않고, 자격증명은 프론트엔드 코드가 명시적으로 설정하는 `Authorization: Bearer` 헤더로만 전달되며, 다른 사이트는 이 헤더를 붙인 요청을 만들 수 없습니다(CORS 허용 Origin 제한, `credentials: omit`). 따라서 CSRF 토큰 없이도 위조 요청이 인증되지 않아 CSRF 보호를 끕니다. 이후 쿠키 기반 인증(예: HttpOnly Refresh Token 쿠키)을 도입하면 CSRF 정책을 다시 설계해야 합니다.
 
@@ -257,7 +268,7 @@ npm.cmd run dev
 3. 연결 성공 문구를 확인합니다. 서버 미실행·잘못된 주소·CORS 오류·시간 초과는 화면에 오류로 표시되며 기존 데모 화면은 계속 사용할 수 있습니다.
 4. API 주소를 설정하지 않으면 설정 안내가 표시됩니다. 자동 폴링이나 가짜 성공 응답은 없습니다.
 
-**로그인·회원가입**은 `/login`, `/signup` 화면에서 실제 서버 API를 호출합니다(서버가 꺼져 있으면 로그인할 수 없습니다). 가입 후 자동으로 로그인합니다. Access Token은 `sessionStorage`에만 저장되어 같은 탭 새로고침에는 유지되고, 탭·브라우저를 닫으면 사라집니다. 앱 시작 시 저장된 토큰은 `/api/auth/me`로 서버에 확인하며, 401이면 즉시 삭제합니다. 만료 시각이 되면 자동 로그아웃합니다. 토큰은 URL·로그·콘솔에 출력하지 않습니다. 인증이 필요한 요청은 `apiRequest(path, { accessToken })`(`frontend/src/services/apiClient.ts`)로 `Authorization` 헤더를 붙입니다. 물품·매칭·반환·경험치는 여전히 브라우저 데모 데이터입니다.
+**로그인·회원가입**은 `/login`, `/signup` 화면에서 실제 서버 API를 호출합니다(서버가 꺼져 있으면 로그인할 수 없습니다). 가입 후 자동으로 로그인합니다. Access Token은 `sessionStorage`에만 저장되어 같은 탭 새로고침에는 유지되고, 탭·브라우저를 닫으면 사라집니다. 앱 시작 시 저장된 토큰은 `/api/auth/me`로 서버에 확인하며, 401이면 즉시 삭제합니다. 만료 시각이 되면 자동 로그아웃합니다. 토큰은 URL·로그·콘솔에 출력하지 않습니다. 인증이 필요한 요청은 `apiRequest(path, { accessToken })`(`frontend/src/services/apiClient.ts`)로 `Authorization` 헤더를 붙입니다. **매칭 추천**(`/matches`)은 로그인한 사용자의 서버 분실물을 기준으로 실제 추천 API를 호출하며 가상 데이터로 대체하지 않습니다. 반환·경험치와 seed 예시 물품은 여전히 브라우저 데모 데이터입니다.
 
 기존 화면과 체험 흐름은 [프론트엔드 README](frontend/README.md)를 참고하세요.
 
@@ -290,7 +301,7 @@ $env:MYSQL_TEST_PASSWORD = Read-Host '테스트 DB 비밀번호' -MaskInput
 ## 다음 단계
 
 1. 분실물/습득물 수정·삭제(작성자 권한 확인), 서버 측 필터·페이지네이션, 내 등록 물품 조회
-2. 이미지 저장소 S3 전환, 경찰청 공공데이터 캐시·AI 매칭 연계
+2. 이미지 저장소 S3 전환, 경찰청 공공데이터 캐시, 매칭 추천에 이미지 유사도 항목 추가
 3. DB 마이그레이션·트랜잭션 규칙을 정한 뒤 이미지 저장, 공공데이터, AI 매칭을 각각 추가
 
 AWS·PWA·QR·반환·보상은 이후 별도 단계에서 구현합니다. 현재 저장소에는 이 기능의 서버 구현이나 실제 배포가 없습니다.
