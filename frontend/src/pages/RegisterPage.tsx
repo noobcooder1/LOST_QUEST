@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Camera, Check, CheckCircle2, ChevronRight, ClipboardCheck, FileImage, HeartHandshake, ImagePlus, Info, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import { useMatchNotifications } from '../context/MatchNotificationContext'
 import { ApiClientError } from '../services/apiClient'
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, createServerItem, describeItemError } from '../services/itemApi'
 import type { Item } from '../types'
@@ -18,6 +19,7 @@ const examples = [
 
 export default function RegisterPage() {
   const { isLoggedIn, logout } = useApp()
+  const { runRefresh } = useMatchNotifications()
   const [params] = useSearchParams()
   const navigate = useNavigate()
   const location = useLocation()
@@ -119,6 +121,8 @@ export default function RegisterPage() {
       // Submit the selected photo together with the item; the demo secret answer stays local.
       const item = await createServerItem(type, { title: form.title, category: form.category, color: form.color, description: form.description, date: form.date, region: form.region, location: form.location }, { image: imageFile })
       setRegistered(item); setStep(2); setError(''); window.scrollTo({ top: 0, behavior: 'smooth' })
+      // A new lost item is matched in the background so strong candidates show up as notifications.
+      if (type === 'lost') void runRefresh()
     } catch (cause) {
       // An expired/invalid token follows the app's auth policy: drop the local session and ask to sign in again.
       if (cause instanceof ApiClientError && cause.status === 401) { setSessionExpired(true); logout() }

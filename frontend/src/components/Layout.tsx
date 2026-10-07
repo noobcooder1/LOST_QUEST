@@ -2,14 +2,17 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Bell, ChevronRight, FlaskConical, Home, Plus, Search, Sparkles, UserRound, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useMatchNotifications } from '../context/MatchNotificationContext';
 import Logo from './Logo';
 import ApiHealthStatus from './ApiHealthStatus';
 
 export default function Layout({ children }: { children: ReactNode }) {
-  const { isLoggedIn, profile, notifications, storageError } = useApp();
+  const { isLoggedIn, profile, storageError } = useApp();
+  const { unreadCount } = useMatchNotifications();
   const { pathname } = useLocation();
   const [showNotice, setShowNotice] = useState(true);
-  const unread = notifications.filter(n => !n.read).length;
+  // Server match notifications only; the local return-demo messages are listed separately on MyPage.
+  const unread = isLoggedIn ? unreadCount ?? 0 : 0;
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [pathname]);
   return <div className="app-shell">
     <a className="skip-link" href="#main-content">본문 바로가기</a>
@@ -19,7 +22,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       <nav className="desktop-nav" aria-label="주 내비게이션">
         <NavLink to="/" end>홈</NavLink><NavLink to="/search">분실물 찾기</NavLink><NavLink to="/matches">매칭 추천</NavLink><NavLink to="/guide">이용 안내</NavLink>
       </nav>
-      <div className="header-actions"><Link to="/mypage?tab=notifications" className="notification-button" aria-label={`알림 ${unread}개`}><Bell size={19} />{unread > 0 && <i />}</Link><span className="header-divider" />{isLoggedIn ? <Link to="/mypage" className="header-profile"><span className="mini-avatar"><UserRound size={16}/></span><span>{profile.name}</span></Link> : <Link to="/login" className="login-link">로그인</Link>}<Link to="/register?type=found" className="button button-primary header-register"><Plus size={16} />물품 등록</Link></div>
+      <div className="header-actions"><Link to="/mypage?tab=notifications" className="notification-button" aria-label={unread > 0 ? `알림, 읽지 않은 매칭 알림 ${unread}개` : '알림'}><Bell size={19} aria-hidden="true" />{unread > 0 && <i className="notification-badge" aria-hidden="true">{unread > 99 ? '99+' : unread}</i>}</Link><span className="header-divider" />{isLoggedIn ? <Link to="/mypage" className="header-profile"><span className="mini-avatar"><UserRound size={16}/></span><span>{profile.name}</span></Link> : <Link to="/login" className="login-link">로그인</Link>}<Link to="/register?type=found" className="button button-primary header-register"><Plus size={16} />물품 등록</Link></div>
     </div></header>
     {storageError && <div role="alert" className="storage-alert">{storageError}</div>}
     <main id="main-content">{children}</main>

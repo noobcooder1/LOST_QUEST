@@ -59,16 +59,29 @@ public class MatchingService {
         if (!lostItem.getUser().getId().equals(caller.getId())) {
             throw new AccessDeniedException("not the owner of lost item " + lostItemId);
         }
-        MatchTarget target = MatchTarget.of(lostItem);
+        int boundedLimit = Math.max(1, Math.min(limit, MAX_LIMIT));
+        MatchRun run = run(lostItem, boundedLimit);
+        return ItemMatchResponse.of(run.target(), engine.maxScore(), MIN_SCORE, boundedLimit, run.matches(), run.sources());
+    }
 
-        SourceResult lostQuest = collectLostQuest(target, caller.getId());
+    /** Ranked matches for a lost item plus how each source went; the caller has already checked ownership. */
+    public record MatchRun(MatchTarget target, List<ScoredMatch> matches, List<SourceResult> sources) {
+    }
+
+    /**
+     * The matching computation shared by the matching API and match notifications: collect candidates from
+     * both sources independently, score them with the engine and keep the best {@code limit}. The lost item's
+     * user must be loaded (e.g. via {@link LostItemRepository#findWithUserById}).
+     */
+    public MatchRun run(LostItem lostItem, int limit) {
+        MatchTarget target = MatchTarget.of(lostItem);
+        SourceResult lostQuest = collectLostQuest(target, lostItem.getUser().getId());
         SourceResult police = policeCandidateCollector.collect(target);
 
         List<MatchCandidate> candidates = new ArrayList<>(lostQuest.candidates());
         candidates.addAll(police.candidates());
-        int boundedLimit = Math.max(1, Math.min(limit, MAX_LIMIT));
-        List<ScoredMatch> matches = engine.rank(target, candidates, MIN_SCORE, boundedLimit);
-        return ItemMatchResponse.of(target, engine.maxScore(), MIN_SCORE, boundedLimit, matches, List.of(lostQuest, police));
+        List<ScoredMatch> matches = engine.rank(target, candidates, MIN_SCORE, Math.max(1, Math.min(limit, MAX_LIMIT)));
+        return new MatchRun(target, matches, List.of(lostQuest, police));
     }
 
     SourceResult collectLostQuest(MatchTarget target, Long callerId) {
@@ -88,7 +101,7 @@ public class MatchingService {
         }
     }
 
-    static MatchCandidate toCandidate(FoundItem item) {
+    public static MatchCandidate toCandidate(FoundItem item) {
         return new MatchCandidate(
                 MatchSource.LOST_QUEST,
                 "LOST_QUEST:" + item.getId(),
