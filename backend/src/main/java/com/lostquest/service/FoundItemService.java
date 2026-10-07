@@ -7,6 +7,8 @@ import com.lostquest.entity.FoundItemStatus;
 import com.lostquest.entity.User;
 import com.lostquest.exception.ResourceNotFoundException;
 import com.lostquest.repository.FoundItemRepository;
+import com.lostquest.service.notification.FoundItemRegisteredEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,12 +22,14 @@ public class FoundItemService {
     private final FoundItemRepository foundItemRepository;
     private final CurrentUserReader currentUserReader;
     private final ImageService imageService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public FoundItemService(FoundItemRepository foundItemRepository, CurrentUserReader currentUserReader,
-                            ImageService imageService) {
+                            ImageService imageService, ApplicationEventPublisher eventPublisher) {
         this.foundItemRepository = foundItemRepository;
         this.currentUserReader = currentUserReader;
         this.imageService = imageService;
+        this.eventPublisher = eventPublisher;
     }
 
     public List<FoundItemResponse> findAll() {
@@ -57,7 +61,10 @@ public class FoundItemService {
         FoundItem item = new FoundItem(author, request.title().trim(),
                 request.category(), request.color().trim(), request.description().trim(), request.foundDate(),
                 request.region(), request.location().trim(), imageUrl, FoundItemStatus.STORED);
-        return FoundItemResponse.from(foundItemRepository.saveAndFlush(item));
+        FoundItem saved = foundItemRepository.saveAndFlush(item);
+        // Match notifications for lost-item owners are created only after this registration commits.
+        eventPublisher.publishEvent(new FoundItemRegisteredEvent(saved.getId(), author.getId()));
+        return FoundItemResponse.from(saved);
     }
 
     /** An empty file part without a name is what a form sends when no file was chosen. */

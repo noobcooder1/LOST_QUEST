@@ -3,8 +3,10 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MatchNotificationProvider } from '../context/MatchNotificationContext';
 import MyPage from '../pages/MyPage';
 import { clearAuthSession, saveAuthSession } from '../services/authSession';
+import { REFRESH_POLICE_DOWN } from '../services/notificationApi.fixtures';
 import type { Item } from '../types';
 import MyItemList from './MyItemList';
 
@@ -46,6 +48,8 @@ let root: Root;
 
 const defaultHandler: Handler = (url) => {
   if (url === `${BASE}/api/me/items`) return json(MINE);
+  if (url === `${BASE}/api/notifications/refresh`) return json(REFRESH_POLICE_DOWN);
+  if (url === `${BASE}/api/notifications/unread-count`) return json({ unreadCount: 0 });
   return json({ message: 'unexpected' }, 500);
 };
 
@@ -77,7 +81,7 @@ async function renderList() {
   await settle();
 }
 async function renderMyPage(path = '/mypage') {
-  await act(async () => { root.render(<MemoryRouter initialEntries={[path]}><MyPage /></MemoryRouter>); });
+  await act(async () => { root.render(<MemoryRouter initialEntries={[path]}><MatchNotificationProvider><MyPage /></MatchNotificationProvider></MemoryRouter>); });
   await settle();
 }
 

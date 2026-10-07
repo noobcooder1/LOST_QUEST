@@ -131,6 +131,11 @@ Copy-Item application-local.example.yml application-local.yml
 | GET | `/api/lost-items/{id}` | 분실물 단건, 없으면 JSON 404 |
 | GET | `/api/found-items/{id}` | 습득물 단건, 없으면 JSON 404 |
 | GET | `/api/lost-items/{id}/matches` | 내 분실물의 습득물 매칭 추천(LOST QUEST + 경찰청), `Authorization: Bearer <token>` 필요, 작성자 본인만 |
+| GET | `/api/notifications` | 내 매칭 알림 목록(최신순, `limit` 1~100) + 읽지 않은 개수, 인증 필요 |
+| GET | `/api/notifications/unread-count` | 읽지 않은 매칭 알림 개수, 인증 필요 |
+| POST | `/api/notifications/{id}/read` | 알림 읽음 처리(본인 알림만, 다른 사용자 알림은 404), 인증 필요 |
+| POST | `/api/notifications/read-all` | 내 알림 모두 읽음, 인증 필요 |
+| POST | `/api/notifications/refresh` | 내 최근 분실물 다시 매칭 → 새 후보 알림 생성(분실물별 10분 간격 제한), 인증 필요 |
 | POST | `/api/lost-items` | 분실물 등록, `Authorization: Bearer <token>` 필요. `201` + 분실물 DTO |
 | POST | `/api/found-items` | 습득물 등록, `Authorization: Bearer <token>` 필요. `201` + 습득물 DTO |
 | GET | `/api/images/{filename}` | 등록 사진 조회(공개). 없으면 JSON 404 |
@@ -227,9 +232,18 @@ LOST QUEST 백엔드가 경찰청 OpenAPI(XML)를 실시간으로 호출해 JSON
 - `sources`에 출처별 상태(`OK`/`PARTIAL`/`UNAVAILABLE`/`SKIPPED`)가 있으며, 경찰청이 실패해도 LOST QUEST 추천은 그대로 반환합니다.
 - 자세한 규칙·한계는 `계획서및회의록/07_분실물_매칭_추천.md`를 참고하세요.
 
+### 매칭 알림 API
+
+내 분실물에 대해 **매칭도 70점 이상**의 새 후보가 발견되면 LOST QUEST 안에서 알림을 만듭니다(이메일·SMS·푸시·WebSocket·스케줄러 없음). 점수는 매칭 추천과 같은 엔진을 그대로 사용합니다.
+
+- 생성 시점: ① LOST QUEST 습득물이 등록되어 커밋된 직후, 그 습득물을 기간이 맞는 진행 중 분실물과 비교(경찰청 호출 없음, 실패해도 등록에는 영향 없음) ② `POST /api/notifications/refresh` — 로그인·알림 화면·분실물 등록 시 프론트엔드가 호출하며, 최근 30일 안의 내 진행 중 분실물(최신 5개)을 LOST QUEST + 경찰청으로 다시 매칭해 분실물별 상위 5개 후보 중 새 후보를 기록합니다. 같은 분실물은 10분(`app.notifications.refresh-interval`)에 한 번만 다시 매칭합니다.
+- 중복 방지: DB 유일 제약 `(lost_item_id, candidate_key)`. 반복·동시 요청에도 같은 후보 알림은 한 번만 생깁니다.
+- 경찰청 장애 시에도 LOST QUEST 후보 알림은 생성되며, `refresh` 응답의 `sources`에 출처별 상태가 표시됩니다. 경찰청 관리번호는 확인된 형식(`F` + 숫자 16자리, 순번 1~999)만 저장합니다.
+- 자세한 설계와 검증 결과는 `계획서및회의록/08_매칭_알림.md`를 참고하세요.
+
 ## 보안·오류 처리
 
-위 공개 GET API와 `POST /api/auth/signup`·`/api/auth/login`만 인증 없이 허용하고, `GET /api/images/{filename}`과 `GET /api/public-items/...`도 공개하며, `GET /api/auth/me`, `GET /api/lost-items/{id}/matches`(작성자 본인만)와 `POST /api/lost-items`·`/api/found-items`(JSON·multipart)는 인증을 요구하며, 나머지 요청(수정·삭제 등)은 기본 차단합니다. 폼 로그인·HTTP Basic·기본 생성 계정·서버 세션은 사용하지 않습니다(Stateless). JWT 검증은 Spring Security OAuth2 Resource Server(Nimbus)를 사용하며 자체 토큰 파서는 없습니다.
+위 공개 GET API와 `POST /api/auth/signup`·`/api/auth/login`만 인증 없이 허용하고, `GET /api/images/{filename}`과 `GET /api/public-items/...`도 공개하며, `GET /api/auth/me`, `GET /api/lost-items/{id}/matches`(작성자 본인만), `/api/notifications/...`(본인 알림만)와 `POST /api/lost-items`·`/api/found-items`(JSON·multipart)는 인증을 요구하며, 나머지 요청(수정·삭제 등)은 기본 차단합니다. 폼 로그인·HTTP Basic·기본 생성 계정·서버 세션은 사용하지 않습니다(Stateless). JWT 검증은 Spring Security OAuth2 Resource Server(Nimbus)를 사용하며 자체 토큰 파서는 없습니다.
 
 **CSRF 비활성화 이유:** CSRF는 브라우저가 쿠키·세션 같은 자격증명을 요청에 *자동으로* 붙이는 점을 악용합니다. 이 API는 세션·인증 쿠키를 만들지 않고, 자격증명은 프론트엔드 코드가 명시적으로 설정하는 `Authorization: Bearer` 헤더로만 전달되며, 다른 사이트는 이 헤더를 붙인 요청을 만들 수 없습니다(CORS 허용 Origin 제한, `credentials: omit`). 따라서 CSRF 토큰 없이도 위조 요청이 인증되지 않아 CSRF 보호를 끕니다. 이후 쿠키 기반 인증(예: HttpOnly Refresh Token 쿠키)을 도입하면 CSRF 정책을 다시 설계해야 합니다.
 
@@ -268,7 +282,7 @@ npm.cmd run dev
 3. 연결 성공 문구를 확인합니다. 서버 미실행·잘못된 주소·CORS 오류·시간 초과는 화면에 오류로 표시되며 기존 데모 화면은 계속 사용할 수 있습니다.
 4. API 주소를 설정하지 않으면 설정 안내가 표시됩니다. 자동 폴링이나 가짜 성공 응답은 없습니다.
 
-**로그인·회원가입**은 `/login`, `/signup` 화면에서 실제 서버 API를 호출합니다(서버가 꺼져 있으면 로그인할 수 없습니다). 가입 후 자동으로 로그인합니다. Access Token은 `sessionStorage`에만 저장되어 같은 탭 새로고침에는 유지되고, 탭·브라우저를 닫으면 사라집니다. 앱 시작 시 저장된 토큰은 `/api/auth/me`로 서버에 확인하며, 401이면 즉시 삭제합니다. 만료 시각이 되면 자동 로그아웃합니다. 토큰은 URL·로그·콘솔에 출력하지 않습니다. 인증이 필요한 요청은 `apiRequest(path, { accessToken })`(`frontend/src/services/apiClient.ts`)로 `Authorization` 헤더를 붙입니다. **매칭 추천**(`/matches`)은 로그인한 사용자의 서버 분실물을 기준으로 실제 추천 API를 호출하며 가상 데이터로 대체하지 않습니다. 반환·경험치와 seed 예시 물품은 여전히 브라우저 데모 데이터입니다.
+**로그인·회원가입**은 `/login`, `/signup` 화면에서 실제 서버 API를 호출합니다(서버가 꺼져 있으면 로그인할 수 없습니다). 가입 후 자동으로 로그인합니다. Access Token은 `sessionStorage`에만 저장되어 같은 탭 새로고침에는 유지되고, 탭·브라우저를 닫으면 사라집니다. 앱 시작 시 저장된 토큰은 `/api/auth/me`로 서버에 확인하며, 401이면 즉시 삭제합니다. 만료 시각이 되면 자동 로그아웃합니다. 토큰은 URL·로그·콘솔에 출력하지 않습니다. 인증이 필요한 요청은 `apiRequest(path, { accessToken })`(`frontend/src/services/apiClient.ts`)로 `Authorization` 헤더를 붙입니다. **매칭 추천**(`/matches`)은 로그인한 사용자의 서버 분실물을 기준으로 실제 추천 API를 호출하며 가상 데이터로 대체하지 않습니다. 헤더 알림 배지와 마이페이지 "알림" 탭의 **매칭 알림**도 서버 데이터만 사용합니다(반환 체험 소식은 별도 데모 섹션). 반환·경험치와 seed 예시 물품은 여전히 브라우저 데모 데이터입니다.
 
 기존 화면과 체험 흐름은 [프론트엔드 README](frontend/README.md)를 참고하세요.
 
