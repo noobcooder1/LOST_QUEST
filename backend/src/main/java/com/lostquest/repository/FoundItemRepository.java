@@ -11,6 +11,9 @@ public interface FoundItemRepository extends JpaRepository<FoundItem, Long> {
 
     List<FoundItem> findAllByOrderByIdAsc();
 
+    /** One user's found items, newest registration first (id breaks ties within the same instant). */
+    List<FoundItem> findByUser_IdOrderByCreatedAtDescIdDesc(Long userId);
+
     /** Matching candidates: bounded by status, found-date window and a row limit; the requester's own items are excluded. */
     List<FoundItem> findTop200ByStatusAndFoundDateBetweenAndUser_IdNotOrderByFoundDateAscIdAsc(
             FoundItemStatus status, LocalDate from, LocalDate to, Long excludedUserId);

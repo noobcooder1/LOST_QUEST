@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowRight, Award, Bell, CheckCircle2, ChevronRight, Compass, HeartHandshake, LockKeyhole, Package, Plus, RotateCcw, ShieldCheck, Sparkles, Trophy, UserRound } from 'lucide-react';
+import { ArrowRight, Award, Bell, CheckCircle2, ChevronRight, Compass, HeartHandshake, LockKeyhole, Package, RotateCcw, ShieldCheck, Sparkles, Trophy, UserRound } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import MyItemList from '../components/MyItemList';
 import type { ReturnRequest } from '../types';
 import './workflow.css';
 
@@ -15,7 +16,6 @@ export default function MyPage() {
   const [resetOpen, setResetOpen] = useState(false);
   const resetDialog = useRef<HTMLDialogElement>(null);
   useEffect(() => { if (resetOpen) resetDialog.current?.showModal(); }, [resetOpen]);
-  const ownItems = items.filter((item) => item.createdBy === 'demo');
   const level = Math.floor(profile.xp / 100) + 1;
   const progress = profile.xp % 100;
   const unread = notifications.filter((notification) => !notification.read).length;
@@ -37,7 +37,7 @@ export default function MyPage() {
     <div className="workflow-tabs profile-tabs" aria-label="마이페이지 메뉴">{([
       ['items', '등록 내역', Package], ['returns', '반환 내역', HeartHandshake], ['badges', '획득 업적', Award], ['notifications', '알림', Bell],
     ] as const).map(([value, label, Icon]) => <button key={value} className={tab === value ? 'active' : ''} aria-pressed={tab === value} onClick={() => setTab(value)}><Icon size={17} />{label}{value === 'notifications' && unread > 0 && <span className="notification-count">{unread}</span>}</button>)}</div>
-    {tab === 'items' && <section><div className="workflow-section-heading"><h2>내가 등록한 물품 <span>{ownItems.length}</span></h2><Link className="button button-secondary" to="/register?type=lost"><Plus size={16} /> 물품 등록</Link></div>{ownItems.length ? <div className="profile-item-grid">{ownItems.map((item) => <Link className="card profile-item" key={item.id} to={`/items/${item.id}`}><img src={item.image} alt={item.title} /><div><div className="profile-item-badges"><span className={`badge ${item.type === 'lost' ? 'badge-orange' : 'badge-blue'}`}>{item.type === 'lost' ? '분실물' : '습득물'}</span>{item.status === 'returned' && <span className="badge badge-green">반환 완료</span>}</div><h3>{item.title}</h3><p>{item.region}</p><span className="muted">{item.date}</span></div><ChevronRight size={17} /></Link>)}</div> : <div className="card empty-state"><Package size={37} /><h3>첫 번째 물품을 등록해 보세요</h3><p>분실물 등록 후 AI 매칭부터 반환까지 체험할 수 있어요.</p><Link className="button button-primary" to="/register?type=lost">분실물 등록하기 <ArrowRight size={16} /></Link></div>}</section>}
+    {tab === 'items' && <MyItemList />}
     {tab === 'returns' && <section><div className="workflow-section-heading"><h2>내 반환 요청 <span>{requests.length}</span></h2><span className="muted">이번 체험에서 생성한 요청</span></div>{requests.length ? <div className="profile-return-list">{requests.map((request) => {
       const item = items.find((entry) => entry.id === request.itemId);
       if (!item) return null;
