@@ -22,8 +22,8 @@ function sourceNotices(sources: SourceStatus[]): { source: SourceStatus; text: s
   })
 }
 
-function MatchCard({ match, best }: { match: MatchResult; best: boolean }) {
-  const detail = `/items/${match.routeId}`
+function MatchCard({ match, best, lostItemId }: { match: MatchResult; best: boolean; lostItemId?: string }) {
+  const detail = `/items/${match.routeId}${match.source === 'LOST_QUEST' && lostItemId ? '?lostItem=' + encodeURIComponent(lostItemId) : ''}`
   const place = match.source === 'POLICE' ? (match.place ? `보관: ${match.place}` : '') : match.place
   return <article className={`card match-card ${match.score >= 85 ? 'high-match' : ''}`}>
     <Link className="match-photo" to={detail}><ItemImage src={match.image} fallbackSrc={match.fallbackImage} alt={match.image ? `${match.title} 사진` : `${match.title} 예시 이미지`} loading="lazy" />{best && <span className="match-photo-label"><ListChecks size={13} /> 가장 높은 매칭도</span>}</Link>
@@ -114,7 +114,7 @@ export default function MatchingPage() {
           {notices.length > 0 && <div className="matching-source-notices" role="status">{notices.map(({ source, text }) => <p key={source.source}><AlertTriangle size={15} /> {text}</p>)}</div>}
           {allFailed ? <div className="card empty-state matching-empty" role="alert"><span><AlertTriangle size={30} /></span><h3>지금은 습득물을 비교할 수 없어요</h3><p>모든 데이터 출처 조회에 실패했어요. 잠시 후 다시 시도해 주세요.</p><button className="button button-secondary" onClick={() => setReload((value) => value + 1)}><RefreshCw size={16} /> 다시 시도</button></div>
             : matches.length === 0 ? <div className="card empty-state matching-empty"><span><Search size={30} /></span><h3>아직 비슷한 습득물을 찾지 못했어요</h3><p>새 습득물이 등록되면 다시 확인해 보세요. 전국 검색에서 직접 찾아볼 수도 있어요.</p><Link className="button button-secondary" to="/search">전국 검색하기 <ArrowRight size={16} /></Link></div>
-              : <div className="matching-card-list">{matches.map((match) => <MatchCard key={match.id} match={match} best={sort === 'score' && match === current.data?.matches[0]} />)}</div>}
+              : <div className="matching-card-list">{matches.map((match) => <MatchCard key={match.id} match={match} lostItemId={selected?.id} best={sort === 'score' && match === current.data?.matches[0]} />)}</div>}
         </>}
     </section><aside className="matching-aside"><div className="card matching-summary"><span className="matching-summary-icon"><ListChecks size={25} /></span><span className="eyebrow">매칭 결과 한눈에 보기</span><h3>등록한 단서와<br />닮은 습득물</h3><div className="matching-stat"><strong>{current?.data ? matches.length : '-'}<span>개</span></strong><span>추천 습득물</span></div><div className="matching-stat"><strong>{current?.data && matches.length ? bestScore : '-'}<span>점</span></strong><span>가장 높은 매칭도 ({current?.data?.maxScore ?? 100}점 만점)</span></div><p><CircleHelp size={15} /> 분류 35 · 지역 25 · 색상 20 · 날짜 20점. 정보가 없는 조건은 점수를 받지 않아요.</p></div><div className="matching-next"><h3>내 물건을 발견했다면?</h3><ol><li><span>1</span>물품 상세 정보와 사진 확인</li><li><span>2</span>경찰청 물품은 담당 기관에 문의</li><li><span>3</span>LOST QUEST 물품은 등록자와 확인</li></ol><Link to="/search" className="text-link">전국 검색도 둘러보기 <ArrowRight size={15} /></Link></div></aside></div>
   </div>

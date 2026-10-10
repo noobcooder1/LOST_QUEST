@@ -20,6 +20,7 @@ spring:
     properties:
       hibernate:
         jdbc:
+          # Instant columns store UTC; Korean display/DB views convert only when reading.
           time_zone: UTC
   jackson:
     serialization:

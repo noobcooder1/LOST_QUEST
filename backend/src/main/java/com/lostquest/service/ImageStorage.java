@@ -6,8 +6,7 @@ import java.util.Optional;
 
 /**
  * Where validated image bytes live. Keys are server-generated file names such as
- * {@code 3f2b...e1.jpg}; implementations never see client file names. The local file system is used
- * in development; an S3 implementation can replace it without changing callers.
+ * {@code 3f2b...e1.jpg}; implementations never see client file names. The primary implementation stores bytes in MySQL; local files remain only for legacy reads.
  */
 public interface ImageStorage {
 

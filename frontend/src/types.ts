@@ -8,6 +8,8 @@ export interface Item {
   category: string;
   color: string;
   date: string;
+  /** Server-assigned ISO registration instant; date above is the lost/found event date. */
+  createdAt?: string;
   region: string;
   location: string;
   description: string;
@@ -24,6 +26,8 @@ export interface Item {
   /** Set only for items loaded from the Spring Boot API (createdBy === 'server'). */
   serverId?: number;
   ownerId?: number;
+  ownershipQuestion?: string;
+  ownershipConfigured?: boolean;
 }
 
 export type ReturnStatus =
@@ -41,6 +45,10 @@ export interface ReturnRequest {
   status: ReturnStatus;
   createdAt: string;
   updatedAt: string;
+  requesterId?: number;
+  finderId?: number;
+  qrToken?: string;
+  qrExpiresAt?: string;
 }
 
 export interface Profile {
@@ -71,4 +79,4 @@ export interface MatchResult {
   reasons: string[];
 }
 
-export type NewItem = Omit<Item, 'id' | 'status' | 'createdBy'>;
+export type NewItem = Omit<Item, 'id' | 'status' | 'createdBy' | 'createdAt'>;

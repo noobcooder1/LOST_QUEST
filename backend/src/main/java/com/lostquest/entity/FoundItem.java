@@ -66,6 +66,21 @@ public class FoundItem extends BaseEntity {
     @Column(nullable = false, length = 20)
     private FoundItemStatus status;
 
+    @Size(max = 200)
+    @Column(name = "ownership_question", length = 200)
+    private String ownershipQuestion;
+
+    @Column(name = "ownership_answer_hash", length = 60)
+    private String ownershipAnswerHash;
+
+    public String getOwnershipQuestion() { return ownershipQuestion; }
+    public String ownershipAnswerHash() { return ownershipAnswerHash; }
+    public boolean isOwnershipConfigured() { return ownershipAnswerHash != null; }
+    public void configureOwnership(String question, String hash) {
+        ownershipQuestion = question; ownershipAnswerHash = hash;
+    }
+    public void markReturned() { status = FoundItemStatus.RETURNED; }
+
     protected FoundItem() {
     }
 

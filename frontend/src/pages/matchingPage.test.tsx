@@ -81,7 +81,7 @@ describe('MatchingPage', () => {
     expect(first.textContent).toContain('같은 지역(서울)');
     expect(first.textContent).toContain('2026-09-11 습득');
     expect(first.textContent).toContain('서울 · 서울숲역 2번 출구');
-    expect(first.querySelector('a.match-details')?.getAttribute('href')).toBe('/items/api-found-7');
+    expect(first.querySelector('a.match-details')?.getAttribute('href')).toBe('/items/api-found-7?lostItem=api-lost-12');
     expect(first.querySelector('img')?.getAttribute('src')).toBe(`${BASE}${LQ_MATCH.imageUrl}`);
 
     expect(second.textContent).toContain('경찰청 공공데이터');

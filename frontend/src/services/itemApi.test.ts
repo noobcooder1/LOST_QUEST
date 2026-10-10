@@ -31,11 +31,18 @@ describe('server item route ids', () => {
 });
 
 describe('server response → Item conversion', () => {
+  it('preserves the server registration instant independently of the event date', () => {
+    const item = fromServerItem('found', { ...FOUND, createdAt: '2026-10-10T11:27:53.949063Z' });
+    expect(item.createdAt).toBe('2026-10-10T11:27:53.949063Z');
+    expect(item.date).toBe('2026-09-21');
+    expect(fromServerItem('found', { ...FOUND, createdAt: undefined }).createdAt).toBeUndefined();
+    expect(() => fromServerItem('found', { ...FOUND, createdAt: '2026-10-10T11:27:53' })).toThrow(ApiClientError);
+  });
   it('maps lost and found responses to community items with server ids and default images', () => {
     expect(fromServerItem('lost', LOST)).toEqual({
       id: 'api-lost-12', title: '검은색 가죽 지갑', type: 'lost', category: '지갑', color: '검정', date: '2026-09-16',
       region: '서울', location: '서울 성동구 서울숲역', description: '겉면에 작은 스크래치가 있어요.', image: '/images/wallet.svg',
-      source: 'community', status: 'open', createdBy: 'server', serverId: 12, ownerId: 3,
+      source: 'community', status: 'open', createdBy: 'server', serverId: 12, ownerId: 3, createdAt: LOST.createdAt,
     });
     expect(fromServerItem('found', FOUND)).toMatchObject({ id: 'api-found-7', type: 'found', date: '2026-09-21', status: 'open', image: '/images/earbuds.svg' });
     expect(fromServerItem('found', { ...FOUND, status: 'RETURNED' }).status).toBe('returned');

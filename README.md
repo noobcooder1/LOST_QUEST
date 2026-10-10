@@ -2,7 +2,13 @@
 
 분실물 통합 탐색 팀 프로젝트입니다. 기존 React 프론트엔드 프로토타입에 Java 21 + Spring Boot + JPA + MySQL 백엔드의 기본 틀을 추가했습니다.
 
-현재 서버 기능은 **상태 확인, 회원가입·로그인(JWT Bearer)·내 정보 조회, 분실물·습득물 등록(로그인 필요, 사진 1장 선택)과 조회, 등록 사진 조회, 경찰청 유실물 공공데이터 실시간 조회, 내 분실물 기준 습득물 매칭 추천(규칙 기반 점수)**입니다. React의 로그인/회원가입, 물품 등록, 검색 화면(LOST QUEST 자체 등록 + 경찰청 분실물·습득물), 상세 화면, 매칭 추천 화면은 실제 API에 연결되어 있습니다. 반환·QR·경험치 기능과 이를 체험하기 위한 seed 예시 물품은 브라우저 가상 데이터로 동작합니다. 수정·삭제, S3 이미지 저장, AI, AWS 배포는 아직 범위에 포함하지 않습니다.
+현재 서버 기능은 **회원가입·로그인, 분실물·습득물·사진 등록과 조회, 경찰청 공공데이터 조회, 규칙 기반 매칭 추천과 알림, 반환 요청·소유자 확인·승인·QR 검증·최종 완료, 경험치와 활동 알림**입니다. 회원이 만드는 기록은 MySQL `lost_quest`에 저장합니다. 프론트엔드는 서버 기록을 읽으며, 브라우저의 예시 프로필·물품·반환 데이터는 사용하지 않습니다. 사진 특징 분석 화면은 시뮬레이션이며, 수정·삭제·AWS 배포는 아직 포함하지 않습니다.
+
+최신 저장 구조와 반환 이용 방법은 [이메일 검증·전체 DB 저장 가이드](계획서및회의록/11_이메일_검증과_전체_DB_저장.md), macOS 실행 방법은 [전체 실행 가이드](계획서및회의록/10_macOS_전체_실행_가이드.md)를 참고하세요.
+
+물품의 글 등록일시는 사이트에서 한국 시간으로 표시하며 DB에는 UTC로 저장합니다. DBeaver 한국 시간 조회 방법과 분실물·습득물 테이블 차이는 [등록일시·테이블 구분 가이드](계획서및회의록/13_물품_등록일시_수정과_테이블_구분.md)를 참고하세요.
+
+DB 구조 생성·변경에 실제 사용한 전체 쿼리와 현재 테이블·뷰 정의는 [MySQL 구조 변경 SQL 전체 정리](계획서및회의록/12_MySQL_구조_변경_SQL_전체_정리.md)에 정리했습니다.
 
 ## 프로젝트 구조
 
@@ -13,7 +19,7 @@ LOST_QUEST/
 │   ├── src/services/apiClient.ts # 서버 상태 조회, 타임아웃·응답 검증
 │   ├── src/pages/               # 기존 페이지
 │   ├── .env.example             # 공개 가능한 API 주소 예시
-│   └── README.md                # 프로토타입 기능/체험 방법
+│   └── README.md                # 실제 API 연결 화면/이용 방법
 ├── backend/
 │   ├── pom.xml                  # Java 21 / Spring Boot 3.5.16 / Maven
 │   ├── mvnw, mvnw.cmd           # Maven Wrapper 3.9.14
@@ -24,8 +30,8 @@ LOST_QUEST/
 │       │   ├── controller/      # HTTP 입력과 응답 DTO
 │       │   ├── service/         # 조회 트랜잭션, 도메인 처리
 │       │   ├── repository/      # Spring Data JPA 데이터 접근
-│       │   ├── entity/          # User, LostItem, FoundItem, 상태 enum
-│       │   ├── dto/             # 비밀번호·이메일을 제외한 응답
+│       │   ├── entity/          # 회원·물품·반환·알림·경험치·사진
+│       │   ├── dto/             # 비밀번호·소유 확인 답변을 제외한 응답
 │       │   ├── config/          # 설정값 바인딩, CORS
 │       │   ├── security/        # SecurityFilterChain, BCrypt, JWT 발급·검증 설정
 │       │   └── exception/       # JSON 오류와 RestControllerAdvice
@@ -92,7 +98,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES
 | `POLICE_CODE_API_SERVICE_KEY` | 경찰청_공통코드조회 서비스 인증키. 없으면 지역·분류·색상 필터와 `/api/public-items/filters`만 503 |
 | `POLICE_API_BASE_URL` | `https://apis.data.go.kr/1320000` |
 | `POLICE_API_CONNECT_TIMEOUT` / `POLICE_API_READ_TIMEOUT` | `5s` / `20s` (분실물 목록은 실제로 7~9초 소요) |
-| `IMAGE_STORAGE_LOCAL_DIR` | `./.local/uploads` (실행 디렉터리 기준, `.local/`은 Git 제외). 등록 사진 저장 위치 |
+| `IMAGE_STORAGE_LOCAL_DIR` | `./.local/uploads` (실행 디렉터리 기준, `.local/`은 Git 제외). 이전 디스크 사진을 DB로 읽어 옮길 때 사용하는 위치 |
 
 환경변수 방식의 PowerShell 예시:
 
@@ -147,6 +153,18 @@ Copy-Item application-local.example.yml application-local.yml
 | POST | `/api/auth/signup` | 회원가입, 공개. `201` + 사용자 DTO |
 | POST | `/api/auth/login` | 로그인, 공개. `200` + Access Token |
 | GET | `/api/auth/me` | 현재 사용자, `Authorization: Bearer <token>` 필요 |
+| GET | `/api/me/activity` | 내 프로필·반환 기록·활동 소식 |
+| POST | `/api/me/activity/read-all` | 내 활동 소식 모두 읽음 |
+| GET/POST | `/api/returns` | 권한에 맞는 반환 목록 / 반환 요청 생성 |
+| GET | `/api/returns/{id}` | 요청자·습득자·관리자에게 반환 상세 제공 |
+| POST | `/api/returns/{id}/verify-owner` | 요청자 비공개 특징 확인 |
+| POST | `/api/returns/{id}/approve` | 습득자·관리자 승인 및 QR 발급 |
+| POST | `/api/returns/{id}/verify-qr` | 습득자·관리자가 QR 코드 검증 |
+| POST | `/api/returns/{id}/renew-qr` | 승인 상태에서 새 QR 발급 |
+| POST | `/api/returns/{id}/complete` | 최종 반환 확인·상태 변경·습득자 XP 지급 |
+| POST | `/api/returns/{id}/reject` | 반환 요청 반려 |
+| POST | `/api/found-items/{id}/ownership` | 등록자의 소유 확인 질문·답변 설정 |
+
 
 목록은 ID 오름차순이며 아직 필터·페이지네이션·수정·삭제 API는 없습니다. 응답에는 `id`, `userId`, 물품 정보, `region`, 문자열 상태, `createdAt`이 포함됩니다. 날짜는 `YYYY-MM-DD`, 생성 시각은 UTC ISO 8601입니다. 프론트엔드는 `frontend/src/services/itemApi.ts`에서 서버 DTO를 화면용 `Item`으로 변환하며, 서버 물품의 화면 ID는 `api-lost-12`/`api-found-7` 형식입니다.
 
@@ -164,9 +182,9 @@ Copy-Item application-local.example.yml application-local.yml
   - JPEG·PNG·WebP만, 10MB 이하. 클라이언트가 보낸 Content-Type과 **파일 시그니처(매직 넘버)가 모두 일치**해야 하며 SVG·HTML·GIF 등은 `400 INVALID_IMAGE`, 10MB 초과는 `413 IMAGE_TOO_LARGE`입니다.
   - 시그니처 검사 뒤에 **실제 디코드 검증**을 합니다(JPEG·PNG는 JDK ImageIO, WebP는 TwelveMonkeys `imageio-webp`). signature만 있는 파일·잘린 파일·손상된 파일은 `400 INVALID_IMAGE`입니다. 헤더의 해상도를 먼저 읽어 한 변 16,384px 또는 5천만 화소(WebP는 4096×4096) 초과면 디코드 없이 거부하고, JPEG·PNG는 약 100만 화소로 축소 디코드하며 동시 디코드는 2개로 제한해 메모리 사용을 묶어 둡니다. lossy WebP는 형식 특성상 내부 압축 데이터의 무작위 손상까지는 검출하지 못합니다.
   - 원본 파일명은 저장하지 않고 서버가 `UUID.확장자`로 이름을 만듭니다. DB `image_url`에는 `/api/images/{uuid}.{ext}` 형태의 **서버 기준 상대 경로**만 저장하며, 파일 시스템 경로나 `localhost` URL은 저장·응답하지 않습니다. 프론트엔드는 이 값을 `VITE_API_BASE_URL`과 결합해 표시하고, 그 외 형태의 값은 무시하고 종류별 기본 이미지를 씁니다.
-  - 사진 저장 후 DB 등록 트랜잭션이 커밋되지 않으면 저장한 파일을 즉시 삭제합니다. 인증 실패·입력 오류는 파일을 저장하기 전에 거부됩니다.
+  - `item_images`에 사진 바이트를 저장하고, 물품 등록 트랜잭션이 롤백되면 사진도 함께 롤백됩니다. 인증 실패·입력 오류는 저장 전에 거부됩니다.
   - 사진은 `GET /api/images/{filename}`로 제공되며 서버가 만든 UUID 형식 이름만 조회할 수 있습니다(경로 조작 불가). `nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`, 장기 캐시 헤더를 붙입니다.
-  - 저장소는 `ImageStorage` 인터페이스 뒤에 있습니다. 현재 구현은 로컬 디스크(`LocalImageStorage`)이며 S3 구현으로 교체할 수 있습니다. 로컬 사진은 서버를 실행한 PC에만 있으므로 팀원 간에 공유되지 않습니다.
+  - 저장소는 `ImageStorage` 인터페이스 뒤에 있습니다. 현재 구현은 MySQL(`DatabaseImageStorage`)입니다. 이전 로컬 디스크 사진은 기존 경로에서 읽을 때 DB에 복사되며 원본 파일은 유지됩니다. DB를 다른 PC로 옮기면 새로 등록한 사진도 함께 옮겨집니다.
 - 검증: 물품명 ≤100자, 종류는 `지갑/전자기기/가방/액세서리/기타`, 색상 ≤30자, 상세 설명 10~2000자, 날짜는 오늘 이전(미래 금지, 서버 JVM 시간대 기준), 지역은 17개 광역 지역(`서울`, `경기` 등), 상세 장소 ≤200자. 위반 시 `400 VALIDATION_ERROR`, 토큰 없음·만료·변조는 `401`입니다.
 - **DB 변경:** `lost_items`·`found_items`에 `region VARCHAR(20) NULL` 컬럼이 추가되었습니다. `dev` 프로필(`ddl-auto=update`)은 시작 시 자동으로 추가합니다. `JPA_DDL_AUTO=validate`로 실행하는 DB에는 먼저 다음을 실행하세요. 기존 행은 `region`이 `NULL`이며 화면에는 상세 장소만 표시됩니다.
 
@@ -194,7 +212,7 @@ ALTER TABLE found_items ADD COLUMN region VARCHAR(20) NULL;
 // GET /api/auth/me  (Authorization: Bearer <JWT>) → 200, signup 응답과 같은 사용자 DTO
 ```
 
-- 이메일은 앞뒤 공백 제거·소문자로 저장하며 중복 가입은 `409 EMAIL_ALREADY_EXISTS`입니다.
+- 회원가입 이메일은 `da@ee`처럼 확장자가 없는 주소, 빈 도메인·잘못된 도메인 구분을 거부합니다. Gmail·Naver·회사·학교 주소를 허용하며, 실제 메일함 존재 여부는 검사하지 않습니다. 앞뒤 공백 제거·소문자로 저장하며 중복 가입은 `409 EMAIL_ALREADY_EXISTS`입니다.
 - 회원가입 요청에는 권한 필드가 없으며 요청 JSON에 `role`을 넣어도 무시되고 항상 `USER`로 생성됩니다. `ADMIN`은 DB에서 직접 지정해야 합니다.
 - 로그인 실패는 이메일 미존재와 비밀번호 불일치를 구분하지 않고 같은 `401 INVALID_CREDENTIALS`를 반환합니다.
 - JWT(HS256)에는 `sub`(사용자 ID), `role`, `iat`, `exp`, `iss`만 담고 이메일·비밀번호는 넣지 않습니다. 서명·만료(허용 오차 60초)·발급자를 검증하며, `role`은 `ROLE_USER`/`ROLE_ADMIN` Authority로 매핑되어 `@PreAuthorize("hasRole('ADMIN')")` 등에 사용할 수 있습니다.
@@ -279,12 +297,12 @@ npm.cmd run dev
 
 1. MySQL과 Spring Boot를 실행합니다.
 2. `http://127.0.0.1:5173`의 페이지 하단 **서버 연결 확인** 버튼을 누릅니다.
-3. 연결 성공 문구를 확인합니다. 서버 미실행·잘못된 주소·CORS 오류·시간 초과는 화면에 오류로 표시되며 기존 데모 화면은 계속 사용할 수 있습니다.
+3. 연결 성공 문구를 확인합니다. 서버 미실행·잘못된 주소·CORS 오류·시간 초과는 화면에 오류로 표시됩니다. 데이터를 브라우저 예시로 대체하지 않습니다.
 4. API 주소를 설정하지 않으면 설정 안내가 표시됩니다. 자동 폴링이나 가짜 성공 응답은 없습니다.
 
-**로그인·회원가입**은 `/login`, `/signup` 화면에서 실제 서버 API를 호출합니다(서버가 꺼져 있으면 로그인할 수 없습니다). 가입 후 자동으로 로그인합니다. Access Token은 `sessionStorage`에만 저장되어 같은 탭 새로고침에는 유지되고, 탭·브라우저를 닫으면 사라집니다. 앱 시작 시 저장된 토큰은 `/api/auth/me`로 서버에 확인하며, 401이면 즉시 삭제합니다. 만료 시각이 되면 자동 로그아웃합니다. 토큰은 URL·로그·콘솔에 출력하지 않습니다. 인증이 필요한 요청은 `apiRequest(path, { accessToken })`(`frontend/src/services/apiClient.ts`)로 `Authorization` 헤더를 붙입니다. **매칭 추천**(`/matches`)은 로그인한 사용자의 서버 분실물을 기준으로 실제 추천 API를 호출하며 가상 데이터로 대체하지 않습니다. 헤더 알림 배지와 마이페이지 "알림" 탭의 **매칭 알림**도 서버 데이터만 사용합니다(반환 체험 소식은 별도 데모 섹션). 반환·경험치와 seed 예시 물품은 여전히 브라우저 데모 데이터입니다.
+**로그인·회원가입**은 `/login`, `/signup` 화면에서 실제 서버 API를 호출합니다(서버가 꺼져 있으면 로그인할 수 없습니다). 가입 후 자동으로 로그인합니다. Access Token은 `sessionStorage`에만 저장되어 같은 탭 새로고침에는 유지되고, 탭·브라우저를 닫으면 사라집니다. 앱 시작 시 저장된 토큰은 `/api/auth/me`로 서버에 확인하며, 401이면 즉시 삭제합니다. 만료 시각이 되면 자동 로그아웃합니다. 토큰은 URL·로그·콘솔에 출력하지 않습니다. 인증이 필요한 요청은 `apiRequest(path, { accessToken })`(`frontend/src/services/apiClient.ts`)로 `Authorization` 헤더를 붙입니다. **매칭 추천**(`/matches`)은 로그인한 사용자의 서버 분실물을 기준으로 실제 추천 API를 호출하며 가상 데이터로 대체하지 않습니다. 헤더 알림 배지와 마이페이지 "알림" 탭의 **매칭 알림**은 서버 데이터만 사용합니다. 활동 소식도 별도의 서버 알림 목록이며, 반환·QR·경험치는 계정별 MySQL 기록으로 조회합니다.
 
-기존 화면과 체험 흐름은 [프론트엔드 README](frontend/README.md)를 참고하세요.
+현재 화면과 이용 흐름은 [프론트엔드 README](frontend/README.md)를 참고하세요.
 
 ## 빌드와 테스트
 
@@ -302,20 +320,12 @@ npm.cmd run build
 
 기본 백엔드 테스트는 **test scope의 H2**로 실행하여 MySQL 없이 API·JPA 매핑·Validation·CORS·보안을 검증합니다. H2는 실행 JAR에 포함되지 않으며 실제 MySQL 호환성 검증을 대신하지 않습니다.
 
-별도 MySQL 계약 테스트도 제공합니다. 테스트 계정이 접근 가능한 **`lost_quest_test` 또는 `lost_quest_smoke` 전용 DB**를 생성한 후 다음을 실행합니다. 이 테스트는 매 테스트 전에 해당 DB의 물품·사용자 데이터를 비우므로 개발 DB와 계정을 공유하지 마세요. 지정된 테스트 DB 이름이 아니면 연결 전에 실패하며 H2로 대체하지 않습니다.
-
-```powershell
-cd backend
-$env:MYSQL_TEST_URL = 'jdbc:mysql://127.0.0.1:3306/lost_quest_test?connectionTimeZone=UTC'
-$env:MYSQL_TEST_USERNAME = 'YOUR_TEST_DB_USER'
-$env:MYSQL_TEST_PASSWORD = Read-Host '테스트 DB 비밀번호' -MaskInput
-.\mvnw.cmd -Pmysql-it verify
-```
+선택적인 MySQL 연결 테스트(`-Pmysql-it verify`)는 현재 `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`를 사용해 포트와 JDBC 연결만 확인합니다. 이 테스트는 데이터를 비우거나 CRUD 저장을 검증하지 않습니다. 실제 저장 흐름은 별도의 API·DB 점검이 필요합니다.
 
 ## 다음 단계
 
-1. 분실물/습득물 수정·삭제(작성자 권한 확인), 서버 측 필터·페이지네이션, 내 등록 물품 조회
+1. 분실물/습득물 수정·삭제(작성자 권한 확인), 서버 측 필터·페이지네이션
 2. 이미지 저장소 S3 전환, 경찰청 공공데이터 캐시, 매칭 추천에 이미지 유사도 항목 추가
-3. DB 마이그레이션·트랜잭션 규칙을 정한 뒤 이미지 저장, 공공데이터, AI 매칭을 각각 추가
+3. 명시적인 DB 마이그레이션과 이메일 인증 도입
 
-AWS·PWA·QR·반환·보상은 이후 별도 단계에서 구현합니다. 현재 저장소에는 이 기능의 서버 구현이나 실제 배포가 없습니다.
+반환·QR·보상은 서버에 구현되었습니다. AWS 배포·PWA·이미지 AI는 추후 작업입니다.

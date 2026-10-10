@@ -28,14 +28,22 @@ import java.util.List;
 public class FoundItemController {
 
     private final FoundItemService foundItemService;
+    private final com.lostquest.service.ReturnService returnService;
 
-    public FoundItemController(FoundItemService foundItemService) {
+    public FoundItemController(FoundItemService foundItemService, com.lostquest.service.ReturnService returnService) {
         this.foundItemService = foundItemService;
+        this.returnService = returnService;
     }
 
     @GetMapping
     public List<FoundItemResponse> getFoundItems() {
         return foundItemService.findAll();
+    }
+
+    @PostMapping("/{id}/ownership")
+    public FoundItemResponse configureOwnership(@AuthenticationPrincipal Jwt jwt, @PathVariable @Positive Long id,
+            @Valid @RequestBody com.lostquest.dto.OwnershipSetupRequest input) {
+        return returnService.configureOwnership(jwt.getSubject(), id, input);
     }
 
     @GetMapping("/{id}")

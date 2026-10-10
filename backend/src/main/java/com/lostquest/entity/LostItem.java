@@ -66,6 +66,8 @@ public class LostItem extends BaseEntity {
     @Column(nullable = false, length = 20)
     private LostItemStatus status;
 
+    public void markReturned() { status = LostItemStatus.RETURNED; }
+
     protected LostItem() {
     }
 

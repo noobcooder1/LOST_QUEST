@@ -29,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -78,6 +79,27 @@ class ItemControllerTest {
         author = userRepository.save(new User("author@lostquest.test", passwordEncoder.encode("Quest1234!"), "작성자", UserRole.USER));
         otherUser = userRepository.save(new User("other@lostquest.test", passwordEncoder.encode("Quest1234!"), "다른사람", UserRole.USER));
         token = jwtTokenProvider.issueAccessToken(author).value();
+    }
+
+    @Test
+    @DisplayName("분실·습득 날짜와 별개로 실제 등록 시각을 서버가 생성하고 조회 시에도 유지")
+    void registrationTimestampIsActualServerTime() throws Exception {
+        for (String type : new String[]{"lost", "found"}) {
+            Map<String, Object> request = type.equals("lost") ? lostBody() : foundBody();
+            String dateField = type.equals("lost") ? "lostDate" : "foundDate";
+            request.put(dateField, "2000-01-02");
+            request.put("createdAt", "1999-01-01T00:00:00Z");
+            Instant before = Instant.now();
+            JsonNode created = readJson(postItem("/api/" + type + "-items", request, token)
+                    .andExpect(status().isCreated()));
+            Instant after = Instant.now();
+            Instant actual = Instant.parse(created.get("createdAt").asText());
+            assertThat(actual).isBetween(before, after);
+            assertThat(created.get(dateField).asText()).isEqualTo("2000-01-02");
+            JsonNode loaded = readJson(mockMvc.perform(get("/api/" + type + "-items/" + created.get("id").asLong()))
+                    .andExpect(status().isOk()));
+            assertThat(Instant.parse(loaded.get("createdAt").asText())).isEqualTo(actual);
+        }
     }
 
     @Test

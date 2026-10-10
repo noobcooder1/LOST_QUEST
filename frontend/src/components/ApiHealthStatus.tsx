@@ -32,11 +32,11 @@ export default function ApiHealthStatus() {
   const message = state.status === 'not-configured'
     ? '연결 설정 전이에요. frontend/.env.local에 VITE_API_BASE_URL을 설정하고 개발 서버를 다시 시작해 주세요.'
     : state.status === 'idle'
-      ? '버튼을 누르면 백엔드 상태를 확인해요. 물품·반환 체험은 브라우저의 데모 데이터로 동작해요.'
+      ? '버튼을 누르면 회원·물품·반환 기능에 사용하는 서버의 응답을 확인해요.'
       : state.status === 'loading'
         ? '백엔드 응답을 기다리고 있어요. 최대 5초가 걸려요.'
         : state.status === 'success'
-          ? 'LOST QUEST API 연결을 확인했어요. 물품·반환 데이터는 기존 브라우저 데모를 계속 사용해요.'
+          ? 'LOST QUEST API가 정상 응답했어요. 저장된 기록은 각 화면에서 확인할 수 있어요.'
           : state.message;
 
   return <section className={`api-health-status api-health-${state.status}`} aria-label="백엔드 연결 확인">

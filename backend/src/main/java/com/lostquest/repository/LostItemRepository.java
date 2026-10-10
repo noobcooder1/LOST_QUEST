@@ -12,6 +12,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface LostItemRepository extends JpaRepository<LostItem, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select l from LostItem l where l.id = :id")
+    Optional<LostItem> findLocked(@Param("id") Long id);
+    long countByUser_Id(Long userId);
 
     List<LostItem> findAllByOrderByIdAsc();
 

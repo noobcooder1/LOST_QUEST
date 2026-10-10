@@ -17,6 +17,7 @@ public abstract class BaseEntity {
     private Long id;
 
     @Column(name = "created_at", nullable = false, updatable = false)
+    // An actual registration instant, persisted in UTC. Event dates are separate fields.
     private Instant createdAt;
 
     protected BaseEntity() {

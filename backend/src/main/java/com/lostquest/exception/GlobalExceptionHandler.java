@@ -26,6 +26,11 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    @ExceptionHandler(WorkflowConflictException.class)
+    public ResponseEntity<ApiError> handleWorkflowConflict(WorkflowConflictException ex, HttpServletRequest request) {
+        return ResponseEntity.status(409).body(ApiError.of(409, "WORKFLOW_CONFLICT", ex.getMessage(), request.getRequestURI()));
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiError> handleNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
         return ResponseEntity.status(404).body(ApiError.of(404, "NOT_FOUND", ex.getMessage(), request.getRequestURI()));

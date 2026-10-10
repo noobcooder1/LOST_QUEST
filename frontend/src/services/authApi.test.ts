@@ -12,6 +12,12 @@ afterEach(() => {
 });
 
 describe('auth API', () => {
+  it.each(['da@ee', 'da@ee.', 'da@.com', 'da@-mail.com', 'da@mail-.com', 'da@mail..com', 'da..ee@gmail.com', 'da ee@gmail.com', '@gmail.com', 'da@gmail.c', 'da@gmail.123'])('blocks malformed signup email %s before sending a request', async (email) => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(signup({ email, password: 'Quest1234!', nickname: '검증' }, BASE)).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
   it('signs up with trimmed email/nickname, never sends a role, and whitelists the returned user', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ ...USER, password: '$2a$10$hash' }, 201));
     vi.stubGlobal('fetch', fetchMock);
