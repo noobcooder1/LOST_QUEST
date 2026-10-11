@@ -35,10 +35,10 @@ class ReturnControllerTest {
     @Autowired PasswordEncoder passwords;
     @Autowired OwnershipProof proof;
     @Autowired EntityManager entities;
-    User requester, finder, stranger;
+    User requester, finder, stranger, admin;
     FoundItem item;
     LostItem linked;
-    String requesterToken, finderToken, strangerToken;
+    String requesterToken, finderToken, strangerToken, adminToken;
     @BeforeEach void setup() {
         String hash = passwords.encode("Quest1234!");
         requester = users.save(new User("owner@lostquest.test", hash, "소유자", UserRole.USER));
@@ -47,6 +47,8 @@ class ReturnControllerTest {
         requesterToken = tokens.issueAccessToken(requester).value();
         finderToken = tokens.issueAccessToken(finder).value();
         strangerToken = tokens.issueAccessToken(stranger).value();
+        admin = users.save(new User("admin@lostquest.test", hash, "관리자", UserRole.ADMIN));
+        adminToken = tokens.issueAccessToken(admin).value();
         item = new FoundItem(finder, "검은색 지갑", "지갑", "검정", "안쪽에 스티커가 있는 지갑입니다",
                 LocalDate.now(), "서울", "서울역", null, FoundItemStatus.STORED);
         item.configureOwnership("안쪽 스티커 색상은?", proof.encode("파란색"));
@@ -77,8 +79,9 @@ class ReturnControllerTest {
         Long id = create(); verify(id); approve(id);
         String token = qr(id);
         postJson(finderToken,path(id,"verify-qr"),Map.of("token","LOSTQUEST:RETURN:" + id + ":" + token)).andExpect(status().isOk());
-        postJson(finderToken,path(id,"complete"),Map.of()).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("COMPLETED"));
-        postJson(finderToken,path(id,"complete"),Map.of()).andExpect(status().isOk());
+        postJson(finderToken,path(id,"complete"),Map.of()).andExpect(status().isForbidden());
+        postJson(adminToken,path(id,"complete"),Map.of()).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("COMPLETED"));
+        postJson(adminToken,path(id,"complete"),Map.of()).andExpect(status().isOk());
         entities.flush(); entities.clear();
         ReturnRequest saved = returns.findById(id).orElseThrow();
         assertThat(saved.getStatus()).isEqualTo(ReturnStatus.COMPLETED);
@@ -105,7 +108,8 @@ class ReturnControllerTest {
         Long id = create();
         postJson(requesterToken,path(id,"approve"),Map.of()).andExpect(status().isForbidden());
         postJson(strangerToken,path(id,"complete"),Map.of()).andExpect(status().isForbidden());
-        postJson(finderToken,path(id,"complete"),Map.of()).andExpect(status().isConflict());
+        postJson(finderToken,path(id,"complete"),Map.of()).andExpect(status().isForbidden());
+        postJson(adminToken,path(id,"complete"),Map.of()).andExpect(status().isConflict());
         postJson(finderToken,path(id,"approve"),Map.of()).andExpect(status().isConflict());
         postJson(finderToken,path(id,"verify-owner"),Map.of("answer","파란색")).andExpect(status().isForbidden());
         postJson(requesterToken,path(id,"verify-owner"),Map.of("answer","wrong")).andExpect(status().isBadRequest());
@@ -121,7 +125,10 @@ class ReturnControllerTest {
     }
     @Test void expiredQrRequiresRenewalAndOldQrStopsWorking() throws Exception {
         Long id = create(); verify(id); approve(id); String old = qr(id);
-        ReturnRequest request = returns.findById(id).orElseThrow(); request.issueQr(old, Instant.now().minusSeconds(1)); entities.flush();
+        entities.flush();
+        entities.createQuery("update ReturnRequest r set r.qrExpiresAt = :t where r.id = :id")
+            .setParameter("t", Instant.now().minusSeconds(1)).setParameter("id", id).executeUpdate();
+        entities.clear();
         postJson(finderToken,path(id,"verify-qr"),Map.of("token",old)).andExpect(status().isConflict());
         postJson(finderToken,path(id,"renew-qr"),Map.of()).andExpect(status().isOk());
         assertThat(qr(id)).isNotEqualTo(old);

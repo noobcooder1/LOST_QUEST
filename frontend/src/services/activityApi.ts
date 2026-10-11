@@ -20,7 +20,10 @@ export function parseReturn(value: unknown): { request: ReturnRequest; items: It
       status: r.status.toLowerCase() as ReturnStatus, createdAt: r.createdAt, updatedAt: r.updatedAt,
       requesterId: r.requesterId, finderId: r.finderId,
       ...(typeof r.qrToken === 'string' ? { qrToken: r.qrToken } : {}),
-      ...(typeof r.qrExpiresAt === 'string' ? { qrExpiresAt: r.qrExpiresAt } : {}) },
+      ...(typeof r.qrExpiresAt === 'string' ? { qrExpiresAt: r.qrExpiresAt } : {}),
+      ...(typeof r.ownershipAttemptsRemaining === 'number' && Number.isSafeInteger(r.ownershipAttemptsRemaining) && r.ownershipAttemptsRemaining >= 0
+        ? { ownershipAttemptsRemaining: r.ownershipAttemptsRemaining } : {}),
+      ...(typeof r.ownershipLocked === 'boolean' ? { ownershipLocked: r.ownershipLocked } : {}) },
     items: [found, ...(lost ? [lost] : [])],
   };
 }

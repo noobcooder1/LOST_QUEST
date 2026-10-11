@@ -157,13 +157,28 @@ Copy-Item application-local.example.yml application-local.yml
 | POST | `/api/me/activity/read-all` | 내 활동 소식 모두 읽음 |
 | GET/POST | `/api/returns` | 권한에 맞는 반환 목록 / 반환 요청 생성 |
 | GET | `/api/returns/{id}` | 요청자·습득자·관리자에게 반환 상세 제공 |
-| POST | `/api/returns/{id}/verify-owner` | 요청자 비공개 특징 확인 |
+| POST | `/api/returns/{id}/verify-owner` | 요청자 비공개 특징 확인 (요청당 오답 5회 제한) |
 | POST | `/api/returns/{id}/approve` | 습득자·관리자 승인 및 QR 발급 |
 | POST | `/api/returns/{id}/verify-qr` | 습득자·관리자가 QR 코드 검증 |
 | POST | `/api/returns/{id}/renew-qr` | 승인 상태에서 새 QR 발급 |
-| POST | `/api/returns/{id}/complete` | 최종 반환 확인·상태 변경·습득자 XP 지급 |
+| POST | `/api/returns/{id}/complete` | **관리자(ADMIN)만** 최종 반환 확정·상태 변경·습득자 XP 지급 |
 | POST | `/api/returns/{id}/reject` | 반환 요청 반려 |
 | POST | `/api/found-items/{id}/ownership` | 등록자의 소유 확인 질문·답변 설정 |
+
+반환 보안 정책 (5주차 보완):
+
+- **권한:** 요청자는 소유자 확인, 습득자·관리자는 승인·반려·QR 검증, **최종 반환 완료는 관리자만** 할 수 있습니다. 역할은 JWT가 아니라 DB의 사용자 역할로 확인합니다. 습득자 본인도 일반 USER면 `403`입니다.
+- **비공개 특징:** 반환 요청마다 오답 5회까지 허용합니다. 실패 횟수는 DB(`ownership_failed_attempts`)에 저장되어 재시작해도 유지되고, 행 잠금으로 동시 요청도 한도를 넘지 못합니다. 한도를 넘으면 `409`이며, 습득자·관리자가 요청을 반려한 뒤에만 새 요청(새 한도)을 만들 수 있습니다. 정답·해시는 어떤 응답에도 포함되지 않습니다.
+- **QR:** DB에는 발급마다 새로 만드는 난수(`qr_nonce`)만 저장합니다. QR 코드는 서버 비밀키에서 분리한 키로 계산한 `HMAC(반환 ID, nonce)`라서 DB만으로는 만들 수 없습니다. 요청자는 새로고침해도 같은 QR을 다시 볼 수 있습니다. 30분 유효, 1회 사용 후 무효, 재발급 시 이전 QR 무효, 다른 반환 요청에는 사용할 수 없습니다. 이전 방식으로 원문(`qr_token`)이 저장된 진행 중 요청은 만료·재발급·사용 전까지 그대로 동작하며, 재발급이나 사용 시 원문이 지워집니다.
+- **완료·XP:** 완료와 물품 상태 변경은 한 트랜잭션에서 처리됩니다. XP는 습득자에게 요청당 1회만 지급되며(`uk_experience_user_event`), 완료된 요청을 다시 호출하면 상태 변경 없이 `200`을 반환합니다.
+
+**DB 변경:** `return_requests`에 `qr_nonce VARCHAR(64) NULL`과 `ownership_failed_attempts INT NOT NULL DEFAULT 0` 컬럼이 추가되었습니다. `dev` 프로필(`ddl-auto=update`)은 시작 시 자동으로 추가합니다. `JPA_DDL_AUTO=validate`로 실행하는 DB에는 먼저 다음을 실행하세요. 기존 행은 삭제·변경되지 않습니다.
+
+```sql
+ALTER TABLE return_requests
+  ADD COLUMN qr_nonce VARCHAR(64) NULL,
+  ADD COLUMN ownership_failed_attempts INT NOT NULL DEFAULT 0;
+```
 
 
 목록은 ID 오름차순이며 아직 필터·페이지네이션·수정·삭제 API는 없습니다. 응답에는 `id`, `userId`, 물품 정보, `region`, 문자열 상태, `createdAt`이 포함됩니다. 날짜는 `YYYY-MM-DD`, 생성 시각은 UTC ISO 8601입니다. 프론트엔드는 `frontend/src/services/itemApi.ts`에서 서버 DTO를 화면용 `Item`으로 변환하며, 서버 물품의 화면 ID는 `api-lost-12`/`api-found-7` 형식입니다.
@@ -321,6 +336,19 @@ npm.cmd run build
 기본 백엔드 테스트는 **test scope의 H2**로 실행하여 MySQL 없이 API·JPA 매핑·Validation·CORS·보안을 검증합니다. H2는 실행 JAR에 포함되지 않으며 실제 MySQL 호환성 검증을 대신하지 않습니다.
 
 선택적인 MySQL 연결 테스트(`-Pmysql-it verify`)는 현재 `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`를 사용해 포트와 JDBC 연결만 확인합니다. 이 테스트는 데이터를 비우거나 CRUD 저장을 검증하지 않습니다. 실제 저장 흐름은 별도의 API·DB 점검이 필요합니다.
+
+반환 테스트(`ReturnControllerTest`, `ReturnSecurityTest`, `ReturnConcurrencyTest`)는 **비어 있는 MySQL 테스트 전용 DB**에서도 실행할 수 있습니다. 테스트 프로필은 `create-drop`이므로 테이블을 만들고 종료 시 삭제합니다. **개발 DB(`lost_quest`)나 공용 DB를 지정하지 마세요.**
+
+```powershell
+cd backend
+$url = 'jdbc:mysql://127.0.0.1:3306/<빈_테스트_DB>?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&characterEncoding=UTF-8'
+$env:SPRING_DATASOURCE_URL = $url
+$env:LOSTQUEST_RETURN_CONCURRENCY_DB_URL = $url
+$env:SPRING_DATASOURCE_DRIVER_CLASS_NAME = 'com.mysql.cj.jdbc.Driver'
+$env:SPRING_DATASOURCE_USERNAME = 'YOUR_TEST_DB_USER'
+$env:SPRING_DATASOURCE_PASSWORD = Read-Host '테스트 DB 비밀번호' -MaskInput
+.\mvnw.cmd test "-Dtest=ReturnControllerTest,ReturnSecurityTest,ReturnConcurrencyTest"
+```
 
 ## 다음 단계
 
