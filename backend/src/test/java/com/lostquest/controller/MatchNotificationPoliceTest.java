@@ -109,11 +109,15 @@ class MatchNotificationPoliceTest {
                 "카드 두 장이 들어 있는 검은색 반지갑입니다.", LOST, "서울", "서울숲역 3번 출구", null, LostItemStatus.LOST));
     }
 
+    @Autowired private com.lostquest.repository.ActivityNotificationRepository activityNotifications;
+    @Autowired private com.lostquest.repository.ExperienceEventRepository experienceEvents;
     @AfterEach
     void cleanUp() {
         notificationRepository.deleteAll();
         foundItemRepository.deleteAll();
         lostItemRepository.deleteAll();
+        activityNotifications.deleteAll();
+        experienceEvents.deleteAll();
         userRepository.deleteAll();
     }
 

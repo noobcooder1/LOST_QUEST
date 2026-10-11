@@ -6,10 +6,12 @@ import { defaultItemImage } from '../data/seed';
 import { describeMyItemsError, listMyItems, type MyItems } from '../services/itemApi';
 import type { Item } from '../types';
 import ItemImage from './ItemImage';
+import { formatRegistrationTime } from '../services/dateTime';
 
 type State = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; items: MyItems };
 
 function MyItemCard({ item }: { item: Item }) {
+  const registeredAt = formatRegistrationTime(item.createdAt);
   return <Link className="card profile-item" to={`/items/${item.id}`} aria-label={`${item.title} 상세 보기`}>
     <span className="profile-item-photo"><ItemImage src={item.image} fallbackSrc={defaultItemImage(item.category, item.title)} alt={item.title} loading="lazy" /></span>
     <div>
@@ -17,6 +19,7 @@ function MyItemCard({ item }: { item: Item }) {
       <h3>{item.title}</h3>
       <p>{item.region || item.location}</p>
       <time className="muted" dateTime={item.date}>{item.type === 'lost' ? '분실' : '습득'} {item.date}</time>
+      {registeredAt && <p className="item-registration-time">글 등록 <time dateTime={item.createdAt}>{registeredAt}</time> (한국 시간)</p>}
     </div>
     <ChevronRight size={17} aria-hidden="true" />
   </Link>;

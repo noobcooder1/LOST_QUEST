@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Check, Compass, HeartHandshake, LockKeyhole, Mail, ShieldCheck, Sparkles, UserRound } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { describeAuthError } from '../services/authApi'
+import { EMAIL_MESSAGE, isValidSignupEmail } from '../services/emailValidation'
 import './JourneyPages.css'
 
 export default function AuthPage() {
@@ -26,6 +27,7 @@ export default function AuthPage() {
     if (submitting) return
     if (isSignup && !nickname.trim()) { setError('닉네임을 입력해 주세요.'); return }
     if (!email.trim()) { setError('이메일을 입력해 주세요.'); return }
+    if (isSignup && !isValidSignupEmail(email)) { setError(EMAIL_MESSAGE); return }
     if (!password) { setError('비밀번호를 입력해 주세요.'); return }
     if (isSignup && password.length < 8) { setError('비밀번호는 8자 이상이어야 해요.'); return }
     if (isSignup && !agreed) { setError('회원 정보 저장 안내에 동의해 주세요.'); return }
@@ -82,7 +84,7 @@ export default function AuthPage() {
             {error && <p className="field-error" role="alert" style={{ whiteSpace: 'pre-line' }}>{error}</p>}
             <button type="submit" className="button button-primary auth-submit" disabled={submitting} aria-busy={submitting}>{submitting ? '처리 중이에요…' : isSignup ? '가입하고 시작하기' : '로그인'} <ArrowRight size={18} /></button>
           </form>
-          <div className="auth-demo-note"><ShieldCheck size={20} /><div><strong>안전하게 로그인해요</strong><p>로그인 상태는 이 브라우저 탭에서만 유지되고, 브라우저를 닫으면 로그아웃돼요. 물품·반환·경험치 기능은 아직 체험용 데이터로 동작해요.</p></div></div>
+          <div className="auth-demo-note"><ShieldCheck size={20} /><div><strong>안전하게 로그인해요</strong><p>회원·등록 물품·반환 기록과 경험치는 계정에 저장돼요. 로그인 상태는 이 브라우저 탭에서만 유지됩니다.</p></div></div>
           <p className="auth-browse">아직 둘러보는 중인가요? <Link to="/search">로그인 없이 물품 찾기 <ArrowRight size={14} /></Link></p>
         </>}
       </section>

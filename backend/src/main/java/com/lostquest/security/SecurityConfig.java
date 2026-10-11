@@ -57,6 +57,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/lost-items", "/api/found-items").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/notifications/{id}/read", "/api/notifications/read-all",
                                 "/api/notifications/refresh").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/me/activity", "/api/returns", "/api/returns/{id}").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/returns", "/api/returns/{id}/verify-owner",
+                                "/api/returns/{id}/approve", "/api/returns/{id}/verify-qr", "/api/returns/{id}/renew-qr",
+                                "/api/returns/{id}/complete", "/api/returns/{id}/reject",
+                                "/api/me/activity/read-all", "/api/found-items/{id}/ownership").authenticated()
                         .anyRequest().denyAll())
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))

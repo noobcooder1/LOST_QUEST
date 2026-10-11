@@ -8,8 +8,6 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -22,7 +20,7 @@ import java.util.regex.Pattern;
 
 /**
  * Validates uploaded item images and stores them under server-generated names. The database keeps
- * only the server-relative URL ({@code /api/images/<uuid>.<ext>}); file system paths never leave here.
+ * the image bytes as well as the server-relative URL ({@code /api/images/<uuid>.<ext>}); file system paths never leave here.
  */
 @Service
 public class ImageService {
@@ -39,11 +37,7 @@ public class ImageService {
         this.storage = storage;
     }
 
-    /**
-     * Stores the image for an item being created in the caller's transaction and returns its
-     * server-relative URL. If that transaction does not commit (e.g. the INSERT fails), the file is
-     * deleted so no orphan remains.
-     */
+    /** Saves the image bytes in the item's transaction, so a rollback leaves no orphan image. */
     @Transactional(propagation = Propagation.MANDATORY)
     public String storeForNewItem(MultipartFile file) {
         if (file.getSize() > MAX_BYTES) {
@@ -66,14 +60,6 @@ public class ImageService {
 
         String key = UUID.randomUUID() + "." + detected.extension;
         storage.save(key, content);
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCompletion(int status) {
-                if (status != STATUS_COMMITTED) {
-                    storage.delete(key);
-                }
-            }
-        });
         return URL_PREFIX + key;
     }
 

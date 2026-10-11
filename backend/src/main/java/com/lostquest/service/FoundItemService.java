@@ -23,13 +23,18 @@ public class FoundItemService {
     private final CurrentUserReader currentUserReader;
     private final ImageService imageService;
     private final ApplicationEventPublisher eventPublisher;
+    private final ActivityService activityService;
+    private final OwnershipProof ownershipProof;
 
     public FoundItemService(FoundItemRepository foundItemRepository, CurrentUserReader currentUserReader,
-                            ImageService imageService, ApplicationEventPublisher eventPublisher) {
+                            ImageService imageService, ApplicationEventPublisher eventPublisher,
+                            ActivityService activityService, OwnershipProof ownershipProof) {
         this.foundItemRepository = foundItemRepository;
         this.currentUserReader = currentUserReader;
         this.imageService = imageService;
         this.eventPublisher = eventPublisher;
+        this.activityService = activityService;
+        this.ownershipProof = ownershipProof;
     }
 
     public List<FoundItemResponse> findAll() {
@@ -57,11 +62,17 @@ public class FoundItemService {
     @Transactional
     public FoundItemResponse create(String authenticatedSubject, CreateFoundItemRequest request, MultipartFile image) {
         User author = currentUserReader.require(authenticatedSubject);
+        boolean hasQuestion = request.ownershipQuestion() != null && !request.ownershipQuestion().isBlank();
+        boolean hasAnswer = request.ownershipAnswer() != null && !request.ownershipAnswer().isBlank();
+        if (hasQuestion != hasAnswer) throw new com.lostquest.exception.InvalidRequestParameterException(
+                "ownershipAnswer", "소유자 확인 질문과 답변을 함께 입력해 주세요.");
         String imageUrl = isPresent(image) ? imageService.storeForNewItem(image) : null;
         FoundItem item = new FoundItem(author, request.title().trim(),
                 request.category(), request.color().trim(), request.description().trim(), request.foundDate(),
                 request.region(), request.location().trim(), imageUrl, FoundItemStatus.STORED);
         FoundItem saved = foundItemRepository.saveAndFlush(item);
+        if (hasAnswer) saved.configureOwnership(request.ownershipQuestion().trim(), ownershipProof.encode(request.ownershipAnswer()));
+        activityService.registered(author, "found", saved.getId(), saved.getTitle());
         // Match notifications for lost-item owners are created only after this registration commits.
         eventPublisher.publishEvent(new FoundItemRegisteredEvent(saved.getId(), author.getId()));
         return FoundItemResponse.from(saved);

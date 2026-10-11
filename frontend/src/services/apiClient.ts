@@ -3,7 +3,7 @@ export interface ApiHealthResponse {
   service: 'LOST QUEST API';
 }
 
-export type ApiErrorCode = 'NOT_CONFIGURED' | 'INVALID_CONFIG' | 'HTTP_ERROR' | 'INVALID_RESPONSE' | 'TIMEOUT' | 'NETWORK_ERROR';
+export type ApiErrorCode = 'NOT_CONFIGURED' | 'INVALID_CONFIG' | 'INVALID_INPUT' | 'HTTP_ERROR' | 'INVALID_RESPONSE' | 'TIMEOUT' | 'NETWORK_ERROR';
 
 export interface ApiFieldError {
   field: string;
@@ -52,7 +52,7 @@ function apiUrl(baseUrl: string, path: string): string {
   }
 }
 
-/** This optional connection check is independent of the local item/return demo. */
+/** HTTP liveness check; item and activity APIs verify database access separately. */
 export async function checkApiHealth(options: { baseUrl?: string; timeoutMs?: number } = {}): Promise<ApiHealthResponse> {
   const url = healthUrl(options.baseUrl ?? getApiBaseUrl());
   const timeoutMs = options.timeoutMs ?? 5_000;

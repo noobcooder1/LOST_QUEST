@@ -117,6 +117,7 @@ describe('MyItemList', () => {
     expect(recent.textContent).toContain('분실물');
     expect(recent.textContent).toContain('서울');
     expect(recent.textContent).toContain('분실 2026-09-16');
+    expect(recent.textContent).toContain('글 등록 2026. 10. 01 09:00:00 (한국 시간)');
     expect(old.textContent).toContain('오래된 분실물');
     expect(earbuds.textContent).toContain('습득물');
     expect(earbuds.textContent).toContain('경기');

@@ -20,12 +20,14 @@ public class LostItemService {
     private final LostItemRepository lostItemRepository;
     private final CurrentUserReader currentUserReader;
     private final ImageService imageService;
+    private final ActivityService activityService;
 
     public LostItemService(LostItemRepository lostItemRepository, CurrentUserReader currentUserReader,
-                          ImageService imageService) {
+                          ImageService imageService, ActivityService activityService) {
         this.lostItemRepository = lostItemRepository;
         this.currentUserReader = currentUserReader;
         this.imageService = imageService;
+        this.activityService = activityService;
     }
 
     public List<LostItemResponse> findAll() {
@@ -57,7 +59,9 @@ public class LostItemService {
         LostItem item = new LostItem(author, request.title().trim(),
                 request.category(), request.color().trim(), request.description().trim(), request.lostDate(),
                 request.region(), request.location().trim(), imageUrl, LostItemStatus.LOST);
-        return LostItemResponse.from(lostItemRepository.saveAndFlush(item));
+        LostItem saved = lostItemRepository.saveAndFlush(item);
+        activityService.registered(author, "lost", saved.getId(), saved.getTitle());
+        return LostItemResponse.from(saved);
     }
 
     /** An empty file part without a name is what a form sends when no file was chosen. */

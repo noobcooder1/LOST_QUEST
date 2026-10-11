@@ -9,6 +9,8 @@ import com.lostquest.security.JwtProperties;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -55,6 +57,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuthControllerTest {
 
     private static final String PASSWORD = "Quest1234!";
+
+    @ParameterizedTest
+    @ValueSource(strings = {"da@ee", "da@ee.", "da@.com", "da@-mail.com", "da@mail-.com", "da@mail..com", "da..ee@gmail.com", "da ee@gmail.com", "@gmail.com", "da@gmail.c", "da@gmail.123"})
+    void signupRejectsIncompleteEmailWithoutSaving(String email) throws Exception {
+        signup(email, PASSWORD, "검증")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.errors[*].field", hasItem("email")));
+        assertThat(userRepository.count()).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"hunter@gmail.com", "hunter@naver.com", "first.last+quest@company.co.kr", " HUNTER@school.ac.kr "})
+    void signupAcceptsPublicDomainSyntaxAndNormalizes(String email) throws Exception {
+        signup(email, PASSWORD, "검증").andExpect(status().isCreated());
+        assertThat(userRepository.findByEmail(email.trim().toLowerCase(java.util.Locale.ROOT))).isPresent();
+    }
 
     @Autowired
     private MockMvc mockMvc;

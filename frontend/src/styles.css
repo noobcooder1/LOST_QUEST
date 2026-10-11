@@ -34,6 +34,8 @@ h1,h2,h3,p{word-break:keep-all;overflow-wrap:anywhere}
 .item-location{align-items:flex-start;white-space:normal;line-height:1.6;overflow-wrap:anywhere}
 .item-location svg{margin-top:4px}
 .item-card-bottom{gap:8px}
+.item-registration-time{font-size:.875rem;color:#7d8b98;line-height:1.6;margin-top:8px;overflow-wrap:anywhere}
+.registration-zone{display:block;color:#7d8b98;font-size:.875rem;margin-top:3px}
 .service-card p,.ai-banner-copy p{line-height:1.7}
 .quest-preview-top{flex-wrap:wrap}
 .quest-preview-top>div:nth-child(2){flex:1;min-width:140px}

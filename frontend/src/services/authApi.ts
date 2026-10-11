@@ -1,5 +1,6 @@
 import { ApiClientError, apiRequest, type ApiRequestOptions } from './apiClient';
 import { clearAuthSession, loadAuthSession } from './authSession';
+import { EMAIL_MESSAGE, isValidSignupEmail } from './emailValidation';
 
 export type UserRole = 'USER' | 'ADMIN';
 
@@ -36,6 +37,7 @@ function parseAuthUser(value: unknown): AuthUser {
 }
 
 export async function signup(input: SignupInput, config: RequestConfig = {}): Promise<AuthUser> {
+  if (!isValidSignupEmail(input.email)) throw new ApiClientError('INVALID_INPUT', EMAIL_MESSAGE);
   const body = { email: input.email.trim(), password: input.password, nickname: input.nickname.trim() };
   return parseAuthUser(await apiRequest('/api/auth/signup', { ...config, method: 'POST', body }));
 }

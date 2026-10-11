@@ -32,14 +32,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.matchesPattern;
@@ -53,7 +51,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Not @Transactional: uploads must go through real commits/rollbacks so file cleanup is exercised.
+ * Not @Transactional: uploads must go through real commits/rollbacks so database image rollback is exercised.
  * Rows and files are removed after each test.
  */
 @SpringBootTest
@@ -97,6 +95,8 @@ class ItemImageUploadTest {
     @Autowired
     private PlatformTransactionManager transactionManager;
 
+    @Autowired private com.lostquest.repository.ItemImageRepository storedImages;
+
     private User author;
     private String token;
     private Path storageDir;
@@ -108,14 +108,16 @@ class ItemImageUploadTest {
         storageDir = Paths.get(storageProperties.localDir()).toAbsolutePath().normalize();
     }
 
+    @Autowired private com.lostquest.repository.ActivityNotificationRepository activityNotifications;
+    @Autowired private com.lostquest.repository.ExperienceEventRepository experienceEvents;
     @AfterEach
     void cleanUp() throws IOException {
         lostItemRepository.deleteAll();
         foundItemRepository.deleteAll();
+        activityNotifications.deleteAll();
+        experienceEvents.deleteAll();
         userRepository.deleteAll();
-        for (Path file : storedFiles()) {
-            Files.deleteIfExists(file);
-        }
+        storedImages.deleteAll();
     }
 
     @Test
@@ -132,7 +134,7 @@ class ItemImageUploadTest {
         String imageUrl = body.get("imageUrl").asText();
         assertThat(lostItemRepository.findById(body.get("id").asLong()).orElseThrow().getImageUrl()).isEqualTo(imageUrl);
         Path stored = storageDir.resolve(imageUrl.substring("/api/images/".length()));
-        assertThat(Files.readAllBytes(stored)).isEqualTo(JPEG);
+        assertThat(storedImages.findById(stored.getFileName().toString()).orElseThrow().getContent()).isEqualTo(JPEG);
         assertThat(storedFiles()).containsExactly(stored);
     }
 
@@ -335,8 +337,8 @@ class ItemImageUploadTest {
     }
 
     @Test
-    @DisplayName("저장 후 트랜잭션이 커밋되지 않으면 파일 삭제, 커밋되면 유지")
-    void deletesFileWhenTransactionRollsBack() throws IOException {
+    @DisplayName("이미지 바이트는 DB에 저장되고 등록 트랜잭션 롤백 시 함께 제거")
+    void rollsBackImageBytesWithDatabaseTransaction() throws IOException {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
         String rolledBack = tx.execute(status -> {
             String url = imageService.storeForNewItem(image("a.jpg", "image/jpeg", JPEG));
@@ -393,14 +395,7 @@ class ItemImageUploadTest {
     }
 
     private List<Path> storedFiles() {
-        if (!Files.isDirectory(storageDir)) {
-            return List.of();
-        }
-        try (Stream<Path> files = Files.list(storageDir)) {
-            return files.toList();
-        } catch (IOException ex) {
-            throw new java.io.UncheckedIOException(ex);
-        }
+        return storedImages.findAll().stream().map(image -> storageDir.resolve(image.getFilename())).toList();
     }
 
     private Map<String, Object> lostItem() {

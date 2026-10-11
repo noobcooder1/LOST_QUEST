@@ -2,10 +2,10 @@ import { defaultItemImage } from '../data/seed';
 import type { Item, ItemType } from '../types';
 import { ApiClientError, apiRequest, getApiBaseUrl, type ApiRequestOptions } from './apiClient';
 import { loadAuthSession } from './authSession';
+import { isTimestamp } from './dateTime';
 
 /**
- * Community items registered through LOST QUEST live in Spring Boot + MySQL. Public items are
- * still seed data. Server items get route ids like `api-lost-12` so lost/found ids never collide
+ * Community items registered through LOST QUEST live in Spring Boot + MySQL. Police items come from their public-data API. Server items get route ids like `api-lost-12` so lost/found ids never collide
  * with each other or with seed ids such as `found-wallet-1`.
  */
 const SERVER_ID = /^api-(lost|found)-([1-9]\d{0,15})$/;
@@ -27,6 +27,8 @@ export interface CreateItemInput {
   date: string;
   region: string;
   location: string;
+  ownershipQuestion?: string;
+  ownershipAnswer?: string;
 }
 
 export function toServerRouteId(type: ItemType, serverId: number): string {
@@ -63,7 +65,8 @@ export function fromServerItem(type: ItemType, value: unknown, baseUrl = getApiB
   if (typeof raw.id !== 'number' || !Number.isSafeInteger(raw.id) || raw.id <= 0 || typeof raw.userId !== 'number' ||
       !isText(raw.title) || !isText(raw.category) || !isText(raw.location) || !isDate(date) || !isText(raw.status) ||
       (raw.color != null && !isText(raw.color)) || (raw.description != null && !isText(raw.description)) ||
-      (raw.region != null && !isText(raw.region))) throw invalidResponse();
+      (raw.region != null && !isText(raw.region)) ||
+      (raw.createdAt != null && !isTimestamp(raw.createdAt))) throw invalidResponse();
   return {
     id: toServerRouteId(type, raw.id),
     title: raw.title,
@@ -71,6 +74,7 @@ export function fromServerItem(type: ItemType, value: unknown, baseUrl = getApiB
     category: raw.category,
     color: isText(raw.color) ? raw.color : '',
     date,
+    ...(isTimestamp(raw.createdAt) ? { createdAt: raw.createdAt } : {}),
     // Rows created before the region column existed have no region; they show the location only.
     region: isText(raw.region) ? raw.region : '',
     location: raw.location,
@@ -82,6 +86,8 @@ export function fromServerItem(type: ItemType, value: unknown, baseUrl = getApiB
     createdBy: 'server',
     serverId: raw.id,
     ownerId: raw.userId,
+    ...(typeof raw.ownershipQuestion === 'string' ? { ownershipQuestion: raw.ownershipQuestion } : {}),
+    ...(type === 'found' ? { ownershipConfigured: raw.ownershipConfigured === true } : {}),
   };
 }
 
@@ -147,6 +153,9 @@ export async function createServerItem(type: ItemType, input: CreateItemInput,
     [type === 'lost' ? 'lostDate' : 'foundDate']: input.date,
     region: input.region,
     location: input.location.trim(),
+    ...(type === 'found' && input.ownershipQuestion ? {
+      ownershipQuestion: input.ownershipQuestion.trim(), ownershipAnswer: input.ownershipAnswer?.trim(),
+    } : {}),
   };
   if (!image) {
     return fromServerItem(type, await apiRequest(collectionPath(type), { ...requestConfig, method: 'POST', body, accessToken }), requestConfig.baseUrl);
@@ -162,6 +171,7 @@ export async function createServerItem(type: ItemType, input: CreateItemInput,
 const fieldLabels: Record<string, string> = {
   title: '물품명', category: '종류', color: '색상', description: '상세 설명',
   lostDate: '분실 날짜', foundDate: '습득 날짜', region: '지역', location: '상세 장소',
+  ownershipQuestion: '소유자 확인 질문', ownershipAnswer: '비공개 답변',
 };
 
 /** Korean message for the register form; server validation messages are shown per field. */

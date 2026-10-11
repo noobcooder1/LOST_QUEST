@@ -1,167 +1,132 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { createSeedData } from '../data/seed';
 import { login as loginRequest, restoreAuthSession, signup as signupRequest, type AuthUser, type SignupInput } from '../services/authApi';
 import { clearAuthSession, saveAuthSession } from '../services/authSession';
-import { registerItem, requestReturn, transitionReturn, verifyOwnership } from '../services/demoStore';
-import { loadDemoData, saveDemoData } from '../services/storage';
-import type { AppData, Item, NewItem, ReturnRequest, ReturnStatus } from '../types';
+import { createReturn, describeActivityError, loadActivity, markActivityRead, returnAction } from '../services/activityApi';
+import { listAllServerItems } from '../services/itemApi';
+import type { AppData, ReturnRequest } from '../types';
 
 interface AppContextValue extends AppData {
   isLoggedIn: boolean;
-  /** The server-verified user; null while signed out or while a stored token is being checked. */
   authUser: AuthUser | null;
   authChecking: boolean;
+  activityLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (input: SignupInput) => Promise<void>;
   logout: () => void;
-  addItem: (input: NewItem) => Promise<Item>;
-  createRequest: (itemId: string, lostItemId?: string) => ReturnRequest;
-  verifyOwner: (requestId: string, answer: string) => boolean;
-  approveRequest: (id: string) => void;
-  verifyQr: (id: string) => void;
-  completeReturn: (id: string) => void;
-  rejectRequest: (id: string) => void;
-  markNotificationsRead: () => void;
-  resetDemo: () => void;
+  refreshData: () => Promise<void>;
+  createRequest: (itemId: string, lostItemId?: string) => Promise<ReturnRequest>;
+  verifyOwner: (id: string, answer: string) => Promise<boolean>;
+  approveRequest: (id: string) => Promise<void>;
+  verifyQr: (id: string, token: string) => Promise<void>;
+  renewQr: (id: string) => Promise<void>;
+  completeReturn: (id: string) => Promise<void>;
+  rejectRequest: (id: string) => Promise<void>;
+  markNotificationsRead: () => Promise<void>;
   storageError: string | null;
 }
-
+const emptyData = (): AppData => ({ items: [], requests: [], notifications: [], profile: { name: '방문자', xp: 0, registeredCount: 0, returnedCount: 0 } });
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState(createSeedData);
-  const [ready, setReady] = useState(false);
+  const [data, setData] = useState(emptyData);
   const [storageError, setStorageError] = useState<string | null>(null);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authExpiresAt, setAuthExpiresAt] = useState<number | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
-  const isLoggedIn = authUser !== null;
-  const dataRef = useRef(data);
-  const sessionRef = useRef(false);
-  const registrationPending = useRef(false);
-  /** Bumped on every login/logout so a slower startup check cannot overwrite a newer session. */
-  const authVersionRef = useRef(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    void loadDemoData().then((initial) => {
-      if (cancelled) return;
-      dataRef.current = initial.data;
-      setData(initial.data);
-      setStorageError(initial.error);
-      setReady(true);
-    });
-    return () => { cancelled = true; };
-  }, []);
-
-  const commit = useCallback((next: AppData) => {
-    // Synchronous ref updates make rapid repeated actions idempotent before rerender.
-    if (dataRef.current === next) return Promise.resolve(true);
-    dataRef.current = next;
-    setData(next);
-    return saveDemoData(next).then(() => {
-      setStorageError(null);
-      return true;
-    }, () => {
-      setStorageError('테스트 데이터를 저장하지 못했어요. 저장 공간과 브라우저 설정을 확인해 주세요.');
-      return false;
-    });
-  }, []);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const userRef = useRef<AuthUser | null>(null);
+  const authVersion = useRef(0);
+  const loadVersion = useRef(0);
 
   const applySession = useCallback((user: AuthUser | null, expiresAt: number | null) => {
-    sessionRef.current = user !== null;
-    setAuthUser(user);
-    setAuthExpiresAt(expiresAt);
-    setAuthChecking(false);
+    userRef.current = user;
+    loadVersion.current += 1;
+    setAuthUser(user); setAuthExpiresAt(expiresAt); setAuthChecking(false);
+    // Remove the previous user's private records immediately on logout/account switch.
+    setData(previous => ({ ...emptyData(), items: previous.items, profile: { ...emptyData().profile, name: user?.nickname ?? '방문자' } }));
+    setStorageError(null);
   }, []);
 
-  // A stored token only counts once the server confirms it through /api/auth/me.
   useEffect(() => {
     let cancelled = false;
-    const version = authVersionRef.current;
-    restoreAuthSession().then((restored) => {
-      if (cancelled || version !== authVersionRef.current) return;
-      applySession(restored?.user ?? null, restored?.expiresAt ?? null);
+    const version = authVersion.current;
+    void restoreAuthSession().then(restored => {
+      if (!cancelled && version === authVersion.current) applySession(restored?.user ?? null, restored?.expiresAt ?? null);
     });
     return () => { cancelled = true; };
   }, [applySession]);
 
-  // Sign out locally when the access token expires; the server rejects it from then on anyway.
+  const refreshData = useCallback(async () => {
+    const version = ++loadVersion.current;
+    const user = userRef.current;
+    setActivityLoading(user !== null);
+    // Public items and private activity fail independently; no fabricated/local-data fallback.
+    const [items, activity] = await Promise.allSettled([listAllServerItems(), user ? loadActivity() : Promise.resolve(null)]);
+    if (version !== loadVersion.current || user?.id !== userRef.current?.id) return;
+    setData(previous => {
+      const publicItems = items.status === 'fulfilled' ? items.value : previous.items;
+      const privateData = activity.status === 'fulfilled' ? activity.value : null;
+      const combined = new Map(publicItems.map(item => [item.id, item]));
+      privateData?.relatedItems.forEach(item => combined.set(item.id, item));
+      return { items: [...combined.values()], requests: privateData?.requests ?? previous.requests,
+        notifications: privateData?.notifications ?? previous.notifications,
+        profile: privateData?.profile ?? previous.profile };
+    });
+    setStorageError(items.status === 'rejected' ? describeActivityError(items.reason)
+      : activity.status === 'rejected' ? describeActivityError(activity.reason) : null);
+    setActivityLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (authChecking) return;
+    void refreshData();
+    const refresh = () => { void refreshData(); };
+    window.addEventListener('focus', refresh);
+    window.addEventListener('lostquest:data-changed', refresh);
+    return () => {
+      loadVersion.current += 1;
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('lostquest:data-changed', refresh);
+    };
+  }, [authUser, authChecking, refreshData]);
+
   useEffect(() => {
     if (authExpiresAt === null) return;
-    const timer = setTimeout(() => { clearAuthSession(); applySession(null, null); }, Math.min(Math.max(authExpiresAt - Date.now(), 0), 2_147_483_647));
+    const timer = setTimeout(() => { authVersion.current += 1; clearAuthSession(); applySession(null, null); },
+      Math.min(Math.max(authExpiresAt - Date.now(), 0), 2_147_483_647));
     return () => clearTimeout(timer);
   }, [authExpiresAt, applySession]);
 
-  const requireSession = () => {
-    if (!sessionRef.current) throw new Error('테스트 계정으로 로그인한 뒤 이용해 주세요.');
-  };
   const login = async (email: string, password: string) => {
+    const version = ++authVersion.current;
     const result = await loginRequest(email, password);
-    authVersionRef.current += 1;
+    if (version !== authVersion.current) return;
     const session = saveAuthSession(result.accessToken, result.expiresIn);
     applySession(result.user, session.expiresAt);
   };
-  const signup = async (input: SignupInput) => {
-    await signupRequest(input);
-    await login(input.email, input.password);
-  };
-  const logout = () => { authVersionRef.current += 1; clearAuthSession(); applySession(null, null); };
-  const addItem = async (input: NewItem) => {
+  const signup = async (input: SignupInput) => { await signupRequest(input); await login(input.email, input.password); };
+  const logout = () => { authVersion.current += 1; clearAuthSession(); applySession(null, null); };
+  const requireSession = () => { if (!userRef.current) throw new Error('로그인한 뒤 이용해 주세요.'); };
+  const createRequest = async (itemId: string, lostItemId?: string) => {
     requireSession();
-    if (registrationPending.current) throw new Error('물품을 저장하고 있어요. 잠시 기다려 주세요.');
-    registrationPending.current = true;
-    const previous = dataRef.current;
-    try {
-      const result = registerItem(previous, input);
-      if (!await commit(result.data)) {
-        if (dataRef.current === result.data) {
-          dataRef.current = previous;
-          setData(previous);
-        }
-        throw new Error('사진과 물품 정보를 저장하지 못했어요. 저장 공간과 브라우저 설정을 확인한 뒤 다시 등록해 주세요.');
-      }
-      return result.item;
-    } finally {
-      registrationPending.current = false;
-    }
+    const request = await createReturn(itemId, lostItemId);
+    await refreshData(); return request;
   };
-  const createRequest = (itemId: string, lostItemId?: string) => {
-    requireSession();
-    const result = requestReturn(dataRef.current, itemId, lostItemId);
-    commit(result.data);
-    return result.request;
+  const act = async (id: string, action: Parameters<typeof returnAction>[1], body?: unknown) => {
+    requireSession(); await returnAction(id, action, body); await refreshData();
   };
-  const verifyOwner = (requestId: string, answer: string) => {
-    if (!sessionRef.current) return false;
-    const result = verifyOwnership(dataRef.current, requestId, answer);
-    commit(result.data);
-    return result.verified;
-  };
-  const transition = (requestId: string, nextStatus: ReturnStatus) => {
-    if (!sessionRef.current) return;
-    commit(transitionReturn(dataRef.current, requestId, nextStatus));
-  };
-  const resetDemo = () => {
-    setStorageError(null);
-    commit(createSeedData());
-  };
-
-  if (!ready) return <div className="page-container" role="status">저장된 물품과 사진을 불러오고 있어요…</div>;
-
   return <AppContext.Provider value={{
-    // The server nickname replaces the demo profile name for display only; XP data stays local.
-    ...data, profile: authUser ? { ...data.profile, name: authUser.nickname } : data.profile,
-    isLoggedIn, authUser, authChecking, login, signup, logout, addItem, createRequest, verifyOwner,
-    approveRequest: (id) => transition(id, 'approved'),
-    verifyQr: (id) => transition(id, 'qr_verified'),
-    completeReturn: (id) => transition(id, 'completed'),
-    rejectRequest: (id) => transition(id, 'rejected'),
-    markNotificationsRead: () => commit({ ...dataRef.current, notifications: dataRef.current.notifications.map((notification) => ({ ...notification, read: true })) }),
-    resetDemo, storageError,
+    ...data, isLoggedIn: authUser !== null, authUser, authChecking, activityLoading, login, signup, logout,
+    refreshData, createRequest, storageError,
+    verifyOwner: async (id, answer) => { await act(id, 'verify-owner', { answer }); return true; },
+    approveRequest: id => act(id, 'approve'),
+    verifyQr: (id, token) => act(id, 'verify-qr', { token }),
+    renewQr: id => act(id, 'renew-qr'),
+    completeReturn: id => act(id, 'complete'),
+    rejectRequest: id => act(id, 'reject'),
+    markNotificationsRead: async () => { requireSession(); await markActivityRead(); await refreshData(); },
   }}>{children}</AppContext.Provider>;
 }
-
 export function useApp(): AppContextValue {
   const context = useContext(AppContext);
   if (!context) throw new Error('useApp must be used within AppProvider');

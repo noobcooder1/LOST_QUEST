@@ -5,7 +5,32 @@
 점검일: **2026-10-10 (한국 시간)**  
 점검 대상: 현재 작업 PC의 macOS 환경. 팀원의 Windows PC에서 직접 실행한 결과는 아니다.
 
-### 1. 현재 실행 결과 및 복구 기록
+### 0. 이후 MySQL 서버 전환 및 현재 사용 방법
+
+이후 DBeaver 재접속 오류를 확인했을 때, Homebrew 기본 서비스가 `/opt/homebrew/var/mysql`을 사용하며 3306 포트를 점유하고 있었다. 이 서버는 아래에서 복구한 프로젝트용 `.local/mysql-data`와 별도의 DB·계정을 사용한다.
+
+Homebrew 기본 `mysql@8.4` 서비스를 중지하고, 기존 프로젝트 데이터 폴더를 사용하는 MySQL을 `127.0.0.1:3306`에서 다시 실행했다. 앱 계정으로 접속하여 `@@datadir`가 이 프로젝트의 `.local/mysql-data/`임을 확인했고, 기존 테이블 네 개를 확인했다. 이 전환에서 비밀번호나 데이터를 변경하지 않았다.
+
+macOS에서 프로젝트 루트 기준 다음 명령을 사용한다.
+
+```sh
+# 프로젝트용 MySQL 시작
+sh backend/scripts/local-mysql.sh start
+
+# 실행 상태 확인
+sh backend/scripts/local-mysql.sh status
+
+# 프로젝트용 MySQL 종료
+sh backend/scripts/local-mysql.sh stop
+```
+
+이 명령은 macOS 서비스 관리자를 통해 프로젝트용 MySQL을 실행한다. 기존 데이터 폴더가 없으면 새 DB를 자동 생성하지 않으며, 다른 서버가 3306을 사용하면 중단한다. 현재 로그인 세션에서 실행을 유지하며, Mac 재로그인 후에는 `start` 명령을 다시 실행한다. Homebrew 기본 DB를 사용하는 `brew services start mysql@8.4` 대신 위 프로젝트용 명령을 사용한다.
+
+DBeaver에서는 기존 연결의 사용자 이름을 `lostquest_app`으로 설정하고, Host `127.0.0.1`, Port `3306`, Database `lost_quest`, 비밀번호는 `backend/application-local.yml`의 `spring.datasource.password` 값으로 맞춘다. `root`는 별도 계정이며 이번 전환에서도 비밀번호를 변경하지 않았다. DBeaver 화면의 실제 연결 테스트는 수행하지 않았고, 동일한 앱 계정으로 MySQL 클라이언트의 TCP 접속을 검증했다.
+
+MySQL 실행과 Spring 실행은 별도다. 이 전환 작업에서는 MySQL만 다시 실행했다. Spring은 `backend/`에서 Java 21과 `dev,local`로 아래 4절에 따라 실행하면 된다. 아래 1절의 PID와 HTTP 검증 결과는 최초 복구 당시의 기록이다.
+
+### 1. 최초 복구 시 실행 결과 및 복구 기록
 
 **프로젝트 DB 계정의 비밀번호를 기존 로컬 설정과 맞춘 뒤, 실제 MySQL을 사용하는 Spring 서버가 정상 실행되었다.** 2026-10-10 **14:13:03 (한국 시간)**에 기동했으며, `127.0.0.1:8080`에서 Health와 DB 조회 API의 HTTP 200 응답을 확인했다. DBeaver UI의 연결 저장·접속 테스트는 수행하지 않았다.
 
@@ -295,4 +320,4 @@ README의 `MYSQL_TEST_*` 기반 전용 DB 안내와 현재 구현은 다르다. 
 4. 물품 목록 API의 HTTP 200 응답 확인
 5. DBeaver Test Connection 성공 및 같은 DB의 테이블 확인
 
-**2026-10-10 복구 후 현재 작업 PC에서는 1~4번 조건이 모두 성공했다.** 실제 MySQL 인증과 Spring 정상 기동, 네 개 테이블 생성 및 DB 조회 API 응답을 확인했다. 백엔드와 MySQL은 실행 중이다. DBeaver 연결 테스트인 5번은 수행하지 않았으며, 팀원의 Windows PC도 직접 검증하지 않았다.
+**2026-10-10 최초 복구 직후 작업 PC에서 1~4번 조건이 모두 성공했다.** 실제 MySQL 인증과 Spring 정상 기동, 네 개 테이블 생성 및 DB 조회 API 응답을 확인했다. 이후 서버 전환 시의 현재 상태와 실행 방법은 0절에 기록했다. DBeaver 연결 테스트인 5번은 수행하지 않았으며, 팀원의 Windows PC도 직접 검증하지 않았다.

@@ -10,7 +10,7 @@ import java.time.LocalDate;
 
 /**
  * No userId, status or imageUrl: the author comes from the JWT, the status is always STORED,
- * and image upload is not implemented yet. Unknown JSON fields are ignored by Jackson.
+ * and an optional photo is uploaded through the multipart variant. Unknown JSON fields are ignored by Jackson.
  */
 public record CreateFoundItemRequest(
         @NotBlank @Size(max = ItemFieldRules.TITLE_MAX) String title,
@@ -19,6 +19,8 @@ public record CreateFoundItemRequest(
         @NotBlank @Size(min = ItemFieldRules.DESCRIPTION_MIN, max = ItemFieldRules.DESCRIPTION_MAX) String description,
         @NotNull @PastOrPresent LocalDate foundDate,
         @NotBlank @Pattern(regexp = ItemFieldRules.REGION_PATTERN, message = ItemFieldRules.REGION_MESSAGE) String region,
-        @NotBlank @Size(max = ItemFieldRules.LOCATION_MAX) String location
+        @NotBlank @Size(max = ItemFieldRules.LOCATION_MAX) String location,
+        @Size(max = 200) String ownershipQuestion,
+        @Size(max = 100) String ownershipAnswer
 ) {
 }

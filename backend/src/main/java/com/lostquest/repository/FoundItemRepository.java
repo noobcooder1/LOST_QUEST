@@ -8,6 +8,10 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface FoundItemRepository extends JpaRepository<FoundItem, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select f from FoundItem f where f.id = :id")
+    java.util.Optional<FoundItem> findLocked(@org.springframework.data.repository.query.Param("id") Long id);
+    long countByUser_Id(Long userId);
 
     List<FoundItem> findAllByOrderByIdAsc();
 
