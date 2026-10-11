@@ -9,10 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.Duration;
-import java.util.Base64;
 import java.util.List;
 
 @Service
@@ -24,16 +22,22 @@ public class ReturnService {
     private final CurrentUserReader users;
     private final OwnershipProof proof;
     private final ActivityService activity;
-    private final SecureRandom random = new SecureRandom();
+    private final ReturnQrTokens qr;
     public ReturnService(ReturnRequestRepository returns, FoundItemRepository found, LostItemRepository lost,
-            CurrentUserReader users, OwnershipProof proof, ActivityService activity) {
+            CurrentUserReader users, OwnershipProof proof, ActivityService activity, ReturnQrTokens qr) {
         this.returns = returns; this.found = found; this.lost = lost; this.users = users; this.proof = proof; this.activity = activity;
+        this.qr = qr;
     }
+    static final Duration QR_VALIDITY = Duration.ofMinutes(30);
     private boolean manager(ReturnRequest request, User user) {
         return user.getRole() == UserRole.ADMIN || request.getFoundItem().getUser().getId().equals(user.getId());
     }
     private void requireManager(ReturnRequest request, User user) {
         if (!manager(request, user)) throw new AccessDeniedException("반환 승인 권한이 없습니다.");
+    }
+    /** Final completion is an administrator decision; the role is read from the database user, not trusted from the token. */
+    private void requireAdmin(User user) {
+        if (user.getRole() != UserRole.ADMIN) throw new AccessDeniedException("반환 완료는 관리자만 확정할 수 있습니다.");
     }
     private void requireRequester(ReturnRequest request, User user) {
         if (!request.getRequester().getId().equals(user.getId())) throw new AccessDeniedException("요청자만 이용할 수 있습니다.");
@@ -48,18 +52,24 @@ public class ReturnService {
         if (request.getStatus() != status) throw new WorkflowConflictException("현재 반환 단계에서는 이 작업을 진행할 수 없습니다. 새로고침해 주세요.");
     }
     private void issueQr(ReturnRequest request) {
-        byte[] bytes = new byte[32]; random.nextBytes(bytes);
-        request.issueQr(Base64.getUrlEncoder().withoutPadding().encodeToString(bytes), Instant.now().plus(Duration.ofMinutes(30)));
+        request.issueQr(qr.newNonce(), Instant.now().plus(QR_VALIDITY));
+    }
+    /** The requester's current QR token: derived from the stored nonce, or the legacy raw token of older requests. */
+    private String currentQrToken(ReturnRequest request) {
+        return request.getQrNonce() != null ? qr.token(request.getId(), request.getQrNonce()) : request.getQrToken();
+    }
+    private ReturnResponse view(ReturnRequest request, User viewer) {
+        return ReturnResponse.from(request, viewer, currentQrToken(request));
     }
     public List<ReturnResponse> list(String subject) {
         User user = users.require(subject);
         List<ReturnRequest> requests = user.getRole() == UserRole.ADMIN ? returns.findAllByOrderByIdDesc() : returns.findVisible(user.getId());
-        return requests.stream().map(r -> ReturnResponse.from(r, user)).toList();
+        return requests.stream().map(r -> view(r, user)).toList();
     }
     public ReturnResponse detail(String subject, Long id) {
         User user = users.require(subject); ReturnRequest request = get(id);
         if (!manager(request, user) && !request.getRequester().getId().equals(user.getId())) throw new AccessDeniedException("접근 권한이 없습니다.");
-        return ReturnResponse.from(request, user);
+        return view(request, user);
     }
     @Transactional
     public ReturnResponse create(String subject, CreateReturnRequest input) {
@@ -68,7 +78,7 @@ public class ReturnService {
         if (item.getUser().getId().equals(user.getId())) throw new WorkflowConflictException("직접 등록한 습득물에는 반환을 요청할 수 없습니다.");
         ReturnRequest existing = returns.findFirstByFoundItem_IdAndStatusNotOrderByIdDesc(item.getId(), ReturnStatus.REJECTED).orElse(null);
         if (existing != null) {
-            if (existing.getRequester().getId().equals(user.getId()) && existing.getStatus() != ReturnStatus.COMPLETED) return ReturnResponse.from(existing, user);
+            if (existing.getRequester().getId().equals(user.getId()) && existing.getStatus() != ReturnStatus.COMPLETED) return view(existing, user);
             throw new WorkflowConflictException("이미 다른 반환 요청이 진행 중이거나 반환이 완료된 물품입니다.");
         }
         if (item.getStatus() != FoundItemStatus.STORED) throw new WorkflowConflictException("반환 가능한 물품이 아닙니다.");
@@ -84,33 +94,48 @@ public class ReturnService {
         ReturnRequest request = returns.saveAndFlush(new ReturnRequest(item, user, linked));
         activity.notify(user, "반환 요청 접수", "‘" + item.getTitle() + "’의 비공개 특징을 확인해 주세요.");
         activity.notify(item.getUser(), "새 반환 요청", "‘" + item.getTitle() + "’에 반환 요청이 도착했어요.");
-        return ReturnResponse.from(request, user);
+        return view(request, user);
     }
-    @Transactional
+    /**
+     * Wrong answers are counted per request under the row lock (so concurrent guesses cannot exceed the limit) and the
+     * count is committed even though the call fails. After the limit the request is blocked until the finder or an
+     * administrator rejects it; only then can a new request (with a fresh limit) be made.
+     */
+    @Transactional(noRollbackFor = OwnershipAnswerRejectedException.class)
     public ReturnResponse verifyOwner(String subject, Long id, String answer) {
         User user = users.require(subject); ReturnRequest request = lock(id); requireRequester(request, user);
         expected(request, ReturnStatus.PENDING);
-        if (!proof.matches(answer, request.getFoundItem().ownershipAnswerHash()))
-            throw new InvalidRequestParameterException("answer", "비공개 특징이 일치하지 않습니다.");
+        if (request.isOwnershipLocked())
+            throw new WorkflowConflictException("비공개 특징 확인 시도 횟수를 모두 사용했습니다. 습득자의 검토가 필요합니다.");
+        if (!proof.matches(answer, request.getFoundItem().ownershipAnswerHash())) {
+            request.recordFailedOwnershipAttempt();
+            if (request.isOwnershipLocked()) {
+                activity.notify(request.getFoundItem().getUser(), "소유자 확인 시도 초과",
+                        "‘" + request.getFoundItem().getTitle() + "’ 반환 요청의 비공개 특징 확인이 " + ReturnRequest.MAX_OWNERSHIP_ATTEMPTS
+                                + "회 실패했어요. 요청을 검토해 주세요.");
+                throw new OwnershipAnswerRejectedException("비공개 특징이 일치하지 않습니다. 시도 횟수를 모두 사용해 더 이상 확인할 수 없습니다.");
+            }
+            throw new OwnershipAnswerRejectedException("비공개 특징이 일치하지 않습니다. 남은 시도: " + request.ownershipAttemptsRemaining() + "회");
+        }
         request.transition(ReturnStatus.OWNER_VERIFIED);
         activity.notify(request.getFoundItem().getUser(), "소유자 확인 완료", "반환 요청을 검토하고 승인해 주세요.");
-        return ReturnResponse.from(request, user);
+        return view(request, user);
     }
     @Transactional
     public ReturnResponse approve(String subject, Long id) {
         User user = users.require(subject); ReturnRequest request = lock(id); requireManager(request, user);
-        if (request.getStatus() == ReturnStatus.APPROVED) return ReturnResponse.from(request, user);
+        if (request.getStatus() == ReturnStatus.APPROVED) return view(request, user);
         expected(request, ReturnStatus.OWNER_VERIFIED);
         request.transition(ReturnStatus.APPROVED); issueQr(request);
         activity.notify(request.getRequester(), "반환 요청 승인", "반환 QR이 발급됐어요. 습득자에게 QR 인증 코드를 제시해 주세요.");
-        return ReturnResponse.from(request, user);
+        return view(request, user);
     }
     @Transactional
     public ReturnResponse renewQr(String subject, Long id) {
         User user = users.require(subject); ReturnRequest request = lock(id); requireManager(request, user);
         expected(request, ReturnStatus.APPROVED); issueQr(request);
         activity.notify(request.getRequester(), "반환 QR 재발급", "새 QR이 발급됐어요. 이전 코드는 사용할 수 없습니다.");
-        return ReturnResponse.from(request, user);
+        return view(request, user);
     }
     @Transactional
     public ReturnResponse verifyQr(String subject, Long id, String input) {
@@ -119,18 +144,21 @@ public class ReturnService {
         String token = input.trim();
         String prefix = "LOSTQUEST:RETURN:" + id + ":";
         if (token.startsWith(prefix)) token = token.substring(prefix.length());
-        if (request.getQrToken() == null || !MessageDigest.isEqual(token.getBytes(StandardCharsets.UTF_8),
-                request.getQrToken().getBytes(StandardCharsets.UTF_8)))
-            throw new InvalidRequestParameterException("token", "QR 인증 코드가 일치하지 않습니다.");
-        if (!Instant.now().isBefore(request.getQrExpiresAt())) throw new WorkflowConflictException("QR 유효기간이 지났습니다. QR을 재발급해 주세요.");
+        boolean valid = request.getQrNonce() != null
+                ? qr.matches(id, request.getQrNonce(), token)
+                : request.getQrToken() != null && MessageDigest.isEqual(token.getBytes(StandardCharsets.UTF_8),
+                        request.getQrToken().getBytes(StandardCharsets.UTF_8));
+        if (!valid) throw new InvalidRequestParameterException("token", "QR 인증 코드가 일치하지 않습니다.");
+        if (request.getQrExpiresAt() == null || !Instant.now().isBefore(request.getQrExpiresAt()))
+            throw new WorkflowConflictException("QR 유효기간이 지났습니다. QR을 재발급해 주세요.");
         request.consumeQr();
-        activity.notify(request.getRequester(), "QR 인증 완료", "습득자의 최종 반환 확인을 기다리고 있어요.");
-        return ReturnResponse.from(request, user);
+        activity.notify(request.getRequester(), "QR 인증 완료", "관리자의 최종 반환 확인을 기다리고 있어요.");
+        return view(request, user);
     }
     @Transactional
     public ReturnResponse complete(String subject, Long id) {
-        User user = users.require(subject); ReturnRequest request = lock(id); requireManager(request, user);
-        if (request.getStatus() == ReturnStatus.COMPLETED) return ReturnResponse.from(request, user);
+        User user = users.require(subject); requireAdmin(user); ReturnRequest request = lock(id);
+        if (request.getStatus() == ReturnStatus.COMPLETED) return view(request, user);
         expected(request, ReturnStatus.QR_VERIFIED);
         FoundItem item = found.findLocked(request.getFoundItem().getId()).orElseThrow();
         if (item.getStatus() != FoundItemStatus.STORED) throw new WorkflowConflictException("반환 가능한 물품이 아닙니다.");
@@ -143,16 +171,16 @@ public class ReturnService {
         request.transition(ReturnStatus.COMPLETED);
         activity.returned(item.getUser(), request.getId(), item.getTitle());
         activity.notify(request.getRequester(), "반환 완료", "‘" + item.getTitle() + "’ 반환이 완료됐어요.");
-        return ReturnResponse.from(request, user);
+        return view(request, user);
     }
     @Transactional
     public ReturnResponse reject(String subject, Long id) {
         User user = users.require(subject); ReturnRequest request = lock(id); requireManager(request, user);
-        if (request.getStatus() == ReturnStatus.REJECTED) return ReturnResponse.from(request, user);
+        if (request.getStatus() == ReturnStatus.REJECTED) return view(request, user);
         if (request.getStatus() == ReturnStatus.COMPLETED) throw new WorkflowConflictException("완료된 반환은 반려할 수 없습니다.");
         request.transition(ReturnStatus.REJECTED);
         activity.notify(request.getRequester(), "반환 요청 반려", "습득자 검토에서 요청이 반려됐어요.");
-        return ReturnResponse.from(request, user);
+        return view(request, user);
     }
     @Transactional
     public FoundItemResponse configureOwnership(String subject, Long id, OwnershipSetupRequest input) {

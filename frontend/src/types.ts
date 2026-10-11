@@ -49,6 +49,9 @@ export interface ReturnRequest {
   finderId?: number;
   qrToken?: string;
   qrExpiresAt?: string;
+  /** Wrong ownership answers left for this request, and whether verification is blocked (server-enforced). */
+  ownershipAttemptsRemaining?: number;
+  ownershipLocked?: boolean;
 }
 
 export interface Profile {

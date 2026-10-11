@@ -24,6 +24,15 @@ describe('account activity API', () => {
     expect(activity.notifications[0].read).toBe(false);
     expect(activity.relatedItems[0]).not.toHaveProperty('ownershipAnswer');
   });
+  it('keeps the server ownership-attempt state and ignores malformed values', () => {
+    const pending = { ...request, status: 'PENDING', qrToken: null };
+    expect(parseReturn({ ...pending, ownershipAttemptsRemaining: 2, ownershipLocked: false }).request)
+      .toMatchObject({ ownershipAttemptsRemaining: 2, ownershipLocked: false });
+    expect(parseReturn({ ...pending, ownershipAttemptsRemaining: 0, ownershipLocked: true }).request.ownershipLocked).toBe(true);
+    const malformed = parseReturn({ ...pending, ownershipAttemptsRemaining: -1, ownershipLocked: 'yes' }).request;
+    expect(malformed).not.toHaveProperty('ownershipAttemptsRemaining');
+    expect(malformed).not.toHaveProperty('ownershipLocked');
+  });
   it('creates a request with server item ids and the auth header', async () => {
     const fetch=vi.fn().mockResolvedValue(json({...request,status:'PENDING',qrToken:null},201)); vi.stubGlobal('fetch',fetch);
     await createReturn('api-found-7','api-lost-12');

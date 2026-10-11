@@ -23,7 +23,7 @@ export default function AdminPage() {
   };
   return <div className="page-container workflow-page">
     <div className="page-heading"><div className="eyebrow">습득자·관리자</div><h1>반환 관리</h1><p>내가 등록한 습득물의 요청을 승인하고 반환을 확인해 주세요.</p></div>
-    <div className="workflow-demo-note"><ShieldCheck size={18}/><span>습득자와 관리자만 요청 승인·QR 확인·반환 완료를 처리할 수 있어요.</span></div>
+    <div className="workflow-demo-note"><ShieldCheck size={18}/><span>습득자와 관리자는 요청 승인·QR 확인을, 최종 반환 완료는 관리자만 처리할 수 있어요.</span></div>
     <div className="workflow-section-heading"><h2>반환 요청 <span>{managed.length}</span></h2><div className="workflow-tabs compact">{([['active','진행 중'],['all','전체'],['completed','완료']] as const).map(([value,label])=><button key={value} onClick={()=>setFilter(value)} aria-pressed={filter===value} className={filter===value?'active':''}>{label}</button>)}<button onClick={()=>{void refreshData();}}>새로고침</button></div></div>
     {activityLoading && <p role="status">반환 기록을 불러오고 있어요…</p>}
     {feedback && <p className="workflow-feedback" role="status">{feedback}</p>}
@@ -31,7 +31,8 @@ export default function AdminPage() {
       const item=items.find(entry=>entry.id===request.itemId); if(!item) return null;
       return <article className="card admin-request" key={request.id}><div className="admin-request-top"><div className="admin-item"><img src={item.image} alt={item.title}/><div><span className="badge badge-blue">{labels[request.status]}</span><h3>{item.title}</h3><p>{item.region} · {new Date(request.createdAt).toLocaleDateString('ko-KR')}</p></div></div><Link to={`/returns/${request.id}`} className="text-link">진행·QR 확인 <ArrowRight size={15}/></Link></div>
       <div className="admin-request-bottom"><div className="admin-actions">{request.status==='owner_verified'&&<button className="button button-primary" disabled={busy} onClick={()=>{void run(()=>approveRequest(request.id),'반환 요청을 승인하고 QR을 발급했어요.');}}><ShieldCheck size={16}/>요청 승인</button>}
-      {request.status==='qr_verified'&&<button className="button button-primary" disabled={busy} onClick={()=>{void run(()=>completeReturn(request.id),'반환을 완료했어요. 습득자에게 50 XP가 지급됐어요.');}}><CheckCircle2 size={16}/>반환 완료 · +50 XP</button>}
+      {request.status==='qr_verified'&&authUser?.role!=='ADMIN'&&<p className="muted">관리자의 최종 반환 확인을 기다리고 있어요.</p>}
+      {request.status==='qr_verified'&&authUser?.role==='ADMIN'&&<button className="button button-primary" disabled={busy} onClick={()=>{void run(()=>completeReturn(request.id),'반환을 완료했어요. 습득자에게 50 XP가 지급됐어요.');}}><CheckCircle2 size={16}/>반환 완료 · +50 XP</button>}
       {!['completed','rejected'].includes(request.status)&&<button className="button button-ghost" disabled={busy} onClick={()=>setRejectId(request.id)}>요청 반려</button>}</div>
       {rejectId===request.id&&<div role="alert"><p>이 반환 요청을 반려할까요?</p><button className="button button-secondary" disabled={busy} onClick={()=>setRejectId(null)}>취소</button><button className="button button-primary" disabled={busy} onClick={()=>{void run(()=>rejectRequest(request.id),'반환 요청을 반려했어요.');}}>반려 확인</button></div>}</div></article>;
     })}</div>
