@@ -1,0 +1,21 @@
+.detail-top-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.item-management { position: relative; flex-shrink: 0; }
+.item-management summary { display: flex; align-items: center; gap: 6px; cursor: pointer; list-style: none; color: #526d80; font-size: .875rem; padding: 7px 10px; border: 1px solid #dfe7ee; border-radius: 7px; }
+.item-management summary::-webkit-details-marker { display: none; }
+.item-management summary:hover, .item-management[open] summary { background: #f4f8fc; }
+.item-management-options { position: absolute; top: calc(100% + 8px); right: 0; width: 238px; max-width: calc(100vw - 36px); z-index: 10; padding: 6px; background: white; border: 1px solid #dfe7ee; border-radius: 10px; box-shadow: 0 8px 28px #15364e1a; }
+.item-management-options a, .item-management-options button { display: flex; align-items: center; gap: 9px; width: 100%; padding: 11px 10px; text-align: left; font-size: .9375rem; border-radius: 6px; }
+.item-management-options a:hover, .item-management-options button:hover { background: #f4f8fc; }
+.item-management-options button:disabled { cursor: not-allowed; opacity: .45; }
+.item-management-options .item-delete-option { color: #b43d3d; border-top: 1px solid #edf1f4; border-radius: 0 0 6px 6px; }
+.item-management-options p { padding: 8px 10px; font-size: .8125rem; color: #7e919f; line-height: 1.7; }
+.item-delete-dialog { margin: auto; width: min(460px, calc(100% - 36px)); padding: 28px; border: 1px solid #dfe7ee; border-radius: 14px; color: #17374e; box-shadow: 0 20px 80px #10283d22; }
+.item-delete-dialog::backdrop { background: #10283d66; }
+.item-delete-dialog h2 { font-size: 1.375rem; margin-bottom: 18px; }
+.item-delete-dialog p { line-height: 1.8; margin: 10px 0; overflow-wrap: anywhere; }
+.item-delete-dialog p + p { color: #708494; }
+.item-delete-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+.item-delete-button { background: #b43d3d; color: white; }
+.item-delete-button:hover { background: #983131; }
+.item-mutation-notice { display: flex; align-items: center; gap: 8px; background: #edf8f3; color: #287b60; border-radius: 8px; padding: 14px 18px; margin-bottom: 22px; }
+@media(max-width: 640px) { .detail-top-row { flex-wrap: wrap; } .item-management { margin-left: auto; } .item-delete-dialog { padding: 24px; } }

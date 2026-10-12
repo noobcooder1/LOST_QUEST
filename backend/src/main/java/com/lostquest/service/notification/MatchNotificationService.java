@@ -251,7 +251,8 @@ public class MatchNotificationService {
                 candidate.source() == MatchSource.LOST_QUEST ? candidate.foundItemId() : null,
                 candidate.source() == MatchSource.POLICE ? candidate.atcId() : null,
                 candidate.source() == MatchSource.POLICE ? candidate.fdSn() : null,
-                cleanTitle(candidate.title()), candidate.foundDate(), match.score(), match.maxScore());
+                cleanTitle(candidate.title()), candidate.foundDate(), match.score(), match.maxScore(),
+                MatchTarget.of(lostItem), candidate);
         try {
             return writer.insertIfAbsent(notification);
         } catch (DataIntegrityViolationException duplicate) {

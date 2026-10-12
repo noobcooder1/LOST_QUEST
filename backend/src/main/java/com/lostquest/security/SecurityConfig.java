@@ -55,6 +55,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/auth/me", "/api/me/items", "/api/lost-items/{id}/matches",
                                 "/api/notifications", "/api/notifications/unread-count").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/lost-items", "/api/found-items").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/lost-items/{id}", "/api/found-items/{id}").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/lost-items/{id}", "/api/found-items/{id}").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/notifications/{id}/read", "/api/notifications/read-all",
                                 "/api/notifications/refresh").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/me/activity", "/api/returns", "/api/returns/{id}").authenticated()

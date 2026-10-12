@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiClientError } from './apiClient';
-import { createServerItem, describeItemError, fromServerItem, getServerItem, listAllServerItems, parseServerRouteId, resolveServerImageUrl, toServerRouteId } from './itemApi';
+import { createServerItem, deleteServerItem, describeItemError, describeItemMutationError, fromServerItem, getServerItem, listAllServerItems, parseServerRouteId, resolveServerImageUrl, toServerRouteId, updateServerItem } from './itemApi';
 
 const BASE = { baseUrl: 'http://localhost:8080' };
 const TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.c2lnbmF0dXJl';
@@ -46,6 +46,7 @@ describe('server response → Item conversion', () => {
     });
     expect(fromServerItem('found', FOUND)).toMatchObject({ id: 'api-found-7', type: 'found', date: '2026-09-21', status: 'open', image: '/images/earbuds.svg' });
     expect(fromServerItem('found', { ...FOUND, status: 'RETURNED' }).status).toBe('returned');
+    expect(fromServerItem('found', { ...FOUND, status: 'CLOSED' }).status).toBe('closed');
   });
 
   it('keeps legacy rows without a region and ignores any server image URL', () => {
@@ -131,6 +132,59 @@ describe('item API requests', () => {
     });
     expect(describeItemError(invalid)).toBe('분실 날짜: 과거 또는 현재의 날짜여야 합니다\n지역: 지원하는 광역 지역');
     expect(describeItemError(new Error('boom'))).toBe('등록하지 못했어요. 잠시 후 다시 시도해 주세요.');
+  });
+});
+
+describe('item management requests', () => {
+  it.each(['lost', 'found'] as const)('updates a %s post with its token and preserves ownership clues when omitted', async (type) => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(type === 'lost' ? LOST : FOUND));
+    vi.stubGlobal('fetch', fetchMock);
+    await updateServerItem(type, 12, INPUT, { ...BASE, accessToken: TOKEN });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`http://localhost:8080/api/${type}-items/12`);
+    expect(init.method).toBe('PUT');
+    expect(init.headers).toMatchObject({ Authorization: `Bearer ${TOKEN}` });
+    const body = JSON.parse(String(init.body));
+    expect(body).toMatchObject({ title: '검은색 가죽 지갑', [type === 'lost' ? 'lostDate' : 'foundDate']: INPUT.date, removeImage: false });
+    for (const field of ['ownershipQuestion', 'ownershipAnswer', 'userId', 'status', 'createdAt', 'imageUrl']) expect(body).not.toHaveProperty(field);
+  });
+
+  it('updates the ownership question and answer in the same request and can remove the photo', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(FOUND));
+    vi.stubGlobal('fetch', fetchMock);
+    await updateServerItem('found', 7, { ...INPUT, ownershipQuestion: ' 안쪽 색은? ', ownershipAnswer: ' 파랑 ' }, { ...BASE, accessToken: TOKEN, removeImage: true });
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1].body))).toMatchObject({ ownershipQuestion: '안쪽 색은?', ownershipAnswer: '파랑', removeImage: true });
+  });
+
+  it('replaces the photo through authenticated multipart PUT', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(LOST));
+    vi.stubGlobal('fetch', fetchMock);
+    const image = new File(['photo'], 'replacement.png', { type: 'image/png' });
+    await updateServerItem('lost', 12, INPUT, { ...BASE, accessToken: TOKEN, image });
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(init.method).toBe('PUT');
+    expect(init.headers).toEqual({ Accept: 'application/json', Authorization: `Bearer ${TOKEN}` });
+    const body = init.body as FormData;
+    expect(JSON.parse(await (body.get('item') as Blob).text())).toMatchObject({ removeImage: false, lostDate: INPUT.date });
+    expect((body.get('image') as File).name).toBe('replacement.png');
+  });
+
+  it('deletes the post with its token and accepts an empty 204 response', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(deleteServerItem('found', 7, { ...BASE, accessToken: TOKEN })).resolves.toBeUndefined();
+    expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:8080/api/found-items/7');
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'DELETE', headers: { Authorization: `Bearer ${TOKEN}` } });
+    expect(fetchMock.mock.calls[0][1].body).toBeUndefined();
+  });
+
+  it('surfaces workflow conflicts and author restrictions without reporting success', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ code: 'WORKFLOW_CONFLICT', message: '진행 중인 반환 요청이 있어 삭제할 수 없습니다.' }, 409)));
+    await expect(deleteServerItem('lost', 12, BASE)).rejects.toMatchObject({ status: 409 });
+    const conflict = new ApiClientError('HTTP_ERROR', '진행 중인 반환 요청이 있어 수정할 수 없습니다.', 409);
+    expect(describeItemMutationError(conflict, 'update')).toBe(conflict.message);
+    expect(describeItemMutationError(new ApiClientError('HTTP_ERROR', '권한 없음', 403), 'delete')).toContain('본인이 등록한');
+    expect(describeItemMutationError(new Error(), 'update')).toContain('수정하지 못했어요');
   });
 });
 

@@ -80,6 +80,20 @@ public class FoundItem extends BaseEntity {
         ownershipQuestion = question; ownershipAnswerHash = hash;
     }
     public void markReturned() { status = FoundItemStatus.RETURNED; }
+    /** Keep return history and foreign keys while removing the post from item views. */
+    public void close() { status = FoundItemStatus.CLOSED; }
+
+    public void revise(String title, String category, String color, String description,
+                       LocalDate foundDate, String region, String location, String imageUrl) {
+        this.title = title;
+        this.category = category;
+        this.color = color;
+        this.description = description;
+        this.foundDate = foundDate;
+        this.region = region;
+        this.location = location;
+        this.imageUrl = imageUrl;
+    }
 
     protected FoundItem() {
     }

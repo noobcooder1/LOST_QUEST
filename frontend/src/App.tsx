@@ -6,6 +6,7 @@ import SearchPage from './pages/SearchPage';
 import ItemDetailPage from './pages/ItemDetailPage';
 const AuthPage = lazy(() => import('./pages/AuthPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
+const EditItemPage = lazy(() => import('./pages/EditItemPage'));
 const MatchingPage = lazy(() => import('./pages/MatchingPage'));
 const ReturnPage = lazy(() => import('./pages/ReturnPage'));
 const MyPage = lazy(() => import('./pages/MyPage'));
@@ -18,6 +19,7 @@ export default function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/search" element={<SearchPage />} />
       <Route path="/items/:id" element={<ItemDetailPage />} />
+      <Route path="/items/:id/edit" element={<EditItemPage />} />
       <Route path="/login" element={<AuthPage />} />
       <Route path="/signup" element={<AuthPage />} />
       <Route path="/register" element={<RegisterPage />} />

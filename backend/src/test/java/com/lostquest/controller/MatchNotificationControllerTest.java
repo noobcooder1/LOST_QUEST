@@ -13,6 +13,8 @@ import com.lostquest.repository.MatchNotificationRepository;
 import com.lostquest.repository.UserRepository;
 import com.lostquest.security.JwtTokenProvider;
 import com.lostquest.service.matching.MatchSource;
+import com.lostquest.service.matching.MatchTarget;
+import com.lostquest.service.matching.MatchingService;
 import com.lostquest.service.notification.MatchNotificationWriter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,6 +48,7 @@ import java.util.concurrent.Future;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -282,7 +285,8 @@ class MatchNotificationControllerTest {
         long foundId = foundItemRepository.saveAndFlush(new com.lostquest.entity.FoundItem(finder, "검은 지갑", "지갑", "검정",
                 "습득한 물건에 대한 설명입니다.", LOST, "서울", "습득 장소", null, com.lostquest.entity.FoundItemStatus.STORED)).getId();
         MatchNotificationWriter.NewNotification n = new MatchNotificationWriter.NewNotification(owner.getId(), wallet.getId(),
-                MatchSource.LOST_QUEST, "LOST_QUEST:" + foundId, foundId, null, null, "검은 지갑", LOST, 100, 100);
+                MatchSource.LOST_QUEST, "LOST_QUEST:" + foundId, foundId, null, null, "검은 지갑", LOST, 100, 100,
+                MatchTarget.of(wallet), MatchingService.toCandidate(foundItemRepository.findById(foundId).orElseThrow()));
         CountDownLatch start = new CountDownLatch(1);
         List<Future<Boolean>> results = new ArrayList<>();
         try (ExecutorService executor = Executors.newFixedThreadPool(8)) {
@@ -306,6 +310,40 @@ class MatchNotificationControllerTest {
         }
         List<MatchNotification> rows = notificationRepository.findAll();
         assertThat(rows).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("물품 수정 전에 시작한 매칭은 옛 조건의 알림을 다시 삽입하지 않는다")
+    void delayedRefreshCannotRestoreSnapshotsFromBeforeLostOrFoundEdit() throws Exception {
+        var candidate = foundItemRepository.saveAndFlush(new com.lostquest.entity.FoundItem(finder, "검은 지갑", "지갑", "검정",
+                "습득한 물건에 대한 설명입니다.", LOST, "서울", "습득 장소", null, com.lostquest.entity.FoundItemStatus.STORED));
+        var oldLostSnapshot = snapshot(wallet, candidate);
+        Map<String, Object> lostInput = Map.of("title", wallet.getTitle(), "category", wallet.getCategory(), "color", "파랑",
+                "description", wallet.getDescription(), "lostDate", wallet.getLostDate().toString(), "region", wallet.getRegion(), "location", wallet.getLocation());
+        perform(put("/api/lost-items/" + wallet.getId()).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(lostInput)), ownerToken).andExpect(status().isOk());
+        assertThat(writer.insertIfAbsent(oldLostSnapshot)).isFalse();
+        assertThat(notificationRepository.count()).isZero();
+        LostItem currentLost = lostItemRepository.findById(wallet.getId()).orElseThrow();
+        assertThat(writer.insertIfAbsent(snapshot(currentLost, candidate))).isTrue();
+        notificationRepository.deleteAll();
+
+        var oldFoundSnapshot = snapshot(currentLost, candidate);
+        Map<String, Object> foundInput = Map.of("title", "수정한 파란 지갑", "category", candidate.getCategory(), "color", "파랑",
+                "description", candidate.getDescription(), "foundDate", candidate.getFoundDate().toString(), "region", candidate.getRegion(), "location", candidate.getLocation());
+        perform(put("/api/found-items/" + candidate.getId()).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(foundInput)), finderToken).andExpect(status().isOk());
+        notificationRepository.deleteAll(); // Isolate the delayed refresh from the edit's after-commit recomputation.
+        assertThat(writer.insertIfAbsent(oldFoundSnapshot)).isFalse();
+        assertThat(notificationRepository.count()).isZero();
+        assertThat(writer.insertIfAbsent(snapshot(currentLost, foundItemRepository.findById(candidate.getId()).orElseThrow()))).isTrue();
+        assertThat(notificationRepository.findAll()).singleElement().extracting(MatchNotification::getFoundTitle).isEqualTo("수정한 파란 지갑");
+    }
+
+    private MatchNotificationWriter.NewNotification snapshot(LostItem target, com.lostquest.entity.FoundItem candidate) {
+        return new MatchNotificationWriter.NewNotification(owner.getId(), target.getId(), MatchSource.LOST_QUEST,
+                "LOST_QUEST:" + candidate.getId(), candidate.getId(), null, null, candidate.getTitle(), candidate.getFoundDate(),
+                100, 100, MatchTarget.of(target), MatchingService.toCandidate(candidate));
     }
 
     @Test

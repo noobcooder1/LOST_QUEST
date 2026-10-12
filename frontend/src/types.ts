@@ -15,7 +15,7 @@ export interface Item {
   description: string;
   image: string;
   source: ItemSource;
-  status: 'open' | 'returned';
+  status: 'open' | 'returned' | 'closed';
   createdBy: string;
   /** A fictional ownership clue for the local demonstration only. */
   secretAnswer?: string;

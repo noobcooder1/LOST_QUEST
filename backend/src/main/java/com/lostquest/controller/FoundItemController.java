@@ -2,6 +2,7 @@ package com.lostquest.controller;
 
 import com.lostquest.dto.CreateFoundItemRequest;
 import com.lostquest.dto.FoundItemResponse;
+import com.lostquest.dto.UpdateFoundItemRequest;
 import com.lostquest.service.FoundItemService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
@@ -11,8 +12,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -49,6 +52,25 @@ public class FoundItemController {
     @GetMapping("/{id}")
     public FoundItemResponse getFoundItem(@PathVariable @Positive Long id) {
         return foundItemService.findById(id);
+    }
+
+    @PutMapping("/{id}")
+    public FoundItemResponse updateFoundItem(@AuthenticationPrincipal Jwt jwt, @PathVariable @Positive Long id,
+            @Valid @RequestBody UpdateFoundItemRequest request) {
+        return foundItemService.update(jwt.getSubject(), id, request, null);
+    }
+
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public FoundItemResponse updateFoundItemWithImage(@AuthenticationPrincipal Jwt jwt, @PathVariable @Positive Long id,
+            @Valid @RequestPart("item") UpdateFoundItemRequest request,
+            @RequestPart(value = "image", required = false) MultipartFile image) {
+        return foundItemService.update(jwt.getSubject(), id, request, image);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteFoundItem(@AuthenticationPrincipal Jwt jwt, @PathVariable @Positive Long id) {
+        foundItemService.delete(jwt.getSubject(), id);
     }
 
     @PostMapping
