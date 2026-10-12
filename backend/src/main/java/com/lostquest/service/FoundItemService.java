@@ -2,14 +2,21 @@ package com.lostquest.service;
 
 import com.lostquest.dto.CreateFoundItemRequest;
 import com.lostquest.dto.FoundItemResponse;
+import com.lostquest.dto.UpdateFoundItemRequest;
 import com.lostquest.entity.FoundItem;
 import com.lostquest.entity.FoundItemStatus;
 import com.lostquest.entity.User;
+import com.lostquest.entity.ReturnStatus;
+import com.lostquest.exception.InvalidRequestParameterException;
 import com.lostquest.exception.ResourceNotFoundException;
+import com.lostquest.exception.WorkflowConflictException;
 import com.lostquest.repository.FoundItemRepository;
+import com.lostquest.repository.ReturnRequestRepository;
+import com.lostquest.repository.MatchNotificationRepository;
 import com.lostquest.service.notification.FoundItemRegisteredEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,16 +32,21 @@ public class FoundItemService {
     private final ApplicationEventPublisher eventPublisher;
     private final ActivityService activityService;
     private final OwnershipProof ownershipProof;
+    private final ReturnRequestRepository returnRequests;
+    private final MatchNotificationRepository matchNotifications;
 
     public FoundItemService(FoundItemRepository foundItemRepository, CurrentUserReader currentUserReader,
                             ImageService imageService, ApplicationEventPublisher eventPublisher,
-                            ActivityService activityService, OwnershipProof ownershipProof) {
+                            ActivityService activityService, OwnershipProof ownershipProof,
+                            ReturnRequestRepository returnRequests, MatchNotificationRepository matchNotifications) {
         this.foundItemRepository = foundItemRepository;
         this.currentUserReader = currentUserReader;
         this.imageService = imageService;
         this.eventPublisher = eventPublisher;
         this.activityService = activityService;
         this.ownershipProof = ownershipProof;
+        this.returnRequests = returnRequests;
+        this.matchNotifications = matchNotifications;
     }
 
     public List<FoundItemResponse> findAll() {
@@ -45,6 +57,7 @@ public class FoundItemService {
 
     public FoundItemResponse findById(Long id) {
         return foundItemRepository.findById(id)
+                .filter(item -> item.getStatus() != FoundItemStatus.CLOSED)
                 .map(FoundItemResponse::from)
                 .orElseThrow(() -> new ResourceNotFoundException("습득물을 찾을 수 없습니다. id: " + id));
     }
@@ -76,6 +89,50 @@ public class FoundItemService {
         // Match notifications for lost-item owners are created only after this registration commits.
         eventPublisher.publishEvent(new FoundItemRegisteredEvent(saved.getId(), author.getId()));
         return FoundItemResponse.from(saved);
+    }
+
+    /** Updating and deleting use the same item lock as return creation to prevent overlapping workflows. */
+    @Transactional
+    public FoundItemResponse update(String subject, Long id, UpdateFoundItemRequest request, MultipartFile image) {
+        FoundItem item = requireEditable(subject, id);
+        boolean hasQuestion = request.ownershipQuestion() != null && !request.ownershipQuestion().isBlank();
+        boolean hasAnswer = request.ownershipAnswer() != null && !request.ownershipAnswer().isBlank();
+        if (hasQuestion != hasAnswer) {
+            throw new InvalidRequestParameterException("ownershipAnswer", "소유자 확인 질문과 답변을 함께 입력해 주세요.");
+        }
+        if (request.removeImage() && isPresent(image)) {
+            throw new InvalidRequestParameterException("removeImage", "사진 교체와 삭제는 동시에 할 수 없습니다.");
+        }
+        String imageUrl = request.removeImage() ? null : item.getImageUrl();
+        if (isPresent(image)) imageUrl = imageService.storeForNewItem(image);
+        item.revise(request.title().trim(), request.category(), request.color().trim(), request.description().trim(),
+                request.foundDate(), request.region(), request.location().trim(), imageUrl);
+        if (hasAnswer) item.configureOwnership(request.ownershipQuestion().trim(), ownershipProof.encode(request.ownershipAnswer()));
+        // Titles, dates and scores in match notifications are snapshots of the previous post.
+        matchNotifications.deleteByFoundItemId(id);
+        eventPublisher.publishEvent(new FoundItemRegisteredEvent(item.getId(), item.getUser().getId()));
+        return FoundItemResponse.from(item);
+    }
+
+    @Transactional
+    public void delete(String subject, Long id) {
+        FoundItem item = requireEditable(subject, id);
+        item.close();
+        matchNotifications.deleteByFoundItemId(id);
+    }
+
+    private FoundItem requireEditable(String subject, Long id) {
+        User author = currentUserReader.require(subject);
+        FoundItem item = foundItemRepository.findLocked(id)
+                .orElseThrow(() -> new ResourceNotFoundException("습득물을 찾을 수 없습니다. id: " + id));
+        if (!item.getUser().getId().equals(author.getId())) {
+            throw new AccessDeniedException("등록자만 물품글을 수정하거나 삭제할 수 있습니다.");
+        }
+        if (item.getStatus() != FoundItemStatus.STORED ||
+                returnRequests.findFirstByFoundItem_IdAndStatusNotOrderByIdDesc(id, ReturnStatus.REJECTED).isPresent()) {
+            throw new WorkflowConflictException("반환 요청이 진행 중이거나 완료된 물품글은 수정하거나 삭제할 수 없습니다.");
+        }
+        return item;
     }
 
     /** An empty file part without a name is what a form sends when no file was chosen. */

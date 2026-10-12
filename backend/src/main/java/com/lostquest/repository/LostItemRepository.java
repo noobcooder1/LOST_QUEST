@@ -13,17 +13,20 @@ import java.util.Optional;
 
 public interface LostItemRepository extends JpaRepository<LostItem, Long> {
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
-    @Query("select l from LostItem l where l.id = :id")
+    @Query("select l from LostItem l where l.id = :id and l.status <> com.lostquest.entity.LostItemStatus.CLOSED")
     Optional<LostItem> findLocked(@Param("id") Long id);
-    long countByUser_Id(Long userId);
+    @Query("select count(l) from LostItem l where l.user.id = :userId and l.status <> com.lostquest.entity.LostItemStatus.CLOSED")
+    long countByUser_Id(@Param("userId") Long userId);
 
+    @Query("select l from LostItem l where l.status <> com.lostquest.entity.LostItemStatus.CLOSED order by l.id asc")
     List<LostItem> findAllByOrderByIdAsc();
 
     /** One user's lost items, newest registration first (id breaks ties within the same instant). */
-    List<LostItem> findByUser_IdOrderByCreatedAtDescIdDesc(Long userId);
+    @Query("select l from LostItem l where l.user.id = :userId and l.status <> com.lostquest.entity.LostItemStatus.CLOSED order by l.createdAt desc, l.id desc")
+    List<LostItem> findByUser_IdOrderByCreatedAtDescIdDesc(@Param("userId") Long userId);
 
     /** Loads the author too, so ownership can be checked outside a transaction (open-in-view is off). */
-    @Query("select l from LostItem l join fetch l.user where l.id = :id")
+    @Query("select l from LostItem l join fetch l.user where l.id = :id and l.status <> com.lostquest.entity.LostItemStatus.CLOSED")
     Optional<LostItem> findWithUserById(@Param("id") Long id);
 
     /**

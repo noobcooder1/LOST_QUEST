@@ -82,7 +82,7 @@ export function fromServerItem(type: ItemType, value: unknown, baseUrl = getApiB
     // Rows without an uploaded image (imageUrl NULL) keep the category illustration.
     image: resolveServerImageUrl(raw.imageUrl, baseUrl) ?? defaultItemImage(raw.category, raw.title),
     source: 'community',
-    status: raw.status === openStatus ? 'open' : 'returned',
+    status: raw.status === 'CLOSED' ? 'closed' : raw.status === openStatus ? 'open' : 'returned',
     createdBy: 'server',
     serverId: raw.id,
     ownerId: raw.userId,
@@ -142,10 +142,8 @@ export function describeMyItemsError(error: unknown): string {
  * author from the JWT and sets the initial status itself. With an image, the same fields go in a
  * multipart "item" part next to the "image" file; without one, the original JSON request is used.
  */
-export async function createServerItem(type: ItemType, input: CreateItemInput,
-  config: RequestConfig & { accessToken?: string | null; image?: Blob | null } = {}): Promise<Item> {
-  const { accessToken = loadAuthSession()?.accessToken ?? null, image = null, ...requestConfig } = config;
-  const body = {
+function itemBody(type: ItemType, input: CreateItemInput) {
+  return {
     title: input.title.trim(),
     category: input.category,
     color: input.color.trim(),
@@ -157,6 +155,12 @@ export async function createServerItem(type: ItemType, input: CreateItemInput,
       ownershipQuestion: input.ownershipQuestion.trim(), ownershipAnswer: input.ownershipAnswer?.trim(),
     } : {}),
   };
+}
+
+export async function createServerItem(type: ItemType, input: CreateItemInput,
+  config: RequestConfig & { accessToken?: string | null; image?: Blob | null } = {}): Promise<Item> {
+  const { accessToken = loadAuthSession()?.accessToken ?? null, image = null, ...requestConfig } = config;
+  const body = itemBody(type, input);
   if (!image) {
     return fromServerItem(type, await apiRequest(collectionPath(type), { ...requestConfig, method: 'POST', body, accessToken }), requestConfig.baseUrl);
   }
@@ -166,6 +170,29 @@ export async function createServerItem(type: ItemType, input: CreateItemInput,
   return fromServerItem(type, await apiRequest(collectionPath(type), {
     timeoutMs: UPLOAD_TIMEOUT_MS, ...requestConfig, method: 'POST', body: form, accessToken,
   }), requestConfig.baseUrl);
+}
+
+/** Updates the author's existing post; omitted ownership fields and photos remain unchanged. */
+export async function updateServerItem(type: ItemType, serverId: number, input: CreateItemInput,
+  config: RequestConfig & { accessToken?: string | null; image?: Blob | null; removeImage?: boolean } = {}): Promise<Item> {
+  const { accessToken = loadAuthSession()?.accessToken ?? null, image = null, removeImage = false, ...requestConfig } = config;
+  const body = { ...itemBody(type, input), removeImage };
+  const path = `${collectionPath(type)}/${serverId}`;
+  if (!image) {
+    return fromServerItem(type, await apiRequest(path, { ...requestConfig, method: 'PUT', body, accessToken }), requestConfig.baseUrl);
+  }
+  const form = new FormData();
+  form.append('item', new Blob([JSON.stringify(body)], { type: 'application/json' }));
+  form.append('image', image, image instanceof File ? image.name : 'image');
+  return fromServerItem(type, await apiRequest(path, {
+    timeoutMs: UPLOAD_TIMEOUT_MS, ...requestConfig, method: 'PUT', body: form, accessToken,
+  }), requestConfig.baseUrl);
+}
+
+export async function deleteServerItem(type: ItemType, serverId: number,
+  config: RequestConfig & { accessToken?: string | null } = {}): Promise<void> {
+  const { accessToken = loadAuthSession()?.accessToken ?? null, ...requestConfig } = config;
+  await apiRequest(`${collectionPath(type)}/${serverId}`, { ...requestConfig, method: 'DELETE', accessToken });
 }
 
 const fieldLabels: Record<string, string> = {
@@ -183,4 +210,13 @@ export function describeItemError(error: unknown): string {
     return error.fieldErrors.map(({ field, message }) => `${fieldLabels[field] ?? field}: ${message}`).join('\n');
   }
   return error.message;
+}
+
+export function describeItemMutationError(error: unknown, action: 'update' | 'delete'): string {
+  const verb = action === 'update' ? '수정' : '삭제';
+  if (!(error instanceof ApiClientError)) return `${verb}하지 못했어요. 잠시 후 다시 시도해 주세요.`;
+  if (error.status === 401) return `로그인이 만료되었어요. 다시 로그인한 뒤 ${verb}해 주세요.`;
+  if (error.status === 403) return `본인이 등록한 물품글만 ${verb}할 수 있어요.`;
+  if (error.status === 404) return '이 물품글을 찾을 수 없어요. 이미 삭제되었을 수 있어요.';
+  return describeItemError(error);
 }

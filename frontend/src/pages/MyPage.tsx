@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Award, Bell, CheckCircle2, ChevronRight, Compass, HeartHandshake, LockKeyhole, Package, ShieldCheck, Sparkles, Trophy, UserRound } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useMatchNotifications } from '../context/MatchNotificationContext';
@@ -7,11 +7,13 @@ import MatchNotificationList from '../components/MatchNotificationList';
 import MyItemList from '../components/MyItemList';
 import type { ReturnRequest } from '../types';
 import './workflow.css';
+import '../components/ItemManagementMenu.css';
 
 const requestLabels: Record<ReturnRequest['status'], string> = { pending: '소유자 확인 대기', owner_verified: '요청 승인 대기', approved: 'QR 인증 대기', qr_verified: '반환 완료 확인 대기', completed: '반환 완료', rejected: '반려' };
 
 export default function MyPage() {
   const { items, requests, profile, notifications, isLoggedIn, logout, markNotificationsRead, refreshData, activityLoading } = useApp();
+  const location = useLocation();
   const [params, setParams] = useSearchParams();
   const tab = ['items', 'returns', 'badges', 'notifications'].includes(params.get('tab') ?? '') ? params.get('tab')! : 'items';
   const setTab = (value: string) => setParams(value === 'items' ? {} : { tab: value });
@@ -35,6 +37,7 @@ export default function MyPage() {
 
   return <div className="page-container workflow-page">
     <div className="page-heading"><div className="eyebrow">나의 퀘스트</div><h1>마이페이지</h1><p>함께 찾아 준 순간들이 모여, 나만의 여정이 됩니다.</p><button className="text-link" style={{ marginTop: 14 }} onClick={logout}>로그아웃</button></div>
+    {location.state?.itemDeleted && <p className="item-mutation-notice" role="status"><CheckCircle2 size={18} />물품글을 삭제했어요.</p>}
     {activityLoading && <p role="status">계정 기록을 불러오고 있어요…</p>}
     {error && <p className="field-error" role="alert">{error}</p>}
     <section className="card profile-card"><div className="profile-overview"><div className="profile-avatar"><UserRound size={43} strokeWidth={1.5} /><span>Lv.{level}</span></div><div className="profile-identity"><span className="eyebrow">일상을 되찾아 주는 탐험가</span><h2>{profile.name} <span className="badge badge-blue">회원</span></h2><p className="muted">작은 친절을 함께 나누고 있어요.</p><div className="profile-xp-label"><strong>레벨 {level}</strong><span><b>{progress}</b> / 100 XP</span></div><div className="profile-progress" role="progressbar" aria-label="다음 레벨까지 경험치" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div><p className="profile-next-level">다음 레벨까지 <strong>{100 - progress} XP</strong> 남았어요</p></div></div><div className="profile-stat-grid"><div><HeartHandshake size={20} /><strong>{profile.returnedCount}</strong><span>반환 완료</span></div><div><Sparkles size={20} /><strong>{profile.xp}</strong><span>누적 경험치</span></div><div><Award size={20} /><strong>{badges.filter((badge) => badge.unlocked).length}</strong><span>획득 업적</span></div></div></section>

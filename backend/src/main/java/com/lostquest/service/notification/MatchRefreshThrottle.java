@@ -3,6 +3,8 @@ package com.lostquest.service.notification;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -53,5 +55,11 @@ public class MatchRefreshThrottle {
     /** Gives the slot back after a refresh that failed before matching ran. */
     public void release(Long lostItemId) {
         lastStarted.remove(lostItemId);
+    }
+
+    /** A successful edit invalidates the old criteria; rolled-back edits keep their previous refresh limit. */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onLostItemUpdated(LostItemUpdatedEvent event) {
+        release(event.lostItemId());
     }
 }

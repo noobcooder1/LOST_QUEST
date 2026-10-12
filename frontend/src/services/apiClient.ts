@@ -97,7 +97,7 @@ export async function checkApiHealth(options: { baseUrl?: string; timeoutMs?: nu
 }
 
 export interface ApiRequestOptions {
-  method?: 'GET' | 'POST';
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   /** Plain values are sent as JSON; FormData is sent as multipart with a browser-generated boundary. */
   body?: unknown;
   /** Sent as `Authorization: Bearer <token>`. Tokens are never put in URLs or logged. */
@@ -148,6 +148,7 @@ export async function apiRequest(path: string, options: ApiRequestOptions = {}):
       signal: controller.signal,
     });
     if (!response.ok) throw await toHttpError(response);
+    if (response.status === 204) return null;
     try {
       return await response.json();
     } catch {

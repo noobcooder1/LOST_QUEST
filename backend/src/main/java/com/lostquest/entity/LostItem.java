@@ -67,6 +67,20 @@ public class LostItem extends BaseEntity {
     private LostItemStatus status;
 
     public void markReturned() { status = LostItemStatus.RETURNED; }
+    /** Keep return history and foreign keys while removing the post from item views. */
+    public void close() { status = LostItemStatus.CLOSED; }
+
+    public void revise(String title, String category, String color, String description,
+                       LocalDate lostDate, String region, String location, String imageUrl) {
+        this.title = title;
+        this.category = category;
+        this.color = color;
+        this.description = description;
+        this.lostDate = lostDate;
+        this.region = region;
+        this.location = location;
+        this.imageUrl = imageUrl;
+    }
 
     protected LostItem() {
     }

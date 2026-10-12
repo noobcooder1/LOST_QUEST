@@ -2,7 +2,7 @@
 
 분실물 통합 탐색 팀 프로젝트입니다. 기존 React 프론트엔드 프로토타입에 Java 21 + Spring Boot + JPA + MySQL 백엔드의 기본 틀을 추가했습니다.
 
-현재 서버 기능은 **회원가입·로그인, 분실물·습득물·사진 등록과 조회, 경찰청 공공데이터 조회, 규칙 기반 매칭 추천과 알림, 반환 요청·소유자 확인·승인·QR 검증·최종 완료, 경험치와 활동 알림**입니다. 회원이 만드는 기록은 MySQL `lost_quest`에 저장합니다. 프론트엔드는 서버 기록을 읽으며, 브라우저의 예시 프로필·물품·반환 데이터는 사용하지 않습니다. 사진 특징 분석 화면은 시뮬레이션이며, 수정·삭제·AWS 배포는 아직 포함하지 않습니다.
+현재 서버 기능은 **회원가입·로그인, 분실물·습득물·사진 등록·조회·수정·삭제, 경찰청 공공데이터 조회, 규칙 기반 매칭 추천과 알림, 반환 요청·소유자 확인·승인·QR 검증·최종 완료, 경험치와 활동 알림**입니다. 회원이 만드는 기록은 MySQL `lost_quest`에 저장합니다. 프론트엔드는 서버 기록을 읽으며, 브라우저의 예시 프로필·물품·반환 데이터는 사용하지 않습니다. 사진 특징 분석 화면은 시뮬레이션이며, AWS 배포는 아직 포함하지 않습니다.
 
 최신 저장 구조와 반환 이용 방법은 [이메일 검증·전체 DB 저장 가이드](계획서및회의록/11_이메일_검증과_전체_DB_저장.md), macOS 실행 방법은 [전체 실행 가이드](계획서및회의록/10_macOS_전체_실행_가이드.md)를 참고하세요.
 
@@ -144,6 +144,8 @@ Copy-Item application-local.example.yml application-local.yml
 | POST | `/api/notifications/refresh` | 내 최근 분실물 다시 매칭 → 새 후보 알림 생성(분실물별 10분 간격 제한), 인증 필요 |
 | POST | `/api/lost-items` | 분실물 등록, `Authorization: Bearer <token>` 필요. `201` + 분실물 DTO |
 | POST | `/api/found-items` | 습득물 등록, `Authorization: Bearer <token>` 필요. `201` + 습득물 DTO |
+| PUT | `/api/lost-items/{id}`, `/api/found-items/{id}` | 본인 물품글 수정(JSON·multipart), 사진·소유자 확인 질문 변경, 인증 필요 |
+| DELETE | `/api/lost-items/{id}`, `/api/found-items/{id}` | 본인 물품글 삭제, 성공 시 `204`, 인증 필요 |
 | GET | `/api/images/{filename}` | 등록 사진 조회(공개). 없으면 JSON 404 |
 | GET | `/api/public-items/lost` | 경찰청 분실물 목록(공개, 실시간) |
 | GET | `/api/public-items/found` | 경찰청 습득물 목록(공개, 실시간) |
@@ -181,7 +183,7 @@ ALTER TABLE return_requests
 ```
 
 
-목록은 ID 오름차순이며 아직 필터·페이지네이션·수정·삭제 API는 없습니다. 응답에는 `id`, `userId`, 물품 정보, `region`, 문자열 상태, `createdAt`이 포함됩니다. 날짜는 `YYYY-MM-DD`, 생성 시각은 UTC ISO 8601입니다. 프론트엔드는 `frontend/src/services/itemApi.ts`에서 서버 DTO를 화면용 `Item`으로 변환하며, 서버 물품의 화면 ID는 `api-lost-12`/`api-found-7` 형식입니다.
+목록은 ID 오름차순이며 아직 필터·페이지네이션 API는 없습니다. 삭제된 물품은 목록·상세·내 등록 내역·매칭에서 제외됩니다. 응답에는 `id`, `userId`, 물품 정보, `region`, 문자열 상태, `createdAt`이 포함됩니다. 날짜는 `YYYY-MM-DD`, 생성 시각은 UTC ISO 8601입니다. 프론트엔드는 `frontend/src/services/itemApi.ts`에서 서버 DTO를 화면용 `Item`으로 변환하며, 서버 물품의 화면 ID는 `api-lost-12`/`api-found-7` 형식입니다.
 
 ### 물품 등록 API
 
@@ -209,6 +211,15 @@ ALTER TABLE found_items ADD COLUMN region VARCHAR(20) NULL;
 ```
 
 상태: User의 `USER / ADMIN`, 분실물의 `LOST / RETURNED / CLOSED`, 습득물의 `STORED / RETURNED / CLOSED`를 enum 문자열로 저장합니다. 이메일은 고유하며 비밀번호는 BCrypt 해시만 허용합니다.
+
+### 물품 수정·삭제 API
+
+- `PUT /api/lost-items/{id}`, `/api/found-items/{id}`: 등록과 같은 물품 필드를 보냅니다. 작성자는 JWT로 확인하며 타인 글은 관리자도 `403`입니다. 등록일시·등록 경험치는 유지됩니다.
+- 사진은 기본적으로 유지됩니다. 교체하려면 `multipart/form-data`의 `item` JSON과 `image` 파일을 보내고, 제거하려면 JSON의 `removeImage: true`를 사용합니다. 파일과 제거를 동시에 지정하면 `400`입니다.
+- 습득물의 `ownershipQuestion`·`ownershipAnswer`는 선택 사항입니다. 둘 다 생략하거나 빈 값이면 기존 질문·답변을 유지하고, 변경하려면 질문과 새 답변을 함께 보냅니다. 답변은 기존과 같이 해시로만 저장됩니다.
+- `DELETE` 같은 경로는 성공 시 빈 `204` 응답을 반환합니다. 기존 `CLOSED` 상태로 삭제 처리하므로 추가 스키마 변경 없이 삭제 글을 숨기고 반환 이력과 경험치는 보존합니다. 관련 매칭 알림은 정리됩니다.
+- 진행 중이거나 완료된 반환 요청과 연결된 물품은 수정·삭제 시 `409`입니다. 반려된 요청만 남아 있다면 변경할 수 있습니다. 삭제된 글 조회는 `404`입니다.
+- 화면에서는 본인 글 상세 상단의 **물품글 관리** 메뉴로 수정·삭제를 시작합니다. 소유자 확인 질문 설정·변경도 **물품글 수정** 화면에서 함께 처리합니다.
 
 ### 인증 API
 
@@ -269,18 +280,18 @@ LOST QUEST 백엔드가 경찰청 OpenAPI(XML)를 실시간으로 호출해 JSON
 
 내 분실물에 대해 **매칭도 70점 이상**의 새 후보가 발견되면 LOST QUEST 안에서 알림을 만듭니다(이메일·SMS·푸시·WebSocket·스케줄러 없음). 점수는 매칭 추천과 같은 엔진을 그대로 사용합니다.
 
-- 생성 시점: ① LOST QUEST 습득물이 등록되어 커밋된 직후, 그 습득물을 기간이 맞는 진행 중 분실물과 비교(경찰청 호출 없음, 실패해도 등록에는 영향 없음) ② `POST /api/notifications/refresh` — 로그인·알림 화면·분실물 등록 시 프론트엔드가 호출하며, 최근 30일 안의 내 진행 중 분실물(최신 5개)을 LOST QUEST + 경찰청으로 다시 매칭해 분실물별 상위 5개 후보 중 새 후보를 기록합니다. 같은 분실물은 10분(`app.notifications.refresh-interval`)에 한 번만 다시 매칭합니다.
-- 중복 방지: DB 유일 제약 `(lost_item_id, candidate_key)`. 반복·동시 요청에도 같은 후보 알림은 한 번만 생깁니다.
+- 생성 시점: ① LOST QUEST 습득물이 등록·수정되어 커밋된 직후, 그 습득물을 기간이 맞는 진행 중 분실물과 비교(경찰청 호출 없음, 실패해도 등록에는 영향 없음) ② `POST /api/notifications/refresh` — 로그인·알림 화면·분실물 등록 시 프론트엔드가 호출하며, 최근 30일 안의 내 진행 중 분실물(최신 5개)을 LOST QUEST + 경찰청으로 다시 매칭해 분실물별 상위 5개 후보 중 새 후보를 기록합니다. 같은 분실물은 10분(`app.notifications.refresh-interval`)에 한 번만 다시 매칭합니다. 분실물 수정 후에는 이전 조회 제한을 해제해 새 조건으로 다시 조회할 수 있습니다.
+- 중복 방지: DB 유일 제약 `(lost_item_id, candidate_key)`. 반복·동시 요청에도 같은 후보 알림은 한 번만 생깁니다. 물품 수정 시 이전 조건의 알림을 정리하고, 저장 전 현재 물품 정보와 조회 시점 정보가 같은지 확인해 오래된 알림의 재생성을 막습니다.
 - 경찰청 장애 시에도 LOST QUEST 후보 알림은 생성되며, `refresh` 응답의 `sources`에 출처별 상태가 표시됩니다. 경찰청 관리번호는 확인된 형식(`F` + 숫자 16자리, 순번 1~999)만 저장합니다.
 - 자세한 설계와 검증 결과는 `계획서및회의록/08_매칭_알림.md`를 참고하세요.
 
 ## 보안·오류 처리
 
-위 공개 GET API와 `POST /api/auth/signup`·`/api/auth/login`만 인증 없이 허용하고, `GET /api/images/{filename}`과 `GET /api/public-items/...`도 공개하며, `GET /api/auth/me`, `GET /api/lost-items/{id}/matches`(작성자 본인만), `/api/notifications/...`(본인 알림만)와 `POST /api/lost-items`·`/api/found-items`(JSON·multipart)는 인증을 요구하며, 나머지 요청(수정·삭제 등)은 기본 차단합니다. 폼 로그인·HTTP Basic·기본 생성 계정·서버 세션은 사용하지 않습니다(Stateless). JWT 검증은 Spring Security OAuth2 Resource Server(Nimbus)를 사용하며 자체 토큰 파서는 없습니다.
+위 공개 GET API와 `POST /api/auth/signup`·`/api/auth/login`만 인증 없이 허용하고, `GET /api/images/{filename}`과 `GET /api/public-items/...`도 공개하며, `GET /api/auth/me`, `GET /api/lost-items/{id}/matches`(작성자 본인만), `/api/notifications/...`(본인 알림만)와 `POST /api/lost-items`·`/api/found-items`(JSON·multipart), 본인 물품의 `PUT`·`DELETE`는 인증을 요구하며, 나머지 허용되지 않은 요청은 기본 차단합니다. 폼 로그인·HTTP Basic·기본 생성 계정·서버 세션은 사용하지 않습니다(Stateless). JWT 검증은 Spring Security OAuth2 Resource Server(Nimbus)를 사용하며 자체 토큰 파서는 없습니다.
 
 **CSRF 비활성화 이유:** CSRF는 브라우저가 쿠키·세션 같은 자격증명을 요청에 *자동으로* 붙이는 점을 악용합니다. 이 API는 세션·인증 쿠키를 만들지 않고, 자격증명은 프론트엔드 코드가 명시적으로 설정하는 `Authorization: Bearer` 헤더로만 전달되며, 다른 사이트는 이 헤더를 붙인 요청을 만들 수 없습니다(CORS 허용 Origin 제한, `credentials: omit`). 따라서 CSRF 토큰 없이도 위조 요청이 인증되지 않아 CSRF 보호를 끕니다. 이후 쿠키 기반 인증(예: HttpOnly Refresh Token 쿠키)을 도입하면 CSRF 정책을 다시 설계해야 합니다.
 
-CORS는 설정에 등록된 **정확한 Origin**만 허용합니다. 와일드카드는 거부하며 현재 GET/POST/OPTIONS만 허용합니다(POST는 인증 API용). 허용 헤더는 `Accept`, `Content-Type`, `Authorization`입니다. 쿠키 자격증명은 보내지 않습니다. 개발 서버 포트를 변경했다면 Origin도 변경해야 합니다. [Spring Security CORS 안내](https://docs.spring.io/spring-security/reference/6.5/servlet/integrations/cors.html)
+CORS는 설정에 등록된 **정확한 Origin**만 허용합니다. 와일드카드는 거부하며 현재 GET/POST/PUT/DELETE/OPTIONS를 허용합니다. 허용 헤더는 `Accept`, `Content-Type`, `Authorization`입니다. 쿠키 자격증명은 보내지 않습니다. 개발 서버 포트를 변경했다면 Origin도 변경해야 합니다. [Spring Security CORS 안내](https://docs.spring.io/spring-security/reference/6.5/servlet/integrations/cors.html)
 
 정상 응답에는 불필요한 Wrapper를 사용하지 않습니다. MVC·Validation 및 인증/인가 오류는 다음 형태로 응답합니다. 필드의 원래 입력값이나 비밀번호는 오류 JSON에 포함하지 않습니다.
 
@@ -352,7 +363,7 @@ $env:SPRING_DATASOURCE_PASSWORD = Read-Host '테스트 DB 비밀번호' -MaskInp
 
 ## 다음 단계
 
-1. 분실물/습득물 수정·삭제(작성자 권한 확인), 서버 측 필터·페이지네이션
+1. 서버 측 필터·페이지네이션
 2. 이미지 저장소 S3 전환, 경찰청 공공데이터 캐시, 매칭 추천에 이미지 유사도 항목 추가
 3. 명시적인 DB 마이그레이션과 이메일 인증 도입
 

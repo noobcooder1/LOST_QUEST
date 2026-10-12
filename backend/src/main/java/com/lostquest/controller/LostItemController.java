@@ -3,6 +3,7 @@ package com.lostquest.controller;
 import com.lostquest.dto.CreateLostItemRequest;
 import com.lostquest.dto.ItemMatchResponse;
 import com.lostquest.dto.LostItemResponse;
+import com.lostquest.dto.UpdateLostItemRequest;
 import com.lostquest.service.LostItemService;
 import com.lostquest.service.matching.MatchingService;
 import jakarta.validation.Valid;
@@ -15,8 +16,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -48,6 +51,25 @@ public class LostItemController {
     @GetMapping("/{id}")
     public LostItemResponse getLostItem(@PathVariable @Positive Long id) {
         return lostItemService.findById(id);
+    }
+
+    @PutMapping("/{id}")
+    public LostItemResponse updateLostItem(@AuthenticationPrincipal Jwt jwt, @PathVariable @Positive Long id,
+            @Valid @RequestBody UpdateLostItemRequest request) {
+        return lostItemService.update(jwt.getSubject(), id, request, null);
+    }
+
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public LostItemResponse updateLostItemWithImage(@AuthenticationPrincipal Jwt jwt, @PathVariable @Positive Long id,
+            @Valid @RequestPart("item") UpdateLostItemRequest request,
+            @RequestPart(value = "image", required = false) MultipartFile image) {
+        return lostItemService.update(jwt.getSubject(), id, request, image);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteLostItem(@AuthenticationPrincipal Jwt jwt, @PathVariable @Positive Long id) {
+        lostItemService.delete(jwt.getSubject(), id);
     }
 
     /** Found-item recommendations for one of the caller's own lost items (owner only). */
