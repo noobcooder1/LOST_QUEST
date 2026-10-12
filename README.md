@@ -1,5 +1,7 @@
 # LOST QUEST
 
+Sites 프론트엔드 배포와 로컬·외부 배포 검증 구분은 [Sites 배포 및 검증](docs/SITES_DEPLOYMENT.md)을 참고하세요.
+
 분실물 통합 탐색 팀 프로젝트입니다. 기존 React 프론트엔드 프로토타입에 Java 21 + Spring Boot + JPA + MySQL 백엔드의 기본 틀을 추가했습니다.
 
 현재 서버 기능은 **회원가입·로그인, 분실물·습득물·사진 등록·조회·수정·삭제, 경찰청 공공데이터 조회, 규칙 기반 매칭 추천과 알림, 반환 요청·소유자 확인·승인·QR 검증·최종 완료, 경험치와 활동 알림**입니다. 회원이 만드는 기록은 MySQL `lost_quest`에 저장합니다. 프론트엔드는 서버 기록을 읽으며, 브라우저의 예시 프로필·물품·반환 데이터는 사용하지 않습니다. 사진 특징 분석 화면은 시뮬레이션이며, AWS 배포는 아직 포함하지 않습니다.
@@ -291,7 +293,7 @@ LOST QUEST 백엔드가 경찰청 OpenAPI(XML)를 실시간으로 호출해 JSON
 
 **CSRF 비활성화 이유:** CSRF는 브라우저가 쿠키·세션 같은 자격증명을 요청에 *자동으로* 붙이는 점을 악용합니다. 이 API는 세션·인증 쿠키를 만들지 않고, 자격증명은 프론트엔드 코드가 명시적으로 설정하는 `Authorization: Bearer` 헤더로만 전달되며, 다른 사이트는 이 헤더를 붙인 요청을 만들 수 없습니다(CORS 허용 Origin 제한, `credentials: omit`). 따라서 CSRF 토큰 없이도 위조 요청이 인증되지 않아 CSRF 보호를 끕니다. 이후 쿠키 기반 인증(예: HttpOnly Refresh Token 쿠키)을 도입하면 CSRF 정책을 다시 설계해야 합니다.
 
-CORS는 설정에 등록된 **정확한 Origin**만 허용합니다. 와일드카드는 거부하며 현재 GET/POST/PUT/DELETE/OPTIONS를 허용합니다. 허용 헤더는 `Accept`, `Content-Type`, `Authorization`입니다. 쿠키 자격증명은 보내지 않습니다. 개발 서버 포트를 변경했다면 Origin도 변경해야 합니다. [Spring Security CORS 안내](https://docs.spring.io/spring-security/reference/6.5/servlet/integrations/cors.html)
+CORS는 설정에 등록된 정확한 Origin만 허용합니다. 와일드카드는 거부하며 현재 GET/POST/PUT/DELETE/OPTIONS를 허용합니다(POST는 인증·물품 등록·반환 API, PUT·DELETE는 물품 수정·삭제 API에 사용). 허용 헤더는 Accept, Content-Type, Authorization입니다. 쿠키 자격증명은 보내지 않습니다. 개발 서버 포트를 변경했다면 Origin도 변경해야 합니다. 개발 기본 설정에는 로컬 주소 2개와 현재 Sites Origin이 포함됩니다. Spring Security CORS 안내
 
 정상 응답에는 불필요한 Wrapper를 사용하지 않습니다. MVC·Validation 및 인증/인가 오류는 다음 형태로 응답합니다. 필드의 원래 입력값이나 비밀번호는 오류 JSON에 포함하지 않습니다.
 

@@ -15,10 +15,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = "app.cors.allowed-origins=http://localhost:5173,http://127.0.0.1:5173,https://lost-quest-seho-8e2c.yseho.chatgpt.site")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class HealthControllerTest {
+
+    private static final String SITES_ORIGIN = "https://lost-quest-seho-8e2c.yseho.chatgpt.site";
 
     @Autowired
     private MockMvc mockMvc;
@@ -40,5 +42,34 @@ class HealthControllerTest {
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET"))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5173"));
+    }
+
+    @Test
+    void sitesOriginCanReadHealth() throws Exception {
+        mockMvc.perform(get("/api/health").header(HttpHeaders.ORIGIN, SITES_ORIGIN))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, SITES_ORIGIN))
+                .andExpect(jsonPath("$.status").value("OK"));
+    }
+
+    @Test
+    void sitesOriginCanPreflightAuthenticatedPost() throws Exception {
+        mockMvc.perform(options("/api/lost-items")
+                        .header(HttpHeaders.ORIGIN, SITES_ORIGIN)
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "Authorization,Content-Type"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, SITES_ORIGIN))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, "Authorization, Content-Type"))
+                .andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS));
+    }
+
+    @Test
+    void unconfiguredOriginIsRejected() throws Exception {
+        mockMvc.perform(options("/api/health")
+                        .header(HttpHeaders.ORIGIN, "https://untrusted.example")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET"))
+                .andExpect(status().isForbidden())
+                .andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
     }
 }

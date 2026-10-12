@@ -12,6 +12,8 @@ public class CorsConfig {
     public UrlBasedCorsConfigurationSource corsConfigurationSource(CorsProperties properties) {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(properties.allowedOrigins());
+        // POST supports authentication, item uploads, and return workflow APIs.
+        // PUT and DELETE support item editing and deletion.
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Accept", "Content-Type", "Authorization"));
         config.setAllowCredentials(false);
