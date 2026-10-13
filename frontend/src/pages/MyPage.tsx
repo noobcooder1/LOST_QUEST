@@ -12,7 +12,7 @@ import '../components/ItemManagementMenu.css';
 const requestLabels: Record<ReturnRequest['status'], string> = { pending: '소유자 확인 대기', owner_verified: '요청 승인 대기', approved: 'QR 인증 대기', qr_verified: '반환 완료 확인 대기', completed: '반환 완료', rejected: '반려' };
 
 export default function MyPage() {
-  const { items, requests, profile, notifications, isLoggedIn, logout, markNotificationsRead, refreshData, activityLoading } = useApp();
+  const { items, requests, profile, notifications, isLoggedIn, logout, markNotificationsRead, activityLoading } = useApp();
   const location = useLocation();
   const [params, setParams] = useSearchParams();
   const tab = ['items', 'returns', 'badges', 'notifications'].includes(params.get('tab') ?? '') ? params.get('tab')! : 'items';
@@ -54,6 +54,5 @@ export default function MyPage() {
     {tab === 'badges' && <section><div className="workflow-section-heading"><h2>친절의 발자국</h2><span className="muted">{badges.filter((badge) => badge.unlocked).length} / {badges.length}개 획득</span></div><div className="profile-badge-grid">{badges.map(({ name, description, icon: Icon, unlocked, color }) => <article className={`card achievement ${unlocked ? '' : 'locked'}`} key={name}><div className={`achievement-icon ${color}`}><Icon size={31} strokeWidth={1.6} /></div><h3>{name}</h3><p>{description}</p><span className={unlocked ? 'achievement-earned' : 'muted'}>{unlocked ? <><CheckCircle2 size={13} /> 획득 완료</> : <><LockKeyhole size={13} /> 아직 도전 중</>}</span></article>)}</div></section>}
     {tab === 'notifications' && <MatchNotificationList />}
     {tab === 'notifications' && <section className="demo-notification-section" aria-labelledby="demo-notification-title"><div className="workflow-section-heading"><h2 id="demo-notification-title">활동 소식 <span>{activityUnread}</span></h2><button className="button button-ghost" onClick={() => { void markNotificationsRead().catch(() => setError('알림을 저장하지 못했어요. 다시 시도해 주세요.')); }} disabled={activityUnread === 0}>모두 읽음으로 표시</button></div><p className="workflow-small-note">물품 등록과 반환 진행 소식이에요. 계정에 저장되어 다른 브라우저에서도 확인할 수 있어요.</p>{notifications.length ? <div className="profile-notifications">{notifications.map((notification) => <article key={notification.id} className={`card profile-notification ${notification.read ? '' : 'unread'}`}><span className="profile-activity-icon"><Bell size={21} /></span><div><h3>{notification.title}{!notification.read && <span className="notification-dot" aria-label="읽지 않음" />}</h3><p>{notification.message}</p><time>{new Date(notification.createdAt).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</time></div></article>)}</div> : <div className="card empty-state"><Bell size={35} /><h3>아직 도착한 알림이 없어요</h3><p>반환 요청의 진행 상황을 이곳에서 알려 드려요.</p></div>}</section>}
-    <button className="button button-ghost" onClick={() => { void refreshData(); }}>기록 새로고침</button>
   </div>;
 }
