@@ -72,4 +72,31 @@ class HealthControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
     }
+
+    @Test
+    void sitesOriginCanPreflightNgrokRequests() throws Exception {
+        for (String method : new String[]{"GET", "POST", "PUT", "DELETE"}) {
+            mockMvc.perform(options("/api/lost-items")
+                            .header(HttpHeaders.ORIGIN, SITES_ORIGIN)
+                            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, method)
+                            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "Authorization,Content-Type,ngrok-skip-browser-warning"))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, SITES_ORIGIN))
+                    .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, "Authorization, Content-Type, ngrok-skip-browser-warning"));
+        }
+    }
+
+    @Test
+    void ngrokHeaderDoesNotAllowUnknownOriginsOrOtherHeaders() throws Exception {
+        mockMvc.perform(options("/api/health")
+                        .header(HttpHeaders.ORIGIN, "https://untrusted.example")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "ngrok-skip-browser-warning"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(options("/api/health")
+                        .header(HttpHeaders.ORIGIN, SITES_ORIGIN)
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "X-Unknown-Header"))
+                .andExpect(status().isForbidden());
+    }
 }

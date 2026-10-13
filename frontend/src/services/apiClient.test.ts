@@ -134,3 +134,24 @@ describe('shared API request', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe('ngrok API transport', () => {
+  it('bypasses the visitor page for health, JSON, and multipart requests without leaking the token', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ status: 'OK', service: 'LOST QUEST API' }))));
+    vi.stubGlobal('fetch', fetchMock);
+    const baseUrl = 'https://example.ngrok-free.dev';
+    await checkApiHealth({ baseUrl });
+    await apiRequest('/api/auth/login', { baseUrl, method: 'POST', body: { email: 'test@example.test' } });
+    const form = new FormData();
+    form.append('item', '{}');
+    await apiRequest('/api/lost-items', { baseUrl, method: 'POST', body: form, accessToken: 'test-token' });
+    for (const [url, init] of fetchMock.mock.calls as [string, RequestInit][]) {
+      expect(url).not.toContain('test-token');
+      expect(init.headers).toMatchObject({ 'ngrok-skip-browser-warning': '1' });
+    }
+    const upload = fetchMock.mock.calls[2][1] as RequestInit;
+    expect(upload.body).toBe(form);
+    expect(upload.headers).not.toHaveProperty('Content-Type');
+    expect(upload.headers).toHaveProperty('Authorization', 'Bearer test-token');
+  });
+});

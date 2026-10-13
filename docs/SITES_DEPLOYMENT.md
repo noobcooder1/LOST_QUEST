@@ -1,8 +1,27 @@
 # Sites 배포 및 검증
 
-검증일: 2026-10-12. React는 Sites에 배포되어 있으며 Cloudflare Quick Tunnel을 통해 로컬 Spring Boot·MySQL에 연결됩니다. PC의 MySQL·백엔드·터널 프로세스가 실행되는 동안 연결됩니다.
+검증일: 2026-10-13. React는 Sites에 배포되어 있으며 ngrok의 고정 개발 주소를 통해 로컬 Spring Boot·MySQL에 연결됩니다. PC의 MySQL·백엔드·터널 프로세스가 실행되는 동안 연결됩니다.
 
-## 현재 연결 결과
+## 현재 ngrok 연결 결과
+
+- 사이트: `https://lost-quest-seho-8e2c.yseho.chatgpt.site`
+- API: `https://gratify-amuck-grove.ngrok-free.dev` → `http://localhost:8080`
+- Sites 버전 4, 배포 상태 `succeeded`
+- 배포 소스 커밋: `a93b8d584d91911d9db5cf65572b80de389766be`
+- 배포 ID: `appgdep_6acd7d80a6bc8191a0d40e160b9c9543`
+- 기존 Site ID와 공개 범위를 유지했습니다. 원본 `frontend/.env.local`과 기존 UI도 유지합니다.
+- 프론트엔드 전체 테스트: 28개 파일·305개 통과. 배포 체크아웃에서 TypeScript·Vite 빌드 및 소스 패키징 성공.
+- 백엔드 health·CORS 테스트: 7개 통과, Java 21 실행 JAR 빌드 성공. 사용자가 백엔드를 재시작하여 CORS 변경을 적용했습니다.
+- 실제 ngrok 경유 health·분실물·습득물 조회: HTTP 200 JSON, 정확한 Sites Origin 허용.
+- GET·POST·PUT·DELETE preflight: HTTP 200, Authorization·Content-Type·ngrok 헤더 허용. 미허용 Origin은 HTTP 403.
+- 기존 물품 사진: HTTP 200 `image/jpeg`, 정확한 Sites Origin 허용. 검증 요청은 읽기 전용이며 개발 DB에 레코드를 생성·수정·삭제하지 않았습니다.
+- 배포 HTML·JS: HTTP 200, 새 ngrok 주소와 우회 헤더 포함, 이전 Cloudflare API 주소 미포함. `/login` 직접 접근도 동일 React 진입 번들과 root를 반환합니다.
+
+ngrok 개발 호스트에는 `ngrok-skip-browser-warning: 1`을 보내 방문 안내 페이지를 건너뜁니다. 이 헤더는 공개 값이며 인증 토큰이 아닙니다. 일반 `<img>`는 헤더를 보낼 수 없어 ngrok의 `/api/images/` 사진은 fetch로 가져와 임시 blob URL로 표시합니다. 출처 변경·컴포넌트 해제 시 요청을 중단하고 blob URL을 해제합니다. 일반 정적·경찰청 이미지는 기존 방식입니다. 전체 회원가입·반환 흐름의 실제 브라우저 체험은 별도 확인 항목입니다.
+
+같은 ngrok 계정과 개발 도메인을 유지하면 터널 재실행 때마다 API 주소를 바꾸거나 Sites를 재배포할 필요가 없습니다. MySQL·Spring Boot·ngrok을 계속 실행해야 서버 기능을 사용할 수 있습니다. 최초 설정과 실행 방법은 [NGROK_SETUP.md](NGROK_SETUP.md)를 참고하세요.
+
+## 이전 Cloudflare Quick Tunnel 연결 기록 (2026-10-12)
 
 - 사이트: `https://lost-quest-seho-8e2c.yseho.chatgpt.site`
 - API: `https://sustainability-algorithm-book-taking.trycloudflare.com` → `http://localhost:8080`
@@ -72,6 +91,6 @@
 | DB 영속성·재시작·동시 요청 | 배포 환경에서 MySQL 연결, 마이그레이션, 백업 정책 확인 |
 | 모바일·브라우저 직접 접근 및 새로고침 | 로그인한 사용자의 배포 URL에서 `/search`, `/login`, `/matches` 등 확인 |
 
-Sites는 정적 React를 호스팅하며 Spring Boot JVM과 MySQL은 현재 PC에서 실행됩니다. Quick Tunnel을 종료하면 사이트의 서버 기능도 연결이 끊깁니다. 터널을 새로 만들거나 상시 서버로 이전하면 배포용 체크아웃의 `.env.production`에서 **공개 API 기본 주소**를 수정하고 같은 Site ID에 다시 빌드·배포합니다. `/api` 경로는 붙이지 않습니다. `VITE_*`는 공개되므로 인증 비밀값을 넣지 않습니다.
+Sites는 정적 React를 호스팅하며 Spring Boot JVM과 MySQL은 현재 PC에서 실행됩니다. 현재는 위 ngrok 주소를 사용합니다. API 도메인을 변경하거나 상시 서버로 이전하면 배포용 체크아웃의 `.env.production`에서 **공개 API 기본 주소**를 수정하고 같은 Site ID에 다시 빌드·배포합니다. `/api` 경로는 붙이지 않습니다. `VITE_*`는 공개되므로 인증 비밀값을 넣지 않습니다.
 
 배포용 체크아웃은 이번 시점의 소스 복사본입니다. 이후 원본 변경사항은 자동 동기화되지 않으므로 다음 배포 전에 수정된 프론트엔드 소스를 반영해야 합니다. Site를 새로 만들지 않고 기존 ID와 접근 범위를 유지합니다.

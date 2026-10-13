@@ -365,6 +365,8 @@ $env:SPRING_DATASOURCE_PASSWORD = Read-Host '테스트 DB 비밀번호' -MaskInp
 
 ## 다음 단계
 
+로컬 백엔드를 Sites에 고정 HTTPS 주소로 연결하는 개발·시연 절차는 [ngrok 설정 안내](docs/NGROK_SETUP.md)를 참고하세요. ngrok 계정 설정 후 프로젝트 루트의 `scripts/start-api-tunnel.ps1`로 백엔드 연결을 확인하고 터널을 실행할 수 있습니다.
+
 1. 서버 측 필터·페이지네이션
 2. 이미지 저장소 S3 전환, 경찰청 공공데이터 캐시, 매칭 추천에 이미지 유사도 항목 추가
 3. 명시적인 DB 마이그레이션과 이메일 인증 도입

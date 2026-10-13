@@ -1,3 +1,5 @@
+import { getTunnelHeaders } from './tunnel';
+
 export interface ApiHealthResponse {
   status: 'OK';
   service: 'LOST QUEST API';
@@ -66,7 +68,7 @@ export async function checkApiHealth(options: { baseUrl?: string; timeoutMs?: nu
   try {
     const response = await fetch(url, {
       method: 'GET',
-      headers: { Accept: 'application/json' },
+      headers: { Accept: 'application/json', ...getTunnelHeaders(url) },
       credentials: 'omit',
       cache: 'no-store',
       signal: controller.signal,
@@ -130,7 +132,7 @@ async function toHttpError(response: Response): Promise<ApiClientError> {
 export async function apiRequest(path: string, options: ApiRequestOptions = {}): Promise<unknown> {
   const url = apiUrl(options.baseUrl ?? getApiBaseUrl(), path);
   const timeoutMs = options.timeoutMs ?? 10_000;
-  const headers: Record<string, string> = { Accept: 'application/json' };
+  const headers: Record<string, string> = { Accept: 'application/json', ...getTunnelHeaders(url) };
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   if (options.body !== undefined && !isFormData) headers['Content-Type'] = 'application/json';
   if (options.accessToken) headers.Authorization = `Bearer ${options.accessToken}`;
