@@ -2,17 +2,19 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowRight, Globe2, ListFilter, RotateCcw, Search, SlidersHorizontal } from 'lucide-react';
 import ItemCard from '../components/ItemCard';
+import PublicListStatus from '../components/PublicListStatus';
 import { categories, regions } from '../data/seed';
-import { listAllServerItems } from '../services/itemApi';
-import { getPoliceFilters, listPoliceItems, type PoliceFilterOptions } from '../services/publicItemApi';
-import { SOURCE_LABELS, buildPoliceQuery, describeSourceError, idleSource, loadCommunity, loadPolicePage, mergeSearchItems, policeLostSupport, type SourceKey, type SourceState } from '../services/searchSources';
+import { getPoliceFilters, type PoliceFilterOptions } from '../services/publicItemApi';
+import { loadCommunityPublicList, loadPolicePublicList } from '../services/publicListLoader';
+import { SOURCE_LABELS, applyPolicePage, buildPoliceQuery, describeSourceError, idleSource, mergeSearchItems, policeLostSupport, type SourceKey, type SourceState } from '../services/searchSources';
 
 const POLICE_PAGE_SIZE = 20;
 
 export default function SearchPage() {
   // Sources: LOST QUEST registrations (Spring Boot + MySQL) and live 경찰청 lost/found data via the backend.
   // Each source loads and fails independently; there is no seed fallback.
-  const [sources, setSources] = useState<Record<SourceKey, SourceState>>({ community: idleSource, policeLost: idleSource, policeFound: idleSource });
+  const [sources, setSources] = useState<Record<SourceKey, SourceState>>({ communityLost: idleSource, communityFound: idleSource, policeLost: idleSource, policeFound: idleSource });
+  const requestVersions = useRef<Record<SourceKey, number>>({ communityLost: 0, communityFound: 0, policeLost: 0, policeFound: 0 });
   const setSource = (key: SourceKey, state: SourceState) => setSources(previous => ({ ...previous, [key]: state }));
   const [params, setParams] = useSearchParams();
   const paramsRef = useRef(params);
@@ -44,14 +46,16 @@ export default function SearchPage() {
   }, []);
   useEffect(() => { void loadPoliceFilters(); }, [loadPoliceFilters]);
 
-  const loadCommunityItems = useCallback(async (isCancelled: () => boolean = () => false) => {
-    setSource('community', { ...idleSource, status: 'loading' });
-    const state = await loadCommunity(listAllServerItems);
-    if (!isCancelled()) setSource('community', state);
+  const loadCommunityItems = useCallback(async (key: 'communityLost' | 'communityFound', isCancelled: () => boolean = () => false) => {
+    const version = ++requestVersions.current[key];
+    setSource(key, { ...idleSource, status: 'loading' });
+    const state = await loadCommunityPublicList(key === 'communityLost' ? 'lost' : 'found');
+    if (!isCancelled() && version === requestVersions.current[key]) setSource(key, state);
   }, []);
   useEffect(() => {
     let cancelled = false;
-    void loadCommunityItems(() => cancelled);
+    void loadCommunityItems('communityLost', () => cancelled);
+    void loadCommunityItems('communityFound', () => cancelled);
     return () => { cancelled = true; };
   }, [loadCommunityItems]);
 
@@ -60,11 +64,16 @@ export default function SearchPage() {
   const policeQuery = buildPoliceQuery({ q: query, from, to, region: pRegion, category: pCategory, subCategory: pSub, color: pColor });
   const policeKey = JSON.stringify(policeQuery);
   const policeVersion = useRef(0);
-  const loadPolice = useCallback(async (key: 'policeLost' | 'policeFound', page: number, previous: SourceState['items'] = []) => {
+  const loadPolice = useCallback(async (key: 'policeLost' | 'policeFound', page: number) => {
     const version = policeVersion.current;
-    setSources(current => ({ ...current, [key]: { ...current[key], status: 'loading', error: '', items: previous } }));
-    const state = await loadPolicePage(() => listPoliceItems(key === 'policeLost' ? 'lost' : 'found', { ...JSON.parse(policeKey), page, size: POLICE_PAGE_SIZE }), previous);
-    if (version === policeVersion.current) setSource(key, state);
+    const requestVersion = ++requestVersions.current[key];
+    setSources(current => ({ ...current, [key]: page > 1
+      ? { ...current[key], pageLoading: true, pageError: undefined }
+      : { ...idleSource, status: 'loading' } }));
+    const state = await loadPolicePublicList(key === 'policeLost' ? 'lost' : 'found', { ...JSON.parse(policeKey), page, size: POLICE_PAGE_SIZE });
+    if (version === policeVersion.current && requestVersion === requestVersions.current[key]) {
+      setSources(current => ({ ...current, [key]: applyPolicePage(current[key], state, page) }));
+    }
   }, [policeKey]);
   useEffect(() => {
     policeVersion.current += 1;
@@ -73,6 +82,7 @@ export default function SearchPage() {
     if (lostSupport.supported) void loadPolice('policeLost', 1);
     else setSource('policeLost', { ...idleSource, status: 'unsupported', error: lostSupport.reason });
     void loadPolice('policeFound', 1);
+    return () => { policeVersion.current += 1; };
   }, [loadPolice, policeKey, source]);
 
   const items = mergeSearchItems(sources);
@@ -97,13 +107,18 @@ export default function SearchPage() {
   const policeCategory = policeFilters.options?.categories.find(c => c.value === pCategory);
   const policeFiltersDisabled = keywordMode || policeFilters.status !== 'ready';
   const policeLoaded = sources.policeLost.items.length + sources.policeFound.items.length;
-  const visibleSources: SourceKey[] = source === 'community' ? ['community'] : source === 'public' ? ['policeLost', 'policeFound'] : ['community', 'policeLost', 'policeFound'];
-  const anyLoading = visibleSources.some(key => sources[key].status === 'loading' || (sources[key].status === 'idle' && key !== 'policeLost'));
-  const retry = (key: SourceKey) => key === 'community' ? void loadCommunityItems() : void loadPolice(key, Math.max(sources[key].page, 1), sources[key].items);
+  const communityCount = sources.communityLost.items.length + sources.communityFound.items.length;
+  const visibleSources: SourceKey[] = (source === 'community' ? ['communityLost', 'communityFound'] : source === 'public' ? ['policeLost', 'policeFound'] : ['communityLost', 'communityFound', 'policeLost', 'policeFound']) as SourceKey[];
+  const relevantSources = visibleSources.filter(key => !type || key.endsWith(type === 'lost' ? 'Lost' : 'Found'));
+  const hasStoredData = relevantSources.some(key => sources[key].dataStatus === 'cached');
+  const hasUnavailableData = relevantSources.some(key => sources[key].dataStatus === 'unavailable' || sources[key].status === 'error');
+  const readOnlyIds = new Set(relevantSources.flatMap(key => sources[key].dataStatus === 'cached' || sources[key].status === 'error' ? sources[key].items.map(item => item.id) : []));
+  const anyLoading = relevantSources.some(key => sources[key].status === 'loading' || sources[key].status === 'idle');
+  const retry = (key: SourceKey) => key.startsWith('community') ? void loadCommunityItems(key as 'communityLost' | 'communityFound') : void loadPolice(key as 'policeLost' | 'policeFound', 1);
 
   return <div className="page-container search-page"><div className="page-heading"><span className="eyebrow"><Globe2 size={15}/>전국 통합 검색</span><h1>당신의 소중한 물건, 함께 찾아볼까요?</h1><p>LOST QUEST 회원이 등록한 물품과 경찰청 유실물 공공데이터를 한곳에서 찾아보세요.</p></div>
     <form className="catalog-search" onSubmit={submit}><Search size={22}/><input aria-label="물품 이름 또는 특징 검색" value={draft} onChange={e=>setDraft(e.target.value)} placeholder="물품 이름, 색상, 장소로 검색해 보세요" maxLength={100}/><button className="button button-primary" type="submit">검색</button></form>
-    <div className="source-tabs" role="group" aria-label="데이터 출처"><button aria-pressed={!source} className={!source?'active':''} onClick={()=>update('source','')}>전체 물품<span>{items.length}</span></button><button aria-pressed={source==='community'} className={source==='community'?'active':''} onClick={()=>update('source','community')}>LOST QUEST{sources.community.status === 'ready' && <span>{sources.community.items.length}</span>}</button><button aria-pressed={source==='public'} className={source==='public'?'active':''} onClick={()=>update('source','public')}>경찰청 공공데이터{policeLoaded > 0 && <span>{policeLoaded}</span>}</button></div>
+    <div className="source-tabs" role="group" aria-label="데이터 출처"><button aria-pressed={!source} className={!source?'active':''} onClick={()=>update('source','')}>전체 물품<span>{items.length}</span></button><button aria-pressed={source==='community'} className={source==='community'?'active':''} onClick={()=>update('source','community')}>LOST QUEST{communityCount > 0 && <span>{communityCount}</span>}</button><button aria-pressed={source==='public'} className={source==='public'?'active':''} onClick={()=>update('source','public')}>경찰청 공공데이터{policeLoaded > 0 && <span>{policeLoaded}</span>}</button></div>
     <button className="button button-secondary filter-toggle" aria-expanded={filtersOpen} onClick={()=>setFiltersOpen(!filtersOpen)}><SlidersHorizontal size={17}/>상세 필터{activeCount > 0 && <b>{activeCount}</b>}</button>
     <div className={`search-filter-panel ${filtersOpen?'filters-open':''}`}><div className="filter-panel-label"><ListFilter size={17}/><strong>상세 조건</strong><button className="text-link" onClick={()=>{setParams(query?{q:query}:{});}}>초기화<RotateCcw size={13}/></button></div><div className="search-filter-fields">
       <label className="form-field">유형<select aria-label="물품 유형" value={type} onChange={e=>update('type',e.target.value)}><option value="">전체 유형</option><option value="found">습득물</option><option value="lost">분실물</option></select></label>
@@ -124,17 +139,11 @@ export default function SearchPage() {
         {pColor && !keywordMode && <p className="muted">색상은 경찰청 습득물에만 적용돼요. 같은 이름의 색상 코드를 모두 함께 찾아요.</p>}
       </div>}
     </div>
-    <ul className="search-source-status" aria-label="데이터 출처별 상태">{visibleSources.map(key => { const state = sources[key]; return <li key={key} className={state.status === 'error' ? 'field-error' : 'muted'}>
-      <strong>{SOURCE_LABELS[key]}</strong>{' '}
-      {state.status === 'unsupported' ? <span>{state.error}</span>
-        : state.status === 'loading' || state.status === 'idle' ? <span role="status"><span className="loading-dot" /> 불러오는 중…</span>
-        : state.status === 'error' ? <span role="alert">{state.error} <button type="button" className="text-link" onClick={() => retry(key)}>다시 시도</button></span>
-        : key === 'community' ? <span>{state.items.length}건</span> : <span>{state.items.length.toLocaleString()} / {state.totalCount.toLocaleString()}건{state.totalCount === 0 && ' (결과 없음)'}</span>}
-    </li>; })}</ul>
+    <ul className="public-list-status-grid" aria-label="데이터 출처별 상태">{relevantSources.map(key => <PublicListStatus key={key} label={SOURCE_LABELS[key]} state={sources[key]} retry={() => retry(key)} retryPage={key.startsWith('police') ? page => { void loadPolice(key as 'policeLost' | 'policeFound', page); } : undefined} />)}</ul>
     <div className="catalog-result-toolbar"><p>{query && <strong>‘{query}’ </strong>}검색 결과 <b>{invalidRange ? 0 : filtered.length}</b>개</p><select aria-label="검색 결과 정렬" value={sort} onChange={e=>update('sort',e.target.value)}><option value="latest">최신 날짜순</option><option value="oldest">오래된 날짜순</option></select></div>
-    {filtered.length > 0 && !invalidRange ? <div className="items-grid">{filtered.map(item=><ItemCard key={item.id} item={item}/>)}</div> : anyLoading ? null : <div className="empty-state card"><span className="empty-icon"><Search size={32}/></span><h2>조건에 맞는 물품이 아직 없어요.</h2><p>다른 검색어를 입력하거나 필터를 넓혀 보세요.<br/>물품을 직접 등록하면 AI 매칭도 체험할 수 있어요.</p><div className="button-row"><button className="button button-secondary" onClick={()=>{setParams({});setDraft('');}}>전체 물품 보기</button><Link to="/register?type=lost" className="button button-primary">분실물 등록<ArrowRight size={16}/></Link></div></div>}
-    {source !== 'community' && <div className="button-row">{(['policeLost', 'policeFound'] as const).filter(key => sources[key].status === 'ready' && sources[key].page < sources[key].totalPages).map(key =>
-      <button key={key} type="button" className="button button-secondary" onClick={() => void loadPolice(key, sources[key].page + 1, sources[key].items)}>{SOURCE_LABELS[key]} 더 보기</button>)}</div>}
+    {filtered.length > 0 && !invalidRange ? <div className="items-grid">{filtered.map(item=><ItemCard key={item.id} item={item} readOnly={readOnlyIds.has(item.id)}/>)}</div> : anyLoading ? null : <div className="empty-state card"><span className="empty-icon"><Search size={32}/></span><h2>{hasUnavailableData ? '공개 목록을 확인할 수 없어요.' : hasStoredData ? '저장된 목록에 조건에 맞는 물품이 없어요.' : '조건에 맞는 물품이 아직 없어요.'}</h2><p>{hasUnavailableData || hasStoredData ? '서버에 다시 연결하거나 이전에 조회한 조건으로 확인해 주세요.' : '다른 검색어를 입력하거나 필터를 넓혀 보세요.'}</p><div className="button-row"><button className="button button-secondary" onClick={()=>{setParams({});setDraft('');}}>전체 물품 보기</button>{!hasStoredData && !hasUnavailableData && <Link to="/register?type=lost" className="button button-primary">분실물 등록<ArrowRight size={16}/></Link>}</div></div>}
+    {source !== 'community' && <div className="button-row">{(['policeLost', 'policeFound'] as const).filter(key => sources[key].status === 'ready' && sources[key].dataStatus === 'live' && sources[key].page < sources[key].totalPages).map(key =>
+      <button key={key} type="button" className="button button-secondary" disabled={sources[key].pageLoading || !!sources[key].pageError} onClick={() => void loadPolice(key, sources[key].page + 1)}>{SOURCE_LABELS[key]} 더 보기</button>)}</div>}
     <div className="info-note"><Globe2 size={17}/><p>LOST QUEST 물품은 회원이 등록해 서버에 저장된 데이터입니다. 경찰청 공공데이터는 경찰청 유실물 OpenAPI에서 실시간으로 조회하며(기본 최근 30일), 실제 수령 절차와 보관 상태는 경찰청 LOST112와 보관기관에서 확인해 주세요.</p></div>
   </div>;
 }

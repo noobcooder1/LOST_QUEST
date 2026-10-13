@@ -6,7 +6,7 @@ import type { PolicePage, PoliceQuery } from './publicItemApi';
  * The search page combines three independent sources. Each one loads and fails on its own, so a 경찰청
  * outage never hides LOST QUEST items and vice versa. There is no seed fallback for failures.
  */
-export type SourceKey = 'community' | 'policeLost' | 'policeFound';
+export type SourceKey = 'communityLost' | 'communityFound' | 'policeLost' | 'policeFound';
 
 export interface SourceState {
   /** 'unsupported': the chosen conditions cannot be applied to this source (e.g. color on 경찰청 lost items). */
@@ -17,15 +17,36 @@ export interface SourceState {
   page: number;
   totalPages: number;
   totalCount: number;
+  dataStatus?: 'live' | 'cached' | 'unavailable' | 'request-error';
+  lastSyncedAt?: number;
+  cacheSaved?: boolean;
+  /** Additional-page state never changes the status of the already loaded result set. */
+  pageLoading?: boolean;
+  pageError?: { page: number; message: string };
 }
 
 export const idleSource: SourceState = { status: 'idle', items: [], error: '', page: 0, totalPages: 0, totalCount: 0 };
 
 export const SOURCE_LABELS: Record<SourceKey, string> = {
-  community: 'LOST QUEST 자체 등록',
+  communityLost: 'LOST QUEST 분실물',
+  communityFound: 'LOST QUEST 습득물',
   policeLost: '경찰청 분실물',
   policeFound: '경찰청 습득물',
 };
+
+export function applyPolicePage(previous: SourceState, result: SourceState, requestedPage: number): SourceState {
+  if (requestedPage === 1) return result;
+  if (result.status === 'error') {
+    return { ...previous, pageLoading: false, pageError: { page: requestedPage, message: result.error } };
+  }
+  const seen = new Set<string>();
+  const items = [...previous.items, ...result.items].filter(item => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id); return true;
+  });
+  return { ...result, items, pageLoading: false, pageError: undefined,
+    ...(previous.dataStatus === 'cached' ? { dataStatus: 'cached', lastSyncedAt: previous.lastSyncedAt } : {}) };
+}
 
 export function describeSourceError(cause: unknown): string {
   return cause instanceof ApiClientError ? cause.message : '데이터를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
@@ -92,5 +113,5 @@ export async function loadPolicePage(load: () => Promise<PolicePage>, previous: 
 
 /** Items from every source that loaded, regardless of failures elsewhere. */
 export function mergeSearchItems(sources: Record<SourceKey, SourceState>): Item[] {
-  return [...sources.community.items, ...sources.policeLost.items, ...sources.policeFound.items];
+  return [...sources.communityLost.items, ...sources.communityFound.items, ...sources.policeLost.items, ...sources.policeFound.items];
 }

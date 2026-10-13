@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ApiClientError } from './apiClient';
 import type { Item } from '../types';
-import { buildPoliceQuery, idleSource, loadCommunity, loadPolicePage, mergeSearchItems } from './searchSources';
+import { applyPolicePage, buildPoliceQuery, idleSource, loadCommunity, loadPolicePage, mergeSearchItems } from './searchSources';
 
 const item = (id: string, createdBy: string): Item => ({
   id, title: id, type: 'lost', category: '지갑', color: '', date: '2026-10-05', region: '', location: '', description: '',
@@ -16,7 +16,7 @@ describe('independent search sources', () => {
     const policeLost = await loadPolicePage(() => Promise.reject(externalError));
     const policeFound = await loadPolicePage(async () => policePage([item('police-found-F2026100500001930-1', 'police')]));
     expect(policeLost).toMatchObject({ status: 'error', error: '경찰청 공공데이터 서버에 연결할 수 없습니다.', items: [] });
-    expect(mergeSearchItems({ community, policeLost, policeFound }).map((entry) => entry.id))
+    expect(mergeSearchItems({ communityLost: community, communityFound: idleSource, policeLost, policeFound }).map((entry) => entry.id))
       .toEqual(['api-lost-1', 'police-found-F2026100500001930-1']);
   });
 
@@ -24,7 +24,7 @@ describe('independent search sources', () => {
     const community = await loadCommunity(() => Promise.reject(new ApiClientError('NETWORK_ERROR', '서버에 연결하지 못했어요.')));
     const policeLost = await loadPolicePage(async () => policePage([item('police-lost-L2026100500001176', 'police')]));
     expect(community).toMatchObject({ status: 'error', error: '서버에 연결하지 못했어요.', items: [] });
-    expect(mergeSearchItems({ community, policeLost, policeFound: idleSource }).map((entry) => entry.id)).toEqual(['police-lost-L2026100500001176']);
+    expect(mergeSearchItems({ communityLost: community, communityFound: idleSource, policeLost, policeFound: idleSource }).map((entry) => entry.id)).toEqual(['police-lost-L2026100500001176']);
   });
 
   it('reports an empty 경찰청 result as ready with zero items (not an error, no seed fallback)', async () => {
@@ -48,5 +48,22 @@ describe('independent search sources', () => {
     expect(buildPoliceQuery({ from: '2026-10-05', to: '2026-10-01' })).toEqual({});
     expect(buildPoliceQuery({ from: '2026/10/01' })).toEqual({});
     expect(buildPoliceQuery({})).toEqual({});
+  });
+
+  it.each(['live', 'cached'] as const)('preserves the %s result set and paging metadata when an additional request fails', dataStatus => {
+    const previous = { ...idleSource, status: 'ready' as const, dataStatus, items: [item('police-lost-L2026100500000001', 'police')], page: 1, totalPages: 3, totalCount: 60, lastSyncedAt: 1234, cacheSaved: true, pageLoading: true };
+    const result = applyPolicePage(previous, { ...idleSource, status: 'error', dataStatus: 'unavailable', error: '실패' }, 2);
+    expect(result.items).toBe(previous.items);
+    expect(result).toMatchObject({ status: 'ready', dataStatus, page: 1, totalPages: 3, totalCount: 60, lastSyncedAt: 1234, cacheSaved: true, pageLoading: false, pageError: { page: 2, message: '실패' } });
+  });
+
+  it('appends a successfully retried page only once and removes its page error', () => {
+    const first = item('police-lost-L2026100500000001', 'police');
+    const second = item('police-lost-L2026100500000002', 'police');
+    const previous = { ...idleSource, status: 'ready' as const, dataStatus: 'live' as const, items: [first], page: 1, pageError: { page: 2, message: '실패' } };
+    const result = applyPolicePage(previous, { ...idleSource, status: 'ready', dataStatus: 'live', items: [first, second, second], page: 2 }, 2);
+    expect(result.items.map(entry => entry.id)).toEqual([first.id, second.id]);
+    expect(result.page).toBe(2);
+    expect(result.pageError).toBeUndefined();
   });
 });

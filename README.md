@@ -365,6 +365,8 @@ $env:SPRING_DATASOURCE_PASSWORD = Read-Host '테스트 DB 비밀번호' -MaskInp
 
 ## 다음 단계
 
+전국 통합 검색의 네 공개 목록은 연결 장애 시 IndexedDB에 저장한 목록 요약을 읽기 전용으로 표시합니다. 상태·저장 정책·검증 및 시연 방법은 [공개 목록 오프라인 캐시 보고서](docs/PUBLIC_LIST_OFFLINE_CACHE.md)를 참고하세요. 상세·인증·쓰기 API는 캐시 대상이 아닙니다.
+
 로컬 백엔드를 Sites에 고정 HTTPS 주소로 연결하는 개발·시연 절차는 [ngrok 설정 안내](docs/NGROK_SETUP.md)를 참고하세요. ngrok 계정 설정 후 프로젝트 루트의 `scripts/start-api-tunnel.ps1`로 백엔드 연결을 확인하고 터널을 실행할 수 있습니다.
 
 1. 서버 측 필터·페이지네이션

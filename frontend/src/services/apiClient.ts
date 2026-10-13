@@ -18,14 +18,16 @@ export class ApiClientError extends Error {
   /** The server's ApiError `code` (e.g. EMAIL_ALREADY_EXISTS) when the response followed that format. */
   readonly serverCode?: string;
   readonly fieldErrors: ApiFieldError[];
+  readonly gatewayError: boolean;
 
-  constructor(code: ApiErrorCode, message: string, status?: number, details: { serverCode?: string; fieldErrors?: ApiFieldError[] } = {}) {
+  constructor(code: ApiErrorCode, message: string, status?: number, details: { serverCode?: string; fieldErrors?: ApiFieldError[]; gatewayError?: boolean } = {}) {
     super(message);
     this.name = 'ApiClientError';
     this.code = code;
     this.status = status;
     this.serverCode = details.serverCode;
     this.fieldErrors = details.fieldErrors ?? [];
+    this.gatewayError = details.gatewayError === true;
   }
 }
 
@@ -149,6 +151,13 @@ export async function apiRequest(path: string, options: ApiRequestOptions = {}):
       cache: 'no-store',
       signal: controller.signal,
     });
+    // A ngrok HTML error is never API JSON. Only a known tunnel host plus its error marker identifies it.
+    if (getTunnelHeaders(url)['ngrok-skip-browser-warning'] && response.headers.get('Content-Type')?.includes('text/html')) {
+      const html = await response.clone().text();
+      if (/\bERR_NGROK_\d+\b/.test(html)) {
+        throw new ApiClientError('INVALID_RESPONSE', 'ngrok 터널을 통해 API에 연결하지 못했어요.', response.status, { gatewayError: true });
+      }
+    }
     if (!response.ok) throw await toHttpError(response);
     if (response.status === 204) return null;
     try {
