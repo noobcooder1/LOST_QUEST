@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, ChevronRight, Package, Plus, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ChevronRight, Package, RefreshCw } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { defaultItemImage } from '../data/seed';
 import { describeMyItemsError, listMyItems, type MyItems } from '../services/itemApi';
@@ -59,7 +59,7 @@ export default function MyItemList() {
   ].filter((group) => group.items.length > 0) : [];
 
   return <section aria-labelledby="my-items-title" className="my-items-section">
-    <div className="workflow-section-heading"><h2 id="my-items-title">내가 등록한 물품{total !== null && <span>{total}</span>}</h2><Link className="button button-secondary" to="/register?type=lost"><Plus size={16} aria-hidden="true" /> 물품 등록</Link></div>
+    <div className="workflow-section-heading"><h2 id="my-items-title">내가 등록한 물품{total !== null && <span>{total}</span>}</h2></div>
     {state.status === 'loading' ? <div className="card empty-state" role="status"><Package size={35} aria-hidden="true" /><h3>등록 내역을 불러오고 있어요…</h3></div>
       : state.status === 'error' ? <div className="card empty-state" role="alert"><AlertTriangle size={35} aria-hidden="true" /><h3>등록 내역을 불러오지 못했어요</h3><p>{state.message}</p><button type="button" className="button button-secondary" onClick={() => void load()}><RefreshCw size={15} aria-hidden="true" /> 다시 시도</button></div>
         : total === 0 ? <div className="card empty-state"><Package size={37} aria-hidden="true" /><h3>아직 등록한 물품이 없어요</h3><p>분실물이나 습득물을 등록하면 이곳에서 모아 볼 수 있어요.</p><div className="my-items-empty-actions"><Link className="button button-primary" to="/register?type=lost">분실물 등록하기 <ArrowRight size={16} aria-hidden="true" /></Link><Link className="button button-secondary" to="/register?type=found">습득물 등록하기</Link></div></div>

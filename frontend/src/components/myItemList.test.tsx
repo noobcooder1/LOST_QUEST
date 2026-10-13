@@ -125,7 +125,7 @@ describe('MyItemList', () => {
     // Server order is kept, and the server image / category illustration are used.
     expect(old.querySelector('img')?.getAttribute('src')).toBe(`${BASE}${IMAGE}`);
     expect(recent.querySelector('img')?.getAttribute('src')).toBe('/images/wallet.svg');
-    expect(container.querySelector('a[href="/register?type=lost"]')).not.toBeNull();
+    expect(container.querySelector('a[href="/register?type=lost"]')).toBeNull();
   });
 
   it('links each card to the existing detail route with the server item id', async () => {
