@@ -14,7 +14,7 @@ public interface FoundItemRepository extends JpaRepository<FoundItem, Long> {
     @org.springframework.data.jpa.repository.Query("select count(f) from FoundItem f where f.user.id = :userId and f.status <> com.lostquest.entity.FoundItemStatus.CLOSED")
     long countByUser_Id(@org.springframework.data.repository.query.Param("userId") Long userId);
 
-    @org.springframework.data.jpa.repository.Query("select f from FoundItem f where f.status <> com.lostquest.entity.FoundItemStatus.CLOSED order by f.id asc")
+    @org.springframework.data.jpa.repository.Query("select f from FoundItem f where f.hidden = false and f.status <> com.lostquest.entity.FoundItemStatus.CLOSED order by f.id asc")
     List<FoundItem> findAllByOrderByIdAsc();
 
     /** One user's found items, newest registration first (id breaks ties within the same instant). */
@@ -22,6 +22,6 @@ public interface FoundItemRepository extends JpaRepository<FoundItem, Long> {
     List<FoundItem> findByUser_IdOrderByCreatedAtDescIdDesc(@org.springframework.data.repository.query.Param("userId") Long userId);
 
     /** Matching candidates: bounded by status, found-date window and a row limit; the requester's own items are excluded. */
-    List<FoundItem> findTop200ByStatusAndFoundDateBetweenAndUser_IdNotOrderByFoundDateAscIdAsc(
+    List<FoundItem> findTop200ByHiddenFalseAndStatusAndFoundDateBetweenAndUser_IdNotOrderByFoundDateAscIdAsc(
             FoundItemStatus status, LocalDate from, LocalDate to, Long excludedUserId);
 }

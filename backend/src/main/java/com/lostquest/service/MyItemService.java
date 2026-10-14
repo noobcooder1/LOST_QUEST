@@ -34,6 +34,6 @@ public class MyItemService {
                 lostItemRepository.findByUser_IdOrderByCreatedAtDescIdDesc(owner.getId()).stream()
                         .map(LostItemResponse::from).toList(),
                 foundItemRepository.findByUser_IdOrderByCreatedAtDescIdDesc(owner.getId()).stream()
-                        .map(FoundItemResponse::from).toList());
+                        .map(FoundItemResponse::withOwnershipQuestion).toList());
     }
 }

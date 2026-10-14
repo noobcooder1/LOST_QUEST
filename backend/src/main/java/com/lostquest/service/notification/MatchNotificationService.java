@@ -219,7 +219,7 @@ public class MatchNotificationService {
     public void onFoundItemRegistered(FoundItemRegisteredEvent event) {
         try {
             FoundItem found = foundItemRepository.findById(event.foundItemId()).orElse(null);
-            if (found == null || found.getStatus() != FoundItemStatus.STORED || found.getFoundDate() == null) {
+            if (found == null || found.isHidden() || found.getStatus() != FoundItemStatus.STORED || found.getFoundDate() == null) {
                 return;
             }
             MatchCandidate candidate = MatchingService.toCandidate(found);

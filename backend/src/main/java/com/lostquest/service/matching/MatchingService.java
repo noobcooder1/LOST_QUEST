@@ -91,7 +91,7 @@ public class MatchingService {
         }
         try {
             List<MatchCandidate> candidates = foundItemRepository
-                    .findTop200ByStatusAndFoundDateBetweenAndUser_IdNotOrderByFoundDateAscIdAsc(
+                    .findTop200ByHiddenFalseAndStatusAndFoundDateBetweenAndUser_IdNotOrderByFoundDateAscIdAsc(
                             FoundItemStatus.STORED, from, from.plusDays(LOST_QUEST_WINDOW_DAYS), callerId)
                     .stream().map(MatchingService::toCandidate).toList();
             return SourceResult.ok(MatchSource.LOST_QUEST, candidates);

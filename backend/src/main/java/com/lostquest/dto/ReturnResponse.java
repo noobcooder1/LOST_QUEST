@@ -14,7 +14,7 @@ public record ReturnResponse(Long id, Long requesterId, Long finderId, FoundItem
         String token = r.getRequester().getId().equals(viewer.getId()) && r.getStatus() == ReturnStatus.APPROVED
                 ? requesterQrToken : null;
         return new ReturnResponse(r.getId(), r.getRequester().getId(), r.getFoundItem().getUser().getId(),
-                FoundItemResponse.from(r.getFoundItem()), r.getLostItem() == null ? null : LostItemResponse.from(r.getLostItem()),
+                FoundItemResponse.withOwnershipQuestion(r.getFoundItem()), r.getLostItem() == null ? null : LostItemResponse.from(r.getLostItem()),
                 r.getStatus(), r.getCreatedAt(), r.getUpdatedAt(), token, r.getQrExpiresAt(), r.getQrUsedAt(),
                 r.ownershipAttemptsRemaining(), r.isOwnershipLocked());
     }

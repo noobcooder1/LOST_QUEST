@@ -37,6 +37,7 @@ export default function MyPage() {
 
   return <div className="page-container workflow-page">
     <div className="page-heading"><div className="eyebrow">나의 퀘스트</div><h1>마이페이지</h1><p>함께 찾아 준 순간들이 모여, 나만의 여정이 됩니다.</p><button className="text-link" style={{ marginTop: 14 }} onClick={logout}>로그아웃</button></div>
+    <div className="button-row"><Link className="text-link" to="/community-inbox">내 비공개 질문함</Link><Link className="text-link" to="/community">사용자 물품 게시판</Link></div>
     {location.state?.itemDeleted && <p className="item-mutation-notice" role="status"><CheckCircle2 size={18} />물품글을 삭제했어요.</p>}
     {activityLoading && <p role="status">계정 기록을 불러오고 있어요…</p>}
     {error && <p className="field-error" role="alert">{error}</p>}

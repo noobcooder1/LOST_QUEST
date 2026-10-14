@@ -19,6 +19,13 @@ import java.time.LocalDate;
 @Table(name = "lost_items")
 public class LostItem extends BaseEntity {
 
+    @org.hibernate.annotations.ColumnDefault("0")
+    @Column(nullable = false)
+    private boolean hidden;
+
+    public boolean isHidden() { return hidden; }
+    public void hide() { hidden = true; }
+
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)

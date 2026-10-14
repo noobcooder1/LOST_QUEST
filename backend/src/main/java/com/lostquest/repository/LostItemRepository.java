@@ -18,7 +18,7 @@ public interface LostItemRepository extends JpaRepository<LostItem, Long> {
     @Query("select count(l) from LostItem l where l.user.id = :userId and l.status <> com.lostquest.entity.LostItemStatus.CLOSED")
     long countByUser_Id(@Param("userId") Long userId);
 
-    @Query("select l from LostItem l where l.status <> com.lostquest.entity.LostItemStatus.CLOSED order by l.id asc")
+    @Query("select l from LostItem l where l.hidden = false and l.status <> com.lostquest.entity.LostItemStatus.CLOSED order by l.id asc")
     List<LostItem> findAllByOrderByIdAsc();
 
     /** One user's lost items, newest registration first (id breaks ties within the same instant). */
@@ -26,7 +26,7 @@ public interface LostItemRepository extends JpaRepository<LostItem, Long> {
     List<LostItem> findByUser_IdOrderByCreatedAtDescIdDesc(@Param("userId") Long userId);
 
     /** Loads the author too, so ownership can be checked outside a transaction (open-in-view is off). */
-    @Query("select l from LostItem l join fetch l.user where l.id = :id and l.status <> com.lostquest.entity.LostItemStatus.CLOSED")
+    @Query("select l from LostItem l join fetch l.user where l.id = :id and l.hidden = false and l.status <> com.lostquest.entity.LostItemStatus.CLOSED")
     Optional<LostItem> findWithUserById(@Param("id") Long id);
 
     /**
@@ -35,7 +35,7 @@ public interface LostItemRepository extends JpaRepository<LostItem, Long> {
      */
     @Query("""
             select l from LostItem l join fetch l.user
-            where l.status = :status and l.lostDate between :from and :to and l.user.id <> :excludedUserId
+            where l.hidden = false and l.status = :status and l.lostDate between :from and :to and l.user.id <> :excludedUserId
             order by l.lostDate desc, l.id asc""")
     List<LostItem> findMatchTargets(@Param("status") LostItemStatus status, @Param("from") LocalDate from,
                                     @Param("to") LocalDate to, @Param("excludedUserId") Long excludedUserId,
@@ -44,7 +44,7 @@ public interface LostItemRepository extends JpaRepository<LostItem, Long> {
     /** A user's open lost items lost on or after {@code since}, newest first (notification refresh targets). */
     @Query("""
             select l from LostItem l join fetch l.user
-            where l.user.id = :userId and l.status = :status and l.lostDate >= :since
+            where l.hidden = false and l.user.id = :userId and l.status = :status and l.lostDate >= :since
             order by l.lostDate desc, l.id desc""")
     List<LostItem> findRecentOpenByOwner(@Param("userId") Long userId, @Param("status") LostItemStatus status,
                                          @Param("since") LocalDate since, Pageable pageable);

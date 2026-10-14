@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2, ClipboardCheck, LockKeyhole, ShieldCheck } fr
 import { useApp } from '../context/AppContext';
 import { describeActivityError } from '../services/activityApi';
 import type { ReturnStatus } from '../types';
+import CommunityReports from '../components/CommunityReports';
 import './workflow.css';
 const labels: Record<ReturnStatus, string> = { pending: '소유자 확인 대기', owner_verified: '요청 승인 대기', approved: 'QR 인증 대기', qr_verified: '반환 완료 확인 대기', completed: '반환 완료', rejected: '반려' };
 export default function AdminPage() {
@@ -36,6 +37,7 @@ export default function AdminPage() {
       {!['completed','rejected'].includes(request.status)&&<button className="button button-ghost" disabled={busy} onClick={()=>setRejectId(request.id)}>요청 반려</button>}</div>
       {rejectId===request.id&&<div role="alert"><p>이 반환 요청을 반려할까요?</p><button className="button button-secondary" disabled={busy} onClick={()=>setRejectId(null)}>취소</button><button className="button button-primary" disabled={busy} onClick={()=>{void run(()=>rejectRequest(request.id),'반환 요청을 반려했어요.');}}>반려 확인</button></div>}</div></article>;
     })}</div>
+    {authUser?.role === 'ADMIN' && <CommunityReports key={authUser.id}/>}
     {!activityLoading&&visible.length===0&&<div className="card empty-state"><ClipboardCheck size={38}/><h3>검토할 반환 요청이 없어요</h3><p>본인이 등록한 습득물에 접수된 요청만 표시돼요.</p><Link className="button button-primary" to="/mypage">내 등록 물품 보기</Link></div>}
   </div>;
 }

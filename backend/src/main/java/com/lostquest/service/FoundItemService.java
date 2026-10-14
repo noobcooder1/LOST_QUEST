@@ -28,6 +28,7 @@ public class FoundItemService {
 
     private final FoundItemRepository foundItemRepository;
     private final CurrentUserReader currentUserReader;
+    private final CommunityWriteLimiter writeLimiter;
     private final ImageService imageService;
     private final ApplicationEventPublisher eventPublisher;
     private final ActivityService activityService;
@@ -36,11 +37,12 @@ public class FoundItemService {
     private final MatchNotificationRepository matchNotifications;
 
     public FoundItemService(FoundItemRepository foundItemRepository, CurrentUserReader currentUserReader,
-                            ImageService imageService, ApplicationEventPublisher eventPublisher,
+                            ImageService imageService, ApplicationEventPublisher eventPublisher, CommunityWriteLimiter writeLimiter,
                             ActivityService activityService, OwnershipProof ownershipProof,
                             ReturnRequestRepository returnRequests, MatchNotificationRepository matchNotifications) {
         this.foundItemRepository = foundItemRepository;
         this.currentUserReader = currentUserReader;
+        this.writeLimiter = writeLimiter;
         this.imageService = imageService;
         this.eventPublisher = eventPublisher;
         this.activityService = activityService;
@@ -57,7 +59,7 @@ public class FoundItemService {
 
     public FoundItemResponse findById(Long id) {
         return foundItemRepository.findById(id)
-                .filter(item -> item.getStatus() != FoundItemStatus.CLOSED)
+                .filter(item -> item.getStatus() != FoundItemStatus.CLOSED && !item.isHidden())
                 .map(FoundItemResponse::from)
                 .orElseThrow(() -> new ResourceNotFoundException("습득물을 찾을 수 없습니다. id: " + id));
     }
@@ -75,6 +77,8 @@ public class FoundItemService {
     @Transactional
     public FoundItemResponse create(String authenticatedSubject, CreateFoundItemRequest request, MultipartFile image) {
         User author = currentUserReader.require(authenticatedSubject);
+        CommunityTextRules.publicText(request.title(), request.color(), request.description(), request.location());
+        writeLimiter.check(author.getId(), "post", 10);
         boolean hasQuestion = request.ownershipQuestion() != null && !request.ownershipQuestion().isBlank();
         boolean hasAnswer = request.ownershipAnswer() != null && !request.ownershipAnswer().isBlank();
         if (hasQuestion != hasAnswer) throw new com.lostquest.exception.InvalidRequestParameterException(
@@ -88,13 +92,14 @@ public class FoundItemService {
         activityService.registered(author, "found", saved.getId(), saved.getTitle());
         // Match notifications for lost-item owners are created only after this registration commits.
         eventPublisher.publishEvent(new FoundItemRegisteredEvent(saved.getId(), author.getId()));
-        return FoundItemResponse.from(saved);
+        return FoundItemResponse.withOwnershipQuestion(saved);
     }
 
     /** Updating and deleting use the same item lock as return creation to prevent overlapping workflows. */
     @Transactional
     public FoundItemResponse update(String subject, Long id, UpdateFoundItemRequest request, MultipartFile image) {
         FoundItem item = requireEditable(subject, id);
+        CommunityTextRules.publicText(request.title(), request.color(), request.description(), request.location());
         boolean hasQuestion = request.ownershipQuestion() != null && !request.ownershipQuestion().isBlank();
         boolean hasAnswer = request.ownershipAnswer() != null && !request.ownershipAnswer().isBlank();
         if (hasQuestion != hasAnswer) {
@@ -111,7 +116,7 @@ public class FoundItemService {
         // Titles, dates and scores in match notifications are snapshots of the previous post.
         matchNotifications.deleteByFoundItemId(id);
         eventPublisher.publishEvent(new FoundItemRegisteredEvent(item.getId(), item.getUser().getId()));
-        return FoundItemResponse.from(item);
+        return FoundItemResponse.withOwnershipQuestion(item);
     }
 
     @Transactional
@@ -128,7 +133,7 @@ public class FoundItemService {
         if (!item.getUser().getId().equals(author.getId())) {
             throw new AccessDeniedException("등록자만 물품글을 수정하거나 삭제할 수 있습니다.");
         }
-        if (item.getStatus() != FoundItemStatus.STORED ||
+        if (item.isHidden() || item.getStatus() != FoundItemStatus.STORED ||
                 returnRequests.findFirstByFoundItem_IdAndStatusNotOrderByIdDesc(id, ReturnStatus.REJECTED).isPresent()) {
             throw new WorkflowConflictException("반환 요청이 진행 중이거나 완료된 물품글은 수정하거나 삭제할 수 없습니다.");
         }

@@ -28,7 +28,7 @@ export default function SearchPage() {
   const type = params.get('type') ?? '';
   const from = params.get('from') ?? '';
   const to = params.get('to') ?? '';
-  const sort = params.get('sort') ?? 'latest';
+  const sort = params.get('sort') ?? (source === 'community' ? 'registered' : 'latest');
   // 경찰청 code filters (values come from /api/public-items/filters; the UI never hard-codes them).
   const pRegion = params.get('pRegion') ?? '';
   const pCategory = params.get('pCategory') ?? '';
@@ -44,7 +44,7 @@ export default function SearchPage() {
       setPoliceFilters({ status: 'error', error: describeSourceError(cause) });
     }
   }, []);
-  useEffect(() => { void loadPoliceFilters(); }, [loadPoliceFilters]);
+  useEffect(() => { if (source !== 'community') void loadPoliceFilters(); }, [loadPoliceFilters, source]);
 
   const loadCommunityItems = useCallback(async (key: 'communityLost' | 'communityFound', isCancelled: () => boolean = () => false) => {
     const version = ++requestVersions.current[key];
@@ -102,7 +102,8 @@ export default function SearchPage() {
     const textMatch = !query || text.includes(query.toLowerCase()) || (keywordMode && police);
     // LOST QUEST region/category apply to LOST QUEST items; 경찰청 items are filtered upstream by 경찰청 codes.
     return textMatch && (police || !region || item.region === region) && (police || !category || item.category === category) && (!source || item.source === source) && (!type || item.type === type) && (!from || item.date >= from) && (!to || item.date <= to);
-  }).sort((a, b) => sort === 'oldest' ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
+  }).sort((a, b) => sort === 'registered' ? (b.createdAt ?? b.date).localeCompare(a.createdAt ?? a.date)
+    : sort === 'oldest' ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
   const activeCount = [region, category, from, to, type, pRegion, pCategory, pSub, pColor].filter(Boolean).length;
   const policeCategory = policeFilters.options?.categories.find(c => c.value === pCategory);
   const policeFiltersDisabled = keywordMode || policeFilters.status !== 'ready';
@@ -116,7 +117,7 @@ export default function SearchPage() {
   const anyLoading = relevantSources.some(key => sources[key].status === 'loading' || sources[key].status === 'idle');
   const retry = (key: SourceKey) => key.startsWith('community') ? void loadCommunityItems(key as 'communityLost' | 'communityFound') : void loadPolice(key as 'policeLost' | 'policeFound', 1);
 
-  return <div className="page-container search-page"><div className="page-heading"><span className="eyebrow"><Globe2 size={15}/>전국 통합 검색</span><h1>당신의 소중한 물건, 함께 찾아볼까요?</h1><p>LOST QUEST 회원이 등록한 물품과 경찰청 유실물 공공데이터를 한곳에서 찾아보세요.</p></div>
+  return <div className="page-container search-page"><div className="page-heading"><span className="eyebrow"><Globe2 size={15}/>{source === 'community' ? '사용자 물품 커뮤니티' : '전국 통합 검색'}</span><h1>당신의 소중한 물건, 함께 찾아볼까요?</h1><p>{source === 'community' ? '회원들이 직접 공유한 분실물·습득물이에요. 상세 페이지에서 작성자에게 비공개 질문을 보내 보세요.' : 'LOST QUEST 회원이 등록한 물품과 경찰청 유실물 공공데이터를 한곳에서 찾아보세요.'}</p><div className="button-row"><Link className="text-link" to="/community-inbox">내 비공개 질문함</Link>{source !== 'community' && <Link className="text-link" to="/community">사용자 물품 게시판</Link>}{source === 'community' && !hasStoredData && !hasUnavailableData && <Link className="button button-primary" to="/register">분실물·습득물 글 작성</Link>}</div></div>
     <form className="catalog-search" onSubmit={submit}><Search size={22}/><input aria-label="물품 이름 또는 특징 검색" value={draft} onChange={e=>setDraft(e.target.value)} placeholder="물품 이름, 색상, 장소로 검색해 보세요" maxLength={100}/><button className="button button-primary" type="submit">검색</button></form>
     <div className="source-tabs" role="group" aria-label="데이터 출처"><button aria-pressed={!source} className={!source?'active':''} onClick={()=>update('source','')}>전체 물품<span>{items.length}</span></button><button aria-pressed={source==='community'} className={source==='community'?'active':''} onClick={()=>update('source','community')}>LOST QUEST{communityCount > 0 && <span>{communityCount}</span>}</button><button aria-pressed={source==='public'} className={source==='public'?'active':''} onClick={()=>update('source','public')}>경찰청 공공데이터{policeLoaded > 0 && <span>{policeLoaded}</span>}</button></div>
     <button className="button button-secondary filter-toggle" aria-expanded={filtersOpen} onClick={()=>setFiltersOpen(!filtersOpen)}><SlidersHorizontal size={17}/>상세 필터{activeCount > 0 && <b>{activeCount}</b>}</button>
@@ -140,7 +141,7 @@ export default function SearchPage() {
       </div>}
     </div>
     <ul className="public-list-status-grid" aria-label="데이터 출처별 상태">{relevantSources.map(key => <PublicListStatus key={key} label={SOURCE_LABELS[key]} state={sources[key]} retry={() => retry(key)} retryPage={key.startsWith('police') ? page => { void loadPolice(key as 'policeLost' | 'policeFound', page); } : undefined} />)}</ul>
-    <div className="catalog-result-toolbar"><p>{query && <strong>‘{query}’ </strong>}검색 결과 <b>{invalidRange ? 0 : filtered.length}</b>개</p><select aria-label="검색 결과 정렬" value={sort} onChange={e=>update('sort',e.target.value)}><option value="latest">최신 날짜순</option><option value="oldest">오래된 날짜순</option></select></div>
+    <div className="catalog-result-toolbar"><p>{query && <strong>‘{query}’ </strong>}검색 결과 <b>{invalidRange ? 0 : filtered.length}</b>개</p><select aria-label="검색 결과 정렬" value={sort} onChange={e=>update('sort',e.target.value)}><option value="registered">최근 등록순</option><option value="latest">최신 날짜순</option><option value="oldest">오래된 날짜순</option></select></div>
     {filtered.length > 0 && !invalidRange ? <div className="items-grid">{filtered.map(item=><ItemCard key={item.id} item={item} readOnly={readOnlyIds.has(item.id)}/>)}</div> : anyLoading ? null : <div className="empty-state card"><span className="empty-icon"><Search size={32}/></span><h2>{hasUnavailableData ? '공개 목록을 확인할 수 없어요.' : hasStoredData ? '저장된 목록에 조건에 맞는 물품이 없어요.' : '조건에 맞는 물품이 아직 없어요.'}</h2><p>{hasUnavailableData || hasStoredData ? '서버에 다시 연결하거나 이전에 조회한 조건으로 확인해 주세요.' : '다른 검색어를 입력하거나 필터를 넓혀 보세요.'}</p><div className="button-row"><button className="button button-secondary" onClick={()=>{setParams({});setDraft('');}}>전체 물품 보기</button>{!hasStoredData && !hasUnavailableData && <Link to="/register?type=lost" className="button button-primary">분실물 등록<ArrowRight size={16}/></Link>}</div></div>}
     {source !== 'community' && <div className="button-row">{(['policeLost', 'policeFound'] as const).filter(key => sources[key].status === 'ready' && sources[key].dataStatus === 'live' && sources[key].page < sources[key].totalPages).map(key =>
       <button key={key} type="button" className="button button-secondary" disabled={sources[key].pageLoading || !!sources[key].pageError} onClick={() => void loadPolice(key, sources[key].page + 1)}>{SOURCE_LABELS[key]} 더 보기</button>)}</div>}

@@ -24,6 +24,12 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    @ExceptionHandler(CommunityRateLimitException.class)
+    public ResponseEntity<ApiError> handleCommunityRateLimit(CommunityRateLimitException ex, HttpServletRequest request) {
+        return ResponseEntity.status(429).header("Retry-After", "60")
+            .body(ApiError.of(429, "RATE_LIMITED", ex.getMessage(), request.getRequestURI()));
+    }
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(WorkflowConflictException.class)

@@ -55,6 +55,16 @@ async function reconnect() {
 const disconnect = () => vi.mocked(listServerItems).mockRejectedValue(new ApiClientError('NETWORK_ERROR', '연결 실패'));
 
 describe('public-list offline user flow', () => {
+  it('runs the community board without any police requests and sorts by actual registration time', async () => {
+    vi.mocked(listServerItems).mockImplementation(async type => type === 'lost' ? [
+      { ...lost, id: 'api-lost-1', title: '먼저 등록한 지갑', date: '2026-10-13', createdAt: '2026-10-12T00:00:00Z' },
+      { ...lost, id: 'api-lost-2', title: '나중에 등록한 지갑', date: '2026-10-01', createdAt: '2026-10-13T00:00:00Z' },
+    ] : []);
+    await mount('/search?source=community');
+    expect(getPoliceFilters).not.toHaveBeenCalled(); expect(listPoliceItems).not.toHaveBeenCalled();
+    expect([...container.querySelectorAll('.item-card h3')].map(entry => entry.textContent)).toEqual(['나중에 등록한 지갑', '먼저 등록한 지갑']);
+    expect(container.querySelector('a[href="/community-inbox"]')).not.toBeNull();
+  });
   it('loads live rows, reopens using IndexedDB summaries after disconnection, and restores live rows on retry', async () => {
     await mount();
     expect(statuses().textContent?.match(/최신 데이터/g)).toHaveLength(2);

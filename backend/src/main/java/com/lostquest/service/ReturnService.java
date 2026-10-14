@@ -75,6 +75,7 @@ public class ReturnService {
     public ReturnResponse create(String subject, CreateReturnRequest input) {
         User user = users.require(subject);
         FoundItem item = found.findLocked(input.foundItemId()).orElseThrow(() -> new ResourceNotFoundException("습득물을 찾을 수 없습니다."));
+        if (item.isHidden()) throw new ResourceNotFoundException("습득물을 찾을 수 없습니다.");
         if (item.getUser().getId().equals(user.getId())) throw new WorkflowConflictException("직접 등록한 습득물에는 반환을 요청할 수 없습니다.");
         ReturnRequest existing = returns.findFirstByFoundItem_IdAndStatusNotOrderByIdDesc(item.getId(), ReturnStatus.REJECTED).orElse(null);
         if (existing != null) {
@@ -86,6 +87,7 @@ public class ReturnService {
         LostItem linked = null;
         if (input.lostItemId() != null) {
             linked = lost.findLocked(input.lostItemId()).orElseThrow(() -> new ResourceNotFoundException("분실물을 찾을 수 없습니다."));
+            if (linked.isHidden()) throw new ResourceNotFoundException("분실물을 찾을 수 없습니다.");
             if (!linked.getUser().getId().equals(user.getId())) throw new AccessDeniedException("본인의 분실물만 연결할 수 있습니다.");
             if (linked.getStatus() != LostItemStatus.LOST || !linked.getCategory().equals(item.getCategory()) ||
                     returns.existsByLostItem_IdAndStatusNot(linked.getId(), ReturnStatus.REJECTED))
@@ -191,6 +193,6 @@ public class ReturnService {
                 returns.findFirstByFoundItem_IdAndStatusNotOrderByIdDesc(id, ReturnStatus.REJECTED).isPresent())
             throw new WorkflowConflictException("반환 요청이 진행 중이거나 완료된 물품의 질문은 변경할 수 없습니다.");
         item.configureOwnership(input.question().trim(), proof.encode(input.answer()));
-        return FoundItemResponse.from(item);
+        return FoundItemResponse.withOwnershipQuestion(item);
     }
 }

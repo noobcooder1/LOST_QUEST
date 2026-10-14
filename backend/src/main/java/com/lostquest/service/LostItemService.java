@@ -28,6 +28,7 @@ public class LostItemService {
 
     private final LostItemRepository lostItemRepository;
     private final CurrentUserReader currentUserReader;
+    private final CommunityWriteLimiter writeLimiter;
     private final ImageService imageService;
     private final ActivityService activityService;
     private final ReturnRequestRepository returnRequests;
@@ -35,11 +36,12 @@ public class LostItemService {
     private final ApplicationEventPublisher eventPublisher;
 
     public LostItemService(LostItemRepository lostItemRepository, CurrentUserReader currentUserReader,
-                          ImageService imageService, ActivityService activityService,
+                          ImageService imageService, ActivityService activityService, CommunityWriteLimiter writeLimiter,
                           ReturnRequestRepository returnRequests, MatchNotificationRepository matchNotifications,
                           ApplicationEventPublisher eventPublisher) {
         this.lostItemRepository = lostItemRepository;
         this.currentUserReader = currentUserReader;
+        this.writeLimiter = writeLimiter;
         this.imageService = imageService;
         this.activityService = activityService;
         this.returnRequests = returnRequests;
@@ -55,7 +57,7 @@ public class LostItemService {
 
     public LostItemResponse findById(Long id) {
         return lostItemRepository.findById(id)
-                .filter(item -> item.getStatus() != LostItemStatus.CLOSED)
+                .filter(item -> item.getStatus() != LostItemStatus.CLOSED && !item.isHidden())
                 .map(LostItemResponse::from)
                 .orElseThrow(() -> new ResourceNotFoundException("분실물을 찾을 수 없습니다. id: " + id));
     }
@@ -73,6 +75,8 @@ public class LostItemService {
     @Transactional
     public LostItemResponse create(String authenticatedSubject, CreateLostItemRequest request, MultipartFile image) {
         User author = currentUserReader.require(authenticatedSubject);
+        CommunityTextRules.publicText(request.title(), request.color(), request.description(), request.location());
+        writeLimiter.check(author.getId(), "post", 10);
         String imageUrl = isPresent(image) ? imageService.storeForNewItem(image) : null;
         LostItem item = new LostItem(author, request.title().trim(),
                 request.category(), request.color().trim(), request.description().trim(), request.lostDate(),
@@ -85,6 +89,7 @@ public class LostItemService {
     @Transactional
     public LostItemResponse update(String subject, Long id, UpdateLostItemRequest request, MultipartFile image) {
         LostItem item = requireEditable(subject, id);
+        CommunityTextRules.publicText(request.title(), request.color(), request.description(), request.location());
         if (request.removeImage() && isPresent(image)) {
             throw new InvalidRequestParameterException("removeImage", "사진 교체와 삭제는 동시에 할 수 없습니다.");
         }
@@ -111,7 +116,7 @@ public class LostItemService {
         if (!item.getUser().getId().equals(author.getId())) {
             throw new AccessDeniedException("등록자만 물품글을 수정하거나 삭제할 수 있습니다.");
         }
-        if (item.getStatus() != LostItemStatus.LOST || returnRequests.existsByLostItem_IdAndStatusNot(id, ReturnStatus.REJECTED)) {
+        if (item.isHidden() || item.getStatus() != LostItemStatus.LOST || returnRequests.existsByLostItem_IdAndStatusNot(id, ReturnStatus.REJECTED)) {
             throw new WorkflowConflictException("반환 요청이 진행 중이거나 완료된 물품글은 수정하거나 삭제할 수 없습니다.");
         }
         return item;
