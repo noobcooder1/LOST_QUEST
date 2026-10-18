@@ -25,3 +25,9 @@ build/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local browser AI model weights and runtime files
+frontend/public/models/*
+!frontend/public/models/README.md
+frontend/public/onnx/
+frontend/config/models.local.json

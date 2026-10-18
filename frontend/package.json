@@ -4,12 +4,16 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "setup:vision": "node scripts/setup-vision.mjs",
+    "postinstall": "node scripts/setup-vision.mjs --runtime-only",
+    "predev": "node scripts/setup-vision.mjs --check --allow-missing",
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run"
   },
   "dependencies": {
+    "@huggingface/transformers": "^3.8.1",
     "@tailwindcss/vite": "^4.1.13",
     "lucide-react": "^0.468.0",
     "qrcode.react": "^4.2.0",
