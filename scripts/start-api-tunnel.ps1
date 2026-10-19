@@ -11,17 +11,17 @@ if (-not $ngrokCommand) {
 }
 
 try {
-    $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8080/api/health' -TimeoutSec 5
+    $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8081/api/health' -TimeoutSec 5
 } catch {
-    throw 'Start the LOST QUEST backend on port 8080 before starting the tunnel.'
+    throw 'Start the LOST QUEST backend on port 8081 before starting the tunnel.'
 }
 if ($health.status -ne 'OK' -or $health.service -ne 'LOST QUEST API') {
-    throw 'Port 8080 did not return the expected LOST QUEST health response.'
+    throw 'Port 8081 did not return the expected LOST QUEST health response.'
 }
 
 Write-Host 'Keep this terminal open. Ctrl+C stops the public API tunnel.'
 # The account-assigned development domain is reused. No token is passed by this script.
-& $ngrokCommand.Source http http://127.0.0.1:8080
+& $ngrokCommand.Source http http://127.0.0.1:8081
 if ($LASTEXITCODE -ne 0) {
     throw 'ngrok exited with an error. Check its message and local account configuration.'
 }

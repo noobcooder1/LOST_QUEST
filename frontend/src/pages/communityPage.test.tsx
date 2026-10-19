@@ -144,7 +144,8 @@ describe('independent community page', () => {
     await mount('/search'); expect(getPoliceFilters).not.toHaveBeenCalled(); expect(listPoliceItems).not.toHaveBeenCalled();
     expect(text()).not.toContain(police.title); expect(container.querySelector('h1')?.textContent).toBe('당신의 소중한 물건, 함께 찾아볼까요?');
     await click(container.querySelectorAll<HTMLButtonElement>('.source-tabs > button')[1]);
-    expect(getPoliceFilters).toHaveBeenCalledOnce(); expect(listPoliceItems).toHaveBeenCalledTimes(2);
+    expect(getPoliceFilters).toHaveBeenCalledOnce(); expect(listPoliceItems).toHaveBeenCalledOnce();
+    expect(listPoliceItems).toHaveBeenCalledWith('lost', expect.objectContaining({ page: 1, size: 50 }));
     expect(text()).toContain(police.title); expect(text()).not.toContain(lost.title);
   });
   it('preserves legacy community search conditions and requests no police data', async () => {
