@@ -119,7 +119,8 @@ CREATE TABLE image_embeddings (
 
 - `MatchingService`의 기존 순위 계산은 그대로 둡니다. 순위가 정해진 결과 목록에 대해서만 `photoSimilarity` 참고 값을 덧붙입니다(두 사진의 벡터가 모두 있을 때만, DB에서 읽어 메모리에서 내적 계산 — 모델 서버 호출 없음).
 - 응답 예: `"photoSimilarity": { "status": "READY", "level": "HIGH" }` 또는 `{ "status": "NO_IMAGE" }` (상태: `READY`·`PENDING`·`NO_IMAGE`·`UNAVAILABLE`). 실제 코사인 값을 화면에 노출할지, 구간(높음/보통/낮음)만 보여 줄지는 실제 사진 보정 후 결정합니다.
-- 프론트 표시 UI는 준비되어 있습니다(`frontend/src/components/PhotoSimilarityIndicator.tsx`). 기본값은 숨김이며 `VITE_FEATURE_AI_PHOTO_SIMILARITY=true`일 때만 표시됩니다. 서버 데이터가 없으면 `UNAVAILABLE`로 표시하고, `READY`라도 실제 값이 없으면 점수를 표시하지 않습니다.
+- 매칭 화면에서는 물품 선택 후 **매칭 시작**을 눌러야 1차 텍스트 조건 매칭을 실행합니다. 추천 결과가 있을 때 **AI 이미지 매칭**을 선택할 수 있으며, 현재는 서비스 연결 준비 중이라는 안내만 표시합니다. 이 버튼은 PoC 서버를 호출하지 않습니다. 물품 변경·1차 재실행 시 2차 선택을 초기화합니다.
+- 프론트 표시 UI는 준비되어 있습니다(`frontend/src/components/PhotoSimilarityIndicator.tsx`). 기본값은 숨김이며 `VITE_FEATURE_AI_PHOTO_SIMILARITY=true`이고 사용자가 2차 버튼을 선택했을 때만 표시됩니다. 서버 데이터가 없으면 `UNAVAILABLE`로 표시하고, `READY`라도 실제 값이 없으면 점수를 표시하지 않습니다.
 - 70점 알림 기준·정렬·`score`·`scoreBreakdown`은 변경하지 않습니다.
 
 ### 4.5 장애 격리

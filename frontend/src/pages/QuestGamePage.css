@@ -1,0 +1,260 @@
+.simple-game-page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 28px 0 72px;
+}
+
+.simple-game-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.simple-game-title h1 {
+  font-size: 1.75rem;
+  color: #15364e;
+  margin-top: 4px;
+}
+
+.simple-game-title p {
+  font-size: 0.9375rem;
+  color: #6c8193;
+  margin-top: 4px;
+}
+
+.simple-hud-bar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.simple-hud-box {
+  background: #f5f9fc;
+  border: 1px solid #e1eaf2;
+  border-radius: 12px;
+  padding: 12px 14px;
+  text-align: center;
+}
+
+.simple-hud-box small {
+  display: block;
+  font-size: 0.75rem;
+  color: #6c8193;
+  font-weight: 650;
+}
+
+.simple-hud-box strong {
+  display: block;
+  font-size: 1.25rem;
+  color: #15364e;
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.simple-hud-box.is-urgent strong {
+  color: #dc2626;
+}
+
+/* Main Game Board */
+.simple-board {
+  background: #fff;
+  border: 1px solid #dce6f0;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 12px 32px rgba(21, 54, 78, 0.06);
+}
+
+/* Request Speech Bubble Card */
+.simple-request-card {
+  background: linear-gradient(135deg, #13324b 0%, #1d4b6e 100%);
+  color: #fff;
+  border-radius: 15px;
+  padding: 20px 22px;
+}
+
+.simple-request-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.875rem;
+  color: #b7d4ec;
+}
+
+.simple-request-client {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.simple-request-client span:first-child {
+  font-size: 1.5rem;
+}
+
+.simple-clue-badges {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.simple-clue-pill {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 11px;
+  padding: 11px 13px;
+  text-align: center;
+}
+
+.simple-clue-pill small {
+  display: block;
+  font-size: 0.75rem;
+  color: #9ec5e6;
+  margin-bottom: 4px;
+}
+
+.simple-clue-pill strong {
+  font-size: 1.05rem;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.simple-color-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* Feedback Toast */
+.simple-feedback {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 650;
+  text-align: center;
+}
+
+.simple-feedback.is-ok {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.simple-feedback.is-bad {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.simple-feedback.is-info {
+  background: #f0f7ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+/* 4 Choice Cards Grid */
+.simple-choices-grid {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.simple-choice-btn {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 18px;
+  border-radius: 14px;
+  border: 2px solid #e2eaf2;
+  background: #fff;
+  text-align: left;
+  transition: transform 0.14s, border-color 0.14s, box-shadow 0.14s;
+}
+
+.simple-choice-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: #3b82f6;
+  box-shadow: 0 8px 20px rgba(40, 116, 237, 0.1);
+}
+
+.simple-choice-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.simple-choice-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.15);
+}
+
+.simple-choice-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.simple-choice-info strong {
+  display: block;
+  font-size: 1.05rem;
+  color: #15364e;
+}
+
+.simple-choice-feature {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+/* Game Over Screen */
+.simple-gameover {
+  text-align: center;
+  padding: 26px 16px 10px;
+}
+
+.simple-grade-circle {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  margin: 0 auto 14px;
+  display: grid;
+  place-items: center;
+  font-size: 2.1rem;
+  font-weight: 850;
+  background: #fef08a;
+  color: #854d0e;
+  border: 3px solid #facc15;
+}
+
+@media (max-width: 640px) {
+  .simple-hud-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .simple-clue-badges,
+  .simple-choices-grid {
+    grid-template-columns: 1fr;
+  }
+}
