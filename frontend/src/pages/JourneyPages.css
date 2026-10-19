@@ -301,3 +301,5 @@
   .match-photo-label>svg { margin-top:4px; }
 }
 @media(prefers-reduced-motion:reduce) { .pulse-icon { animation:none; } }
+/* Match the full-width reasons box under the photo on small screens. */
+@media(max-width:540px) { .match-photo-similarity { margin-left:-118px; } }

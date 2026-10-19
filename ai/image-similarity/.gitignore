@@ -1,0 +1,9 @@
+.venv/
+.cache/
+__pycache__/
+.pytest_cache/
+samples/generated/
+samples/real/*
+!samples/real/README.md
+!samples/real/manifest.example.csv
+results/raw/
