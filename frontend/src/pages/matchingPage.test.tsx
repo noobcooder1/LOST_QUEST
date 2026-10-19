@@ -150,6 +150,36 @@ describe('MatchingPage', () => {
     expect(cards()[1].querySelector('img')?.getAttribute('src')).toBe('/images/wallet.svg');
   });
 
+  it('hides the AI photo similarity area unless the frontend flag is on', async () => {
+    await render();
+    expect(container.querySelector('.photo-similarity')).toBeNull();
+    expect(text()).not.toContain('사진 유사도');
+  });
+
+  it('shows the photo similarity area as unavailable when enabled, without a score and without changing the cards', async () => {
+    await render();
+    const before = cards().map((card) => card.innerHTML);
+    act(() => root.unmount());
+    root = createRoot(container);
+    vi.stubEnv('VITE_FEATURE_AI_PHOTO_SIMILARITY', 'true');
+    await render();
+
+    expect(cards()).toHaveLength(2);
+    for (const [index, card] of cards().entries()) {
+      const area = card.querySelector('.photo-similarity')!;
+      expect(area.getAttribute('data-status')).toBe('UNAVAILABLE');
+      expect(area.textContent).toContain('AI 사진 유사도');
+      expect(area.textContent).toContain('지금은 사진 비교를 할 수 없어요');
+      expect(area.textContent).not.toMatch(/\d/);
+      // Everything else on the card (매칭도, breakdown, links, order) is exactly what it was with the flag off.
+      area.remove();
+      expect(card.innerHTML).toBe(before[index]);
+    }
+    expect(cards()[0].textContent).toContain('매칭도 98점');
+    expect(cards()[1].textContent).toContain('매칭도 73점');
+    expect(matchCalls()).toHaveLength(2); // one per render; no extra request for photo similarity
+  });
+
   it('asks users without open lost items to register one', async () => {
     app.value = { authUser: { id: 99 }, authChecking: false };
     await render();

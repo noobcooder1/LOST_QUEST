@@ -3,8 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, ArrowRight, CalendarDays, Check, ChevronRight, CircleHelp, ListChecks, LogIn, MapPin, RefreshCw, Search, ShieldCheck } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import ItemImage from '../components/ItemImage'
+import PhotoSimilarityIndicator from '../components/PhotoSimilarityIndicator'
 import { defaultItemImage } from '../data/seed'
 import { listServerItems, parseServerRouteId } from '../services/itemApi'
+import { isPhotoSimilarityEnabled } from '../services/photoSimilarity'
 import { describeMatchError, getItemMatches, SOURCE_LABELS, type ItemMatches, type MatchResult, type SourceStatus } from '../services/matchingApi'
 import type { Item } from '../types'
 import './JourneyPages.css'
@@ -37,6 +39,8 @@ function MatchCard({ match, best, lostItemId }: { match: MatchResult; best: bool
       <div className="match-reasons"><strong><ListChecks size={14} /> 점수를 받은 조건</strong>{match.reasons.length ? <ul>{match.reasons.map((reason) => <li key={reason}><Check size={13} /> {reason}</li>)}</ul> : <p className="match-no-reason">일치한 조건이 없어요.</p>}
         <dl className="match-breakdown" aria-label="항목별 점수">{match.breakdown.map((component) => <div key={component.key} className={`match-breakdown-${component.result.toLowerCase()}`} title={component.note ?? undefined}><dt>{BREAKDOWN_LABELS[component.key] ?? component.key}</dt><dd>{component.result === 'UNKNOWN' ? '정보 없음' : `${component.points}/${component.maxPoints}`}</dd></div>)}</dl>
       </div>
+      {/* Reference-only and off by default; the server sends no photo similarity yet, so it shows as unavailable. */}
+      {isPhotoSimilarityEnabled() && <PhotoSimilarityIndicator className="match-photo-similarity" />}
       <Link className="match-details" to={detail}>내 물건인지 자세히 확인하기 <ArrowRight size={16} /></Link>
     </div>
   </article>
