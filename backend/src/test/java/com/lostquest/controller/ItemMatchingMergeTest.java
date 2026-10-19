@@ -55,6 +55,11 @@ class ItemMatchingMergeTest {
         PoliceCandidateCollector fakePoliceCandidateCollector() {
             return new PoliceCandidateCollector(null, null) {
                 @Override
+                public SourceResult collect(MatchTarget target, boolean byItemKind) {
+                    return collect(target);
+                }
+
+                @Override
                 public SourceResult collect(MatchTarget target) {
                     return new SourceResult(MatchSource.POLICE, SourceResult.Status.PARTIAL, List.of(
                             new MatchCandidate(MatchSource.POLICE, "POLICE:F2026080200001-1", null, "F2026080200001", 1,

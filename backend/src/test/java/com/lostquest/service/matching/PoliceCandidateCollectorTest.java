@@ -200,4 +200,25 @@ class PoliceCandidateCollectorTest {
         assertThat(items.calls).hasSize(1);
         assertThat(result.candidates()).extracting(MatchCandidate::key).containsExactly("POLICE:F3-2");
     }
+
+    @Test
+    @DisplayName("추천 목록만 이름의 물품 종류로 경찰청 분류를 고르고, 알림용 조회는 기존 그대로")
+    void recommendationLookupMapsTheTitleKindToAPoliceCategoryButNotificationsDoNot() {
+        MatchTarget umbrella = new MatchTarget(1L, "검은색 우산", "액세서리", "검정", "경기", LocalDate.of(2026, 10, 1));
+
+        collector.collect(umbrella, true);
+        assertThat(items.calls).isNotEmpty().allMatch(call -> "PRZ000".equals(call.filter().category()));
+
+        items.calls.clear();
+        collector.collect(umbrella);
+        assertThat(items.calls).isNotEmpty().allMatch(call -> call.filter().category() == null);
+
+        // An exact category name still wins, and unknown kinds stay unfiltered.
+        items.calls.clear();
+        collector.collect(new MatchTarget(1L, "검은색 우산", "지갑", "검정", "경기", LocalDate.of(2026, 10, 1)), true);
+        assertThat(items.calls).allMatch(call -> "PRH000".equals(call.filter().category()));
+        items.calls.clear();
+        collector.collect(new MatchTarget(1L, "검은 물건", "액세서리", "검정", "경기", LocalDate.of(2026, 10, 1)), true);
+        assertThat(items.calls).allMatch(call -> call.filter().category() == null);
+    }
 }

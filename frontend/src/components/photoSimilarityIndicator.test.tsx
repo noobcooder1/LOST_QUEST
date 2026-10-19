@@ -104,4 +104,19 @@ describe('PhotoSimilarityIndicator', () => {
     expect(text).toContain('매칭도 점수에는 반영되지 않는 참고 정보예요');
     for (const forbidden of ['AI가 판단', '확인했', '본인 물건', '소유']) expect(text).not.toContain(forbidden);
   });
+
+  it('shows measured browser references without inventing calibrated bands or ownership probabilities', () => {
+    const { text, area, status } = show({ status: 'READY', appearancePercent: 86.43, colorPercent: 72.15 });
+    expect(status).toBe('READY'); expect(text).toContain('외형 86.4%'); expect(text).toContain('색상 분포 72.2%');
+    expect(area.querySelector('.photo-similarity-bars')).toBeNull();
+    expect(text).not.toContain('유사도 높음'); expect(text).not.toContain('확률');
+    expect(show({ status: 'SKIPPED' }).text).toContain('이번 이미지 비교에서 제외된 물품이에요');
+  });
+
+  it('does not render invalid browser percentages', () => {
+    for (const n of [Number.NaN, Infinity, -1, 101]) {
+      expect(show({ status: 'READY', appearancePercent: n, colorPercent: 80 }).text).not.toContain('%');
+      expect(show({ status: 'READY', appearancePercent: 80, colorPercent: n }).text).not.toContain('%');
+    }
+  });
 });

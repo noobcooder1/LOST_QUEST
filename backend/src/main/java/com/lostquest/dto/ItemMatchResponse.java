@@ -1,6 +1,7 @@
 package com.lostquest.dto;
 
 import com.lostquest.service.matching.CriterionResult;
+import com.lostquest.service.matching.ItemKind;
 import com.lostquest.service.matching.MatchSource;
 import com.lostquest.service.matching.MatchTarget;
 import com.lostquest.service.matching.ScoredMatch;
@@ -23,7 +24,9 @@ public record ItemMatchResponse(
         List<Source> sources
 ) {
 
-    public record LostItemSummary(Long id, String title, String category, String color, String region, LocalDate lostDate) {
+    /** @param nameKind the item kind read from the title (e.g. "우산"), or null when it cannot be told. */
+    public record LostItemSummary(Long id, String title, String category, String color, String region, LocalDate lostDate, String description,
+                                  String nameKind) {
     }
 
     /**
@@ -32,6 +35,8 @@ public record ItemMatchResponse(
      * @param atcId        경찰청 관리번호 (POLICE only)
      * @param fdSn         경찰청 습득 순번 (POLICE only)
      * @param region       LOST_QUEST: registered region. POLICE: the 경찰청 region searched, or null when unknown.
+     * @param nameMatch    display hint only: SAME_KIND or UNKNOWN_KIND by the titles' item kinds; null when the lost
+     *                     item's own kind is unknown. It is not part of {@code score}.
      */
     public record Match(
             String id,
@@ -50,7 +55,9 @@ public record ItemMatchResponse(
             int score,
             int maxScore,
             List<ScoreComponent> scoreBreakdown,
-            List<String> reasons
+            List<String> reasons,
+            String description,
+            String nameMatch
     ) {
     }
 
@@ -63,24 +70,28 @@ public record ItemMatchResponse(
 
     public static ItemMatchResponse of(MatchTarget target, int maxScore, int minScore, int limit,
                                        List<ScoredMatch> matches, List<SourceResult> sources) {
+        String targetKind = ItemKind.of(target.title(), target.category());
         return new ItemMatchResponse(
                 new LostItemSummary(target.lostItemId(), target.title(), target.category(), target.color(),
-                        target.region(), target.lostDate()),
+                        target.region(), target.lostDate(), target.description(), ItemKind.label(targetKind)),
                 maxScore,
                 minScore,
                 limit,
-                matches.stream().map(ItemMatchResponse::toMatch).toList(),
+                matches.stream().map(match -> toMatch(match, targetKind)).toList(),
                 sources.stream().map(source -> new Source(source.source(), source.status(),
                         source.candidates().size(), source.message())).toList());
     }
 
-    private static Match toMatch(ScoredMatch match) {
+    private static Match toMatch(ScoredMatch match, String targetKind) {
         var c = match.candidate();
+        String candidateKind = ItemKind.of(c.title(), c.category());
+        String nameMatch = targetKind == null ? null
+                : candidateKind == null ? "UNKNOWN_KIND" : targetKind.equals(candidateKind) ? "SAME_KIND" : "DIFFERENT_KIND";
         return new Match(c.key(), c.source(), c.foundItemId(), c.atcId(), c.fdSn(), c.title(), c.category(), c.color(),
                 c.foundDate(), c.region(), c.location(), c.storagePlace(), c.imageUrl(), match.score(), match.maxScore(),
                 match.components().stream().map(component -> new ScoreComponent(component.key(),
                         component.result().points(), component.result().maxPoints(), component.result().outcome(),
                         component.result().note())).toList(),
-                match.reasons());
+                match.reasons(), c.description(), nameMatch);
     }
 }

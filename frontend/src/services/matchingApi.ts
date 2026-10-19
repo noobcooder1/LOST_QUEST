@@ -22,6 +22,9 @@ export interface ScoreComponent {
 }
 
 export interface MatchResult {
+  description?: string;
+  /** Display hint from the server: the found item's title names the same kind as the lost item, or no clear kind. */
+  nameMatch?: 'SAME_KIND' | 'UNKNOWN_KIND';
   /** Stable id from the server: `LOST_QUEST:12` or `POLICE:F2026…-1`. */
   id: string;
   source: MatchSource;
@@ -52,6 +55,7 @@ export interface SourceStatus {
 }
 
 export interface ItemMatches {
+  target?: { title:string; category:string; color:string; description:string; nameKind?: string };
   lostItemId: number;
   maxScore: number;
   minScore: number;
@@ -109,6 +113,8 @@ export function parseMatch(value: unknown, baseUrl = getApiBaseUrl()): MatchResu
   const image = source === 'LOST_QUEST' ? resolveServerImageUrl(raw.imageUrl, baseUrl) : safePoliceImageUrl(raw.imageUrl);
   return {
     id: raw.id,
+    ...(isText(raw.description) ? {description:raw.description} : {}),
+    ...(raw.nameMatch === 'SAME_KIND' || raw.nameMatch === 'UNKNOWN_KIND' ? { nameMatch: raw.nameMatch } : {}),
     source,
     routeId: routeIdOf(raw),
     title,
@@ -143,6 +149,7 @@ export function parseItemMatches(value: unknown, baseUrl = getApiBaseUrl()): Ite
       !Array.isArray(raw.matches) || !Array.isArray(raw.sources)) throw invalidResponse();
   return {
     lostItemId: lostItem.id,
+    ...(isText(lostItem.title)&&isText(lostItem.category) ? {target:{title:text(lostItem.title),category:text(lostItem.category),color:text(lostItem.color),description:text(lostItem.description),...(text(lostItem.nameKind) ? {nameKind:text(lostItem.nameKind)} : {})}} : {}),
     maxScore: raw.maxScore,
     minScore: raw.minScore,
     matches: raw.matches.map((match) => parseMatch(match, baseUrl)),

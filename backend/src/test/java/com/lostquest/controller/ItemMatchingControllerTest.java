@@ -94,6 +94,43 @@ class ItemMatchingControllerTest {
         return mockMvc.perform(request);
     }
 
+    @Test
+    void publicDescriptionsAreIncludedForReferenceOnlyWhileTheScoreFloorAndLimitStay() throws Exception {
+        LostItem umbrella = lostItemRepository.saveAndFlush(new LostItem(owner, "검은색 우산", "기타", "검정", "검은 접이식 우산입니다.", LOST, "서울", "서울역", null, LostItemStatus.LOST));
+        for (int i = 0; i < 25; i++) found(finder, "블랙 접이식 우산 " + i, "기타", "흰색", LOST.plusDays(20), "부산", FoundItemStatus.STORED);
+        found(finder, "검은 우산", "기타", "검정", LOST, "서울", FoundItemStatus.STORED);
+
+        JsonNode response = json(getMatches(umbrella.getId(), ownerToken, "").andExpect(status().isOk()));
+        assertThat(response.get("minScore").asInt()).isEqualTo(40);
+        assertThat(response.get("limit").asInt()).isEqualTo(10);
+        assertThat(response.has("textCandidates")).isFalse();
+        // Only the 100-point same-category/color/region/date item passes; the 35-point umbrellas stay out.
+        assertThat(response.get("matches")).hasSize(1);
+        assertThat(response.get("matches").get(0).get("title").asText()).isEqualTo("검은 우산");
+        assertThat(response.get("matches").get(0).get("description").asText()).isEqualTo("습득한 물건에 대한 설명입니다.");
+        assertThat(response.get("lostItem").get("description").asText()).isEqualTo("검은 접이식 우산입니다.");
+        assertThat(response.get("lostItem").get("nameKind").asText()).isEqualTo("우산");
+        assertThat(response.toString()).doesNotContain("ownershipQuestion", "ownershipAnswer", "passwordHash");
+
+        // A leftover text-pool parameter is ignored: same floor, same results.
+        assertThat(json(getMatches(umbrella.getId(), ownerToken, "?text=true").andExpect(status().isOk())).get("matches"))
+                .isEqualTo(response.get("matches"));
+    }
+
+    @Test
+    void recommendationsShowTheSameNamedItemAndLeaveOutADifferentKindEvenWithAHigherScore() throws Exception {
+        LostItem umbrella = lostItemRepository.saveAndFlush(new LostItem(owner, "검은색 우산", "기타", "검정", "검은 우산입니다.", LOST, "서울", "서울역", null, LostItemStatus.LOST));
+        found(finder, "검은 후드집업", "기타", "검정", LOST, "서울", FoundItemStatus.STORED);
+        found(finder, "블랙 3단 우산", "우산", "검정", LOST, "서울", FoundItemStatus.STORED);
+
+        JsonNode matches = json(getMatches(umbrella.getId(), ownerToken, "").andExpect(status().isOk())).get("matches");
+        // The 100-point hoodie is a different kind of item, so only the umbrella is recommended.
+        assertThat(matches).hasSize(1);
+        assertThat(matches.get(0).get("title").asText()).isEqualTo("블랙 3단 우산");
+        assertThat(matches.get(0).get("score").asInt()).isEqualTo(65);
+        assertThat(matches.get(0).get("nameMatch").asText()).isEqualTo("SAME_KIND");
+    }
+
     private JsonNode json(ResultActions actions) throws Exception {
         return objectMapper.readTree(actions.andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8));
     }

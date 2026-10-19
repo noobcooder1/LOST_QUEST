@@ -53,6 +53,7 @@ public class SecurityConfig {
                                 "/api/public-items/lost/{atcId}", "/api/public-items/found/{atcId}/{fdSn}").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login").permitAll()
                         .requestMatchers("/api/community/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/public-items/image").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/auth/me", "/api/me/items", "/api/lost-items/{id}/matches",
                                 "/api/notifications", "/api/notifications/unread-count").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/lost-items", "/api/found-items").authenticated()

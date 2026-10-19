@@ -13,12 +13,23 @@ const BASE = 'http://localhost:8080';
 const TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIzIn0.c2lnbmF0dXJl';
 const app = vi.hoisted(() => ({ value: { authUser: null as null | { id: number }, authChecking: false } }));
 vi.mock('../context/AppContext', () => ({ useApp: () => app.value }));
+const LQ_ID = LQ_MATCH.id;
+const POLICE_ID = POLICE_MATCH.id;
+const photo = vi.hoisted(() => ({ run: vi.fn() }));
+vi.mock('../services/matchPhotoComparison', async (importOriginal) => ({ ...(await importOriginal<typeof import('../services/matchPhotoComparison')>()), compareMatchPhotos: photo.run }));
+vi.mock('./ImageAnalysisPage', () => ({ default: ({ preset, onClose }: { preset: { lost: { id: string }; match: { id: string } }; onClose: () => void }) =>
+  <div className="compare-stand-in">{preset.lost.id}|{preset.match.id}<button type="button" onClick={onClose}>매칭 결과로 돌아가기</button></div> }));
+const textAi = vi.hoisted(() => ({ compare: vi.fn() }));
+vi.mock('../features/textMatching/textMatching', () => ({ compareMatchTexts: textAi.compare }));
 
 const lost = (id: number, userId: number, title: string, status = 'LOST') => ({
   id, userId, title, category: '지갑', color: '검정', description: '카드가 들어 있는 검은색 지갑입니다.', lostDate: '2026-09-10',
   region: '서울', location: '서울숲역', imageUrl: null, status, createdAt: '2026-09-10T00:00:00Z',
 });
 const LOST_LIST = [lost(12, 3, '내 검은색 지갑'), lost(13, 4, '다른 사람 지갑'), lost(14, 3, '이미 찾은 지갑', 'RETURNED'), lost(15, 3, '내 가방'), { ...lost(16, 3, '숨김 지갑'), hidden: true }];
+const LOST_PHOTO = '/api/images/9a8b7c6d-1e2f-4a3b-8c4d-5e6f7a8b9c0d.jpg';
+const LOST_WITH_PHOTO = LOST_LIST.map(item => item.id === 12 ? { ...item, imageUrl: LOST_PHOTO } : item);
+let lostList: unknown[] = LOST_LIST;
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
 let container: HTMLDivElement;
@@ -31,8 +42,13 @@ beforeEach(() => {
   saveAuthSession(TOKEN, 3600);
   app.value = { authUser: { id: 3 }, authChecking: false };
   matchesResponse = () => json(RESPONSE);
+  lostList = LOST_LIST;
+  textAi.compare.mockReset().mockResolvedValue({});
+  photo.run.mockReset().mockImplementation(async (_target, matches, _owner, onResult) => {
+    for (const match of matches) onResult(match.id, { status: 'READY', appearancePercent: 88.1, colorPercent: 92.3 });
+  });
   fetchMock = vi.fn().mockImplementation((url: string) => Promise.resolve(
-    url === `${BASE}/api/lost-items` ? json(LOST_LIST) : url.includes('/matches') ? matchesResponse() : json({ message: 'unexpected' }, 500)));
+    url === `${BASE}/api/lost-items` ? json(lostList) : url.includes('/matches') ? matchesResponse() : json({ message: 'unexpected' }, 500)));
   vi.stubGlobal('fetch', fetchMock);
   container = document.createElement('div');
   document.body.appendChild(container);
@@ -62,6 +78,7 @@ async function click(element: HTMLElement) {
 const choice = (title: string) => [...container.querySelectorAll<HTMLButtonElement>('.matching-choice')].find(button => button.textContent?.includes(title))!;
 const button = (label: string) => [...container.querySelectorAll<HTMLButtonElement>('button')].find(element => element.textContent?.trim() === label)!;
 const startMatching = () => click(button('매칭 시작'));
+const photoButtons = () => [...container.querySelectorAll<HTMLButtonElement>('.match-photo-action button')];
 async function renderAndStart(path = '/matches?item=api-lost-12', strict = false) {
   await render(path, strict); await startMatching();
 }
@@ -105,50 +122,135 @@ describe('MatchingPage', () => {
 
   it('waits for explicit start on deep links under StrictMode and runs once', async () => {
     await render('/matches?item=api-lost-12', true); expect(matchCalls()).toHaveLength(0);
-    expect(button('AI 이미지 매칭').disabled).toBe(true);
+    expect(text()).not.toContain('1차'); expect(text()).not.toContain('2차'); expect(photoButtons()).toHaveLength(0);
     expect(container.querySelector('.matching-results')?.getAttribute('aria-busy')).toBe('false');
     await startMatching(); expect(matchCalls()).toHaveLength(1); expect(cards()).toHaveLength(2);
   });
 
-  it('disables both actions while text matching is pending and prevents repeated requests', async () => {
+  it('shows results in server score order at once and adds text reference values without reordering', async () => {
+    let finish!: (values: Record<string, number>) => void;
+    textAi.compare.mockImplementation(() => new Promise<Record<string, number>>(resolve => { finish = resolve; }));
+    await renderAndStart();
+    // Results do not wait for the local text model.
+    expect(cards()).toHaveLength(2);
+    expect(cards()[0].textContent).toContain('매칭도 98점'); expect(cards()[0].textContent).toContain('텍스트 의미 비교 중…');
+    await act(async () => textAi.compare.mock.calls[0][2](2, 3)); expect(text()).toContain('2/3');
+    const before = cards().map(card => card.querySelector('h3')?.textContent);
+    await act(async () => finish({ [POLICE_ID]: .94, [LQ_ID]: .85 }));
+    expect(cards().map(card => card.querySelector('h3')?.textContent)).toEqual(before);
+    expect(cards()[0].textContent).toContain('매칭도 98점'); expect(cards()[0].textContent).toContain('텍스트 의미 85.0%');
+    expect(cards()[1].textContent).toContain('매칭도 73점'); expect(cards()[1].textContent).toContain('텍스트 의미 94.0%');
+    expect(cards()[0].textContent).toContain('추천 1순위'); expect(text()).toContain('매칭도와 순위에는 반영되지 않아요');
+    expect(button('추천순')).toBeTruthy(); expect(text()).not.toContain('AI 추천순');
+    expect(text()).toContain('매칭도 40점 이상인 습득물을 이름이 같은 종류부터'); expect(text()).toContain('이름이 분명히 다른 종류는 빼요');
+    expect(matchCalls()).toHaveLength(1);
+  });
+
+  it('shows same-kind names large and other candidates small, without changing scores or order', async () => {
+    matchesResponse = () => json({ ...RESPONSE, lostItem: { ...RESPONSE.lostItem, nameKind: '지갑' },
+      matches: [{ ...LQ_MATCH, nameMatch: 'SAME_KIND' }, { ...POLICE_MATCH, nameMatch: 'UNKNOWN_KIND' }] });
+    await renderAndStart();
+    const [large, small] = cards();
+    expect(large.classList.contains('match-card-same-kind')).toBe(true);
+    expect(large.textContent).toContain('이름 일치 · 지갑'); expect(large.textContent).toContain('추천 1순위');
+    expect(large.textContent).toContain('매칭도 98점'); expect(large.textContent).toContain('점수를 받은 조건');
+    expect(small.classList.contains('match-card-compact')).toBe(true);
+    expect(small.textContent).toContain('매칭도 73점'); expect(small.textContent).not.toContain('점수를 받은 조건');
+    expect(small.querySelector('a[href^="/items/police-found-"]')).not.toBeNull();
+    expect(text()).toContain('이름이 같은 종류 · 지갑'); expect(text()).toContain('그 밖의 후보');
+  });
+
+  it('says when no candidate has the same kind of name and still lists the others small', async () => {
+    matchesResponse = () => json({ ...RESPONSE, lostItem: { ...RESPONSE.lostItem, nameKind: '우산' },
+      matches: [{ ...LQ_MATCH, nameMatch: 'UNKNOWN_KIND' }, { ...POLICE_MATCH, nameMatch: 'UNKNOWN_KIND' }] });
+    await renderAndStart();
+    expect(text()).toContain('이름이 ‘우산’인 습득물은 아직 없어요');
+    expect(cards()).toHaveLength(2); expect(cards().every(card => card.classList.contains('match-card-compact'))).toBe(true);
+  });
+
+  it('keeps the usual single list when the lost item name does not tell its kind', async () => {
+    await renderAndStart();
+    expect(container.querySelector('.match-card-compact')).toBeNull(); expect(text()).not.toContain('그 밖의 후보');
+  });
+
+  it('keeps the results and order when the local text model fails, without inventing a value', async () => {
+    textAi.compare.mockRejectedValueOnce(new Error('model missing'));
+    await renderAndStart();
+    expect(text()).toContain('텍스트 의미 참고값을 계산하지 못했어요');
+    expect(cards()).toHaveLength(2); expect(cards()[0].textContent).toContain('매칭도 98점');
+    expect(text()).not.toContain('텍스트 의미 비교 중'); expect(text()).not.toMatch(/텍스트 의미 \d/);
+  });
+
+  it('cancels text comparison on item changes and ignores its delayed result', async () => {
+    let finish!: (values: Record<string, number>) => void;
+    textAi.compare.mockImplementationOnce(() => new Promise<Record<string, number>>(resolve => { finish = resolve; }));
+    await renderAndStart(); const signal = textAi.compare.mock.calls[0][1] as AbortSignal;
+    await click(container.querySelector<HTMLButtonElement>('.matching-reselect')!); expect(signal.aborted).toBe(true);
+    await act(async () => finish({ [LQ_ID]: .99 }));
+    expect(container.querySelector('.matching-picker')).not.toBeNull(); expect(cards()).toHaveLength(0);
+  });
+
+  it('disables the start button while matching is pending and prevents repeated requests', async () => {
     let finish!: (value: Response) => void;
     fetchMock.mockImplementation((url: string) => url.endsWith('/api/lost-items') ? Promise.resolve(json(LOST_LIST)) : new Promise<Response>(resolve => { finish = resolve; }));
     await renderAndStart();
-    expect(button('매칭 중…').disabled).toBe(true); expect(button('AI 이미지 매칭').disabled).toBe(true);
+    expect(button('매칭 중…').disabled).toBe(true);
     expect(container.querySelector('.matching-results')?.getAttribute('aria-busy')).toBe('true');
-    await click(button('매칭 중…')); await click(button('AI 이미지 매칭'));
-    expect(matchCalls()).toHaveLength(1); expect(container.querySelector('#matching-photo-status')).toBeNull();
+    await click(button('매칭 중…'));
+    expect(matchCalls()).toHaveLength(1);
     await act(async () => finish(json(RESPONSE)));
-    expect(button('AI 이미지 매칭').disabled).toBe(false);
-    expect(button('AI 이미지 매칭').getAttribute('aria-expanded')).toBe('false');
-    expect(container.querySelector('#matching-photo-status')).toBeNull();
+    expect(button('다시 매칭').disabled).toBe(false);
   });
 
-  it('opens the optional image availability notice only on click without extra requests or changing text results', async () => {
+  it('shows a single start button and photo buttons only on cards with a real photo when the lost item has one', async () => {
+    lostList = LOST_WITH_PHOTO;
+    matchesResponse = () => json({ ...RESPONSE, matches: [LQ_MATCH, POLICE_MATCH, { ...LQ_MATCH, id: 'LOST_QUEST:8', foundItemId: 8, title: '사진 없는 지갑', imageUrl: null }] });
     await renderAndStart();
-    const before = cards().map(card => card.innerHTML);
-    const requests = fetchMock.mock.calls.length;
-    await click(button('AI 이미지 매칭'));
-    expect(button('AI 이미지 매칭').getAttribute('aria-expanded')).toBe('true');
-    expect(container.querySelector('#matching-photo-status')?.getAttribute('role')).toBe('status');
-    expect(text()).toContain('AI 이미지 매칭을 아직 사용할 수 없어요');
-    expect(text()).toContain('이미지 비교 요청은 실행되지 않았으며');
-    expect(cards().map(card => card.innerHTML)).toEqual(before);
-    expect(fetchMock).toHaveBeenCalledTimes(requests);
-    await click(button('AI 이미지 매칭'));
-    expect(container.querySelector('#matching-photo-status')).toBeNull();
-    expect(fetchMock).toHaveBeenCalledTimes(requests);
+    expect(container.querySelectorAll('.matching-start button')).toHaveLength(1);
+    expect(cards()).toHaveLength(3);
+    expect(cards().map(card => card.querySelector('.match-photo-action') !== null)).toEqual([true, true, false]);
+    expect(text()).toContain('사진이 있는 추천 항목에는 ‘AI 사진 비교’ 버튼이 생겨요');
+    expect(photo.run).not.toHaveBeenCalled(); expect(container.querySelector('.photo-compare-layer')).toBeNull();
   });
 
-  it('clears the optional image stage on text retry and item changes, requiring explicit start again', async () => {
-    await renderAndStart(); await click(button('AI 이미지 매칭'));
+  it('shows no photo buttons when the lost item itself has no photo', async () => {
+    await renderAndStart();
+    expect(photoButtons()).toHaveLength(0);
+    expect(text()).toContain('내 분실물에 사진을 등록하면');
+  });
+
+  it('opens the side-by-side comparison for the clicked card over the results and closes back to them', async () => {
+    lostList = LOST_WITH_PHOTO;
+    await renderAndStart();
+    const requests = fetchMock.mock.calls.length;
+    const before = cards().map(card => card.innerHTML);
+    await click(cards()[1].querySelector<HTMLButtonElement>('.match-photo-action button')!);
+    const layer = container.querySelector('.photo-compare-layer')!;
+    expect(layer.getAttribute('role')).toBe('dialog');
+    expect(layer.textContent).toContain(`api-lost-12|${POLICE_ID}`);
+    expect(document.body.style.overflow).toBe('hidden');
+    expect(cards().map(card => card.innerHTML)).toEqual(before); // results stay behind the layer, unchanged
+    expect(fetchMock).toHaveBeenCalledTimes(requests); expect(photo.run).not.toHaveBeenCalled();
+
+    await click(button('매칭 결과로 돌아가기'));
+    expect(container.querySelector('.photo-compare-layer')).toBeNull(); expect(document.body.style.overflow).toBe('');
+    expect(cards()).toHaveLength(2);
+
+    await click(cards()[0].querySelector<HTMLButtonElement>('.match-photo-action button')!);
+    expect(container.querySelector('.photo-compare-layer')?.textContent).toContain(`api-lost-12|${LQ_ID}`);
+    await act(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
+    expect(container.querySelector('.photo-compare-layer')).toBeNull();
+  });
+
+  it('closes the comparison when the match is re-run or another item is chosen', async () => {
+    lostList = LOST_WITH_PHOTO;
+    await renderAndStart();
+    await click(photoButtons()[0]); expect(container.querySelector('.photo-compare-layer')).not.toBeNull();
     await click(button('다시 매칭'));
-    expect(matchCalls()).toHaveLength(2); expect(container.querySelector('#matching-photo-status')).toBeNull();
-    await click(button('AI 이미지 매칭'));
+    expect(container.querySelector('.photo-compare-layer')).toBeNull();
+    await click(photoButtons()[0]);
     await act(async () => { const select = container.querySelector<HTMLSelectElement>('#matching-item')!; select.value = 'api-lost-15'; select.dispatchEvent(new Event('change', { bubbles: true })); });
-    expect(container.querySelector('#matching-photo-status')).toBeNull(); expect(cards()).toHaveLength(0);
-    expect(button('AI 이미지 매칭').disabled).toBe(true); expect(matchCalls()).toHaveLength(2);
-    await startMatching(); expect(matchCalls()).toHaveLength(3); expect(matchCalls()[2][0]).toContain('/15/matches');
+    expect(container.querySelector('.photo-compare-layer')).toBeNull(); expect(photoButtons()).toHaveLength(0);
   });
 
   it('ignores the first comparison if it resolves after switching to another item', async () => {
@@ -226,16 +328,14 @@ describe('MatchingPage', () => {
       { source: 'POLICE', status: 'UNAVAILABLE', candidateCount: 0, message: '경찰청 공공데이터 연동이 설정되지 않았습니다.' }] });
     await renderAndStart();
     expect(text()).toContain('지금은 습득물을 비교할 수 없어요');
-    expect(cards()).toHaveLength(0);
-    expect(button('AI 이미지 매칭').disabled).toBe(true);
+    expect(cards()).toHaveLength(0); expect(photoButtons()).toHaveLength(0);
   });
 
   it('shows an empty state when nothing scored high enough', async () => {
     matchesResponse = () => json({ ...RESPONSE, matches: [] });
     await renderAndStart();
     expect(text()).toContain('아직 비슷한 습득물을 찾지 못했어요');
-    expect(cards()).toHaveLength(0);
-    expect(button('AI 이미지 매칭').disabled).toBe(true);
+    expect(cards()).toHaveLength(0); expect(photoButtons()).toHaveLength(0);
   });
 
   it('shows the server answer for someone else\'s lost item (403) and a missing one (404)', async () => {
@@ -269,38 +369,6 @@ describe('MatchingPage', () => {
     expect(image.getAttribute('src')).toBe(POLICE_MATCH.imageUrl);
     act(() => { image.dispatchEvent(new Event('error')); });
     expect(cards()[1].querySelector('img')?.getAttribute('src')).toBe('/images/wallet.svg');
-  });
-
-  it('hides the AI photo similarity area unless the frontend flag is on', async () => {
-    await renderAndStart();
-    expect(container.querySelector('.photo-similarity')).toBeNull();
-    expect(text()).not.toContain('사진 유사도');
-  });
-
-  it('shows the photo similarity area as unavailable when enabled, without a score and without changing the cards', async () => {
-    await renderAndStart();
-    const before = cards().map((card) => card.innerHTML);
-    act(() => root.unmount());
-    root = createRoot(container);
-    vi.stubEnv('VITE_FEATURE_AI_PHOTO_SIMILARITY', 'true');
-    await renderAndStart();
-    expect(container.querySelector('.photo-similarity')).toBeNull();
-    await click(button('AI 이미지 매칭'));
-
-    expect(cards()).toHaveLength(2);
-    for (const [index, card] of cards().entries()) {
-      const area = card.querySelector('.photo-similarity')!;
-      expect(area.getAttribute('data-status')).toBe('UNAVAILABLE');
-      expect(area.textContent).toContain('AI 사진 유사도');
-      expect(area.textContent).toContain('지금은 사진 비교를 할 수 없어요');
-      expect(area.textContent).not.toMatch(/\d/);
-      // Everything else on the card (매칭도, breakdown, links, order) is exactly what it was with the flag off.
-      area.remove();
-      expect(card.innerHTML).toBe(before[index]);
-    }
-    expect(cards()[0].textContent).toContain('매칭도 98점');
-    expect(cards()[1].textContent).toContain('매칭도 73점');
-    expect(matchCalls()).toHaveLength(2); // one per render; no extra request for photo similarity
   });
 
   it('asks users without open lost items to register one', async () => {
