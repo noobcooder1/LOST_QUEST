@@ -1,6 +1,6 @@
 # ngrok 고정 개발 주소로 로컬 API 연결
 
-Sites의 React → ngrok HTTPS 주소 → PC의 Spring Boot `8080` → MySQL 순서로 연결합니다. MySQL 포트를 외부에 공개하지 않습니다.
+Sites의 React → ngrok HTTPS 주소 → PC의 Spring Boot `8081` → MySQL 순서로 연결합니다. MySQL 포트를 외부에 공개하지 않습니다.
 
 ## 최초 설정 (Windows)
 
@@ -12,11 +12,11 @@ Sites의 React → ngrok HTTPS 주소 → PC의 Spring Boot `8080` → MySQL 순
    ```
 
 3. 새 터미널을 열고 `ngrok version`으로 설치를 확인합니다. 대시보드에 표시되는 `ngrok config add-authtoken` 명령을 본인 터미널에서 실행합니다. 토큰은 채팅·Git·README·`VITE_*` 환경변수에 넣지 않습니다. 계정 설정은 ngrok이 관리하는 사용자 로컬 설정에 저장합니다.
-4. MySQL과 Spring Boot를 실행하고 `http://localhost:8080/api/health`의 `OK` 응답을 확인합니다.
+4. MySQL과 Spring Boot를 실행하고 `http://127.0.0.1:8081/api/health`의 `OK` 응답을 확인합니다.
 5. 다음 명령을 실행하고 터미널을 켜 둡니다.
 
    ```powershell
-   ngrok http 8080
+   ngrok http http://127.0.0.1:8081
    ```
 
    프로젝트 루트에서 `& ./scripts/start-api-tunnel.ps1`을 실행해도 됩니다. 스크립트는 ngrok 설치 여부와 백엔드 health를 확인한 뒤 터널을 실행하며, 인증 토큰을 읽거나 저장하지 않습니다.
@@ -25,7 +25,7 @@ Sites의 React → ngrok HTTPS 주소 → PC의 Spring Boot `8080` → MySQL 순
 
 ## Sites에 반영
 
-기존 Site ID와 공개 범위를 유지합니다. 배포용 체크아웃 `.local/sites/lost-quest/.env.production`의 `VITE_API_BASE_URL`에 위 HTTPS 기본 주소를 지정하고 React를 다시 빌드·배포합니다. 원본 `frontend/.env.local`의 localhost 설정은 유지합니다. Vite 설정은 빌드 시 포함되므로 파일만 수정해서는 배포된 사이트에 적용되지 않습니다.
+기존 Site ID와 공개 범위를 유지합니다. 배포용 체크아웃 `.local/sites/lost-quest/.env.production`의 `VITE_API_BASE_URL`에 위 HTTPS 기본 주소를 지정하고 React를 다시 빌드·배포합니다. 원본 `frontend/.env.local`의 `http://127.0.0.1:8081` 설정은 유지합니다. Vite 설정은 빌드 시 포함되므로 파일만 수정해서는 배포된 사이트에 적용되지 않습니다.
 
 백엔드 CORS는 요청을 보내는 **Sites 주소**(`https://lost-quest-seho-8e2c.yseho.chatgpt.site`)를 허용해야 합니다. API 터널 주소를 CORS Origin에 추가하는 방식이 아닙니다. 현재 개발 설정에는 위 Sites Origin이 포함되어 있습니다.
 
@@ -33,7 +33,7 @@ Sites의 React → ngrok HTTPS 주소 → PC의 Spring Boot `8080` → MySQL 순
 
 ## 다음 실행부터
 
-동일 계정의 자동 할당 개발 도메인을 유지하면 `ngrok http 8080`을 다시 실행해도 API 주소를 매번 교체할 필요가 없습니다. MySQL·Spring Boot·ngrok이 모두 실행되어 있어야 서버 기능을 사용할 수 있습니다. PC 종료나 터널 종료 시 연결이 끊깁니다. 계정 또는 개발 도메인을 바꾸는 경우에는 Sites의 API 주소를 다시 빌드·배포합니다.
+동일 계정의 자동 할당 개발 도메인을 유지하면 `ngrok http http://127.0.0.1:8081`을 다시 실행해도 API 주소를 매번 교체할 필요가 없습니다. MySQL·Spring Boot·ngrok이 모두 실행되어 있어야 서버 기능을 사용할 수 있습니다. PC 종료나 터널 종료 시 연결이 끊깁니다. 계정 또는 개발 도메인을 바꾸는 경우에는 Sites의 API 주소를 다시 빌드·배포합니다.
 
 무료 요금제는 사용량 제한이 있는 개발·시연용 연결입니다. [고정 개발 도메인과 무료 제한](https://ngrok.com/docs/pricing-limits/free-plan-limits), [Windows 설치 공식 안내](https://ngrok.com/download/windows)를 참고하세요.
 

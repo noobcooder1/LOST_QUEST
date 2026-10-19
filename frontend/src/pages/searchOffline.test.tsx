@@ -32,12 +32,20 @@ beforeEach(() => {
 });
 afterEach(() => { act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
-async function settle() {
-  for (let n = 0; n < 40; n += 1) {
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
-    if (!container.textContent?.includes('공개 목록을 불러오고 있어요.') && !container.textContent?.includes('추가 페이지를 불러오고 있어요.')) return;
+async function waitFor(ready: () => boolean | Promise<boolean>, message: string) {
+  const deadline = Date.now() + 2500;
+  while (Date.now() < deadline) {
+    let complete = false;
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 10));
+      complete = await ready();
+    });
+    if (complete) return;
   }
-  throw new Error('Public-list requests did not settle');
+  throw new Error(message);
+}
+async function settle() {
+  await waitFor(() => !['공개 목록을 불러오고 있어요.', '추가 페이지를 불러오고 있어요.', '갱신 중'].some(text => container.textContent?.includes(text)), 'Public-list requests did not settle');
 }
 async function mount(path = '/search?source=community') {
   await act(async () => root.render(<MemoryRouter initialEntries={[path]}><SearchPage /></MemoryRouter>));
@@ -68,6 +76,8 @@ describe('public-list offline user flow', () => {
     });
     await mount('/search?source=public');
     expect(listPoliceItems).toHaveBeenCalledWith('lost', expect.objectContaining({ size: 50 }));
+    expect(vi.mocked(listPoliceItems).mock.calls.every(([type]) => type === 'lost')).toBe(true);
+    expect(statuses().querySelectorAll('li')).toHaveLength(1);
     const more = [...container.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === '경찰청 분실물 더 보기')!;
     await act(async () => more.click()); await settle();
     expect(container.textContent).toContain(second.title);
@@ -95,7 +105,8 @@ describe('public-list offline user flow', () => {
     await mount('/search?source=public');
     await act(async () => [...container.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === '경찰청 분실물 더 보기')!.click()); await settle();
     expect(container.textContent).toContain(second.title);
-    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="경찰청 분실물 새로고침"]')!.click()); await settle();
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="경찰청 분실물 새로고침"]')!.click());
+    await waitFor(() => !!container.querySelector('.items-grid')?.textContent?.includes('갱신된 경찰청 지갑') && !container.textContent?.includes('갱신 중'), 'Refreshed police rows did not replace the previous pages');
     expect(container.textContent).toContain('갱신된 경찰청 지갑'); expect(container.textContent).not.toContain(second.title);
     expect((await readPublicList({ kind: 'policeLost', page: 1, size: 50 }, Date.now(), true))?.page).toBe(1);
   });
@@ -148,6 +159,8 @@ describe('public-list offline user flow', () => {
     vi.mocked(listPoliceItems).mockRejectedValue(new ApiClientError('HTTP_ERROR', '경찰청 장애', 502));
     await mount('/search?source=public');
     const rows = [...statuses().querySelectorAll('li')].map(row => row.textContent);
+    expect(rows).toHaveLength(1);
+    expect(listPoliceItems).toHaveBeenCalledOnce(); expect(listPoliceItems).toHaveBeenCalledWith('lost', expect.anything());
     expect(rows.some(text => text?.includes('LOST QUEST'))).toBe(false);
     expect(rows.filter(text => text?.includes('경찰청')).every(text => text?.includes('서버 연결 불가'))).toBe(true);
     await act(async () => container.querySelector<HTMLButtonElement>('.source-tabs > button')!.click()); await settle();
@@ -185,6 +198,12 @@ describe('public-list offline user flow', () => {
     await revisit('/search?source=public&q=지갑');
     expect(container.querySelectorAll('article.item-card')).toHaveLength(2);
     expect([...container.querySelectorAll('button')].some(button => button.textContent?.includes('더 보기'))).toBe(false);
+    await revisit('/search?source=public&type=found&q=지갑');
+    expect(listPoliceItems).toHaveBeenLastCalledWith('found', expect.objectContaining({ q: '지갑' }));
+    expect(container.querySelector('.items-grid')).toBeNull();
+    expect(statuses().querySelectorAll('li')).toHaveLength(1);
+    expect(statuses().textContent).toContain('경찰청 습득물');
+    expect(statuses().textContent).toContain('저장 목록이 없어요');
     await revisit('/search?source=public&q=가방');
     expect(container.querySelector('.items-grid')).toBeNull();
     expect(statuses().textContent).toContain('저장 목록이 없어요');
@@ -205,6 +224,8 @@ describe('public-list offline user flow', () => {
         return { items: requestedType !== type ? [] : page === 1 ? [first] : [first, second, second], page, size: 20, totalCount: 3, totalPages: requestedType === type ? 3 : 0, searchMode: 'KEYWORD' };
       });
       await mount(`/search?source=public&type=${type}&q=지갑`);
+      expect(statuses().querySelectorAll('li')).toHaveLength(1);
+      expect(listPoliceItems).toHaveBeenCalledOnce();
       const syncedAt = statuses().querySelector('time')?.dateTime;
       const more = [...container.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.endsWith('더 보기'))!;
       await act(async () => more.click()); await settle();
@@ -219,6 +240,7 @@ describe('public-list offline user flow', () => {
       failing = false;
       await act(async () => retry.click()); await settle();
       expect(vi.mocked(listPoliceItems).mock.calls.filter(([requestedType]) => requestedType === type).map(([, query]) => query?.page)).toEqual([1, 2, 2]);
+      expect(vi.mocked(listPoliceItems).mock.calls.every(([requestedType]) => requestedType === type)).toBe(true);
       expect(container.querySelectorAll('a.item-card')).toHaveLength(2);
       expect(statuses().textContent).not.toContain('2페이지를 불러오지 못했어요');
       expect([...container.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.endsWith('더 보기'))?.disabled).toBe(false);
@@ -252,13 +274,7 @@ describe('public-list offline user flow', () => {
       else rejectLate(new ApiClientError('NETWORK_ERROR', '이전 요청 실패'));
     });
     if (outcome === 'success') {
-      let stored = false;
-      for (let n = 0; n < 40; n += 1) {
-        await act(async () => { stored = !!await readPublicList({ kind: 'policeLost', query: { q: '지갑' }, page: 2, size: 50 }); });
-        if (stored) break;
-        await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
-      }
-      expect(stored).toBe(true); // Wait until the stale successful response has fully finished cache saving.
+      await waitFor(async () => !!await readPublicList({ kind: 'policeLost', query: { q: '지갑' }, page: 2, size: 50 }), 'The late response did not finish saving its original query snapshot');
     }
     expect(container.querySelectorAll('a.item-card')).toHaveLength(1);
     expect(container.querySelector('a.item-card')?.textContent).toContain('새 검색 가방');

@@ -89,7 +89,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES
 | `DB_PASSWORD` | 필수, 로컬에서만 지정 |
 | `DB_URL` | 선택, 전체 JDBC URL로 위 주소 설정을 대체 |
 | `SERVER_ADDRESS` | `127.0.0.1`, 로컬에서만 수신 |
-| `SERVER_PORT` | `8080` |
+| `SERVER_PORT` | `8081` |
 | `SPRING_PROFILES_ACTIVE` | 생략하면 `dev` |
 | `JPA_DDL_AUTO` | `dev`: `update`, 그 외: `validate` |
 | `APP_CORS_ALLOWED_ORIGINS` | `dev`: `http://localhost:5173,http://127.0.0.1:5173` |
@@ -250,9 +250,9 @@ ALTER TABLE found_items ADD COLUMN region VARCHAR(20) NULL;
 `/api/health`는 HTTP 서버 응답 확인용이며 DB의 지속적인 readiness 점검은 아닙니다. **JPA·MySQL 경로 확인에는 목록 API도 호출하세요.** DB 연결 및 스키마 준비에 실패하면 정상 애플리케이션 시작이 완료되지 않습니다.
 
 ```powershell
-Invoke-RestMethod http://localhost:8080/api/health
-Invoke-WebRequest http://localhost:8080/api/lost-items | Select-Object -ExpandProperty Content
-Invoke-WebRequest http://localhost:8080/api/found-items | Select-Object -ExpandProperty Content
+Invoke-RestMethod http://127.0.0.1:8081/api/health
+Invoke-WebRequest http://127.0.0.1:8081/api/lost-items | Select-Object -ExpandProperty Content
+Invoke-WebRequest http://127.0.0.1:8081/api/found-items | Select-Object -ExpandProperty Content
 ```
 
 ### 경찰청 공공데이터 API
@@ -321,7 +321,7 @@ npm.cmd ci
 npm.cmd run dev
 ```
 
-이미 의존성을 설치했다면 재설치는 필요 없습니다. 기존 `.env.local`이 있다면 덮어쓰지 말고 `VITE_API_BASE_URL=http://localhost:8080` 항목만 추가하세요. `.env.local`을 수정한 뒤에는 Vite를 재시작합니다. `VITE_*`는 브라우저에 공개되므로 DB 비밀번호·API 키를 넣으면 안 됩니다.
+이미 의존성을 설치했다면 재설치는 필요 없습니다. 기존 `.env.local`이 있다면 덮어쓰지 말고 `VITE_API_BASE_URL=http://127.0.0.1:8081` 항목만 추가하거나 수정하세요. 백엔드 기본 포트는 `8081`입니다. `.env.local`을 수정한 뒤에는 Vite를 재시작합니다. `VITE_*`는 브라우저에 공개되므로 DB 비밀번호·API 키를 넣으면 안 됩니다.
 
 1. MySQL과 Spring Boot를 실행합니다.
 2. `http://127.0.0.1:5173`의 페이지 하단 **서버 연결 확인** 버튼을 누릅니다.

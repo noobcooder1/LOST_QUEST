@@ -33,7 +33,7 @@ spring:
 
 server:
   address: ${SERVER_ADDRESS:127.0.0.1}
-  port: ${SERVER_PORT:8080}
+  port: ${SERVER_PORT:8081}
   tomcat:
     # Read (and discard) oversized uploads so the client receives the JSON 413 instead of a reset connection.
     max-swallow-size: 20MB
