@@ -1,6 +1,7 @@
 package com.lostquest.dto;
 
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -15,6 +16,15 @@ public record PublicItemPageResponse(
         int totalPages,
         String searchMode,
         LocalDate from,
-        LocalDate to
+        LocalDate to,
+        CacheInfo cache
 ) {
+    public PublicItemPageResponse(List<PublicItemResponse> items, int page, int size, int totalCount, int totalPages,
+            String searchMode, LocalDate from, LocalDate to) {
+        this(items, page, size, totalCount, totalPages, searchMode, from, to, null);
+    }
+    public record CacheInfo(Instant fetchedAt, Instant expiresAt, Instant refreshAllowedAt, boolean hit, boolean stale, String refreshError) {}
+    public PublicItemPageResponse withCache(CacheInfo info) {
+        return new PublicItemPageResponse(List.copyOf(items), page, size, totalCount, totalPages, searchMode, from, to, info);
+    }
 }

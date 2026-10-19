@@ -53,10 +53,35 @@ class PublicItemControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+    @Autowired private com.lostquest.service.PoliceListCache listCache;
 
     @BeforeEach
     void reset() {
         SERVER.reset();
+        ((java.util.Map<?, ?>) org.springframework.test.util.ReflectionTestUtils.getField(listCache, "entries")).clear();
+    }
+
+    @Test void defaultsTo50AndCachesRefreshBurstsWithoutChangingFetchedTime() throws Exception {
+        SERVER.replyFixture("getLostGoodsInfoAccToClAreaPd", "lost-list.xml");
+        var first = mockMvc.perform(get("/api/public-items/lost")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.size").value(50)).andExpect(jsonPath("$.cache.hit").value(false)).andReturn().getResponse().getContentAsString();
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        String timestamp = mapper.readTree(first).path("cache").path("fetchedAt").asText();
+        for (int i = 0; i < 5; i++) mockMvc.perform(get("/api/public-items/lost?refresh=true"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.cache.hit").value(true)).andExpect(jsonPath("$.cache.fetchedAt").value(timestamp));
+        assertThat(SERVER.requests()).hasSize(1); assertThat(SERVER.requests().get(0)).contains("numOfRows=50");
+    }
+
+    @Test void simultaneousHttpRequestsMakeOnlyOneActualUpstreamCall() throws Exception {
+        SERVER.replySlow("getLostGoodsInfoAccToClAreaPd", "lost-list.xml", 200);
+        var start = new java.util.concurrent.CountDownLatch(1);
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(8)) {
+            var requests = java.util.stream.IntStream.range(0, 8).mapToObj(i -> executor.submit(() -> {
+                start.await(); mockMvc.perform(get("/api/public-items/lost")).andExpect(status().isOk()); return true;
+            })).toList();
+            start.countDown(); for (var request : requests) assertThat(request.get(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        }
+        assertThat(SERVER.requests()).hasSize(1);
     }
 
     @Test
@@ -143,29 +168,29 @@ class PublicItemControllerTest {
     @DisplayName("외부 API 오류는 500이 아닌 ApiError(502/503/504), 키·URL·업스트림 원문 미노출")
     void externalErrors() throws Exception {
         SERVER.reply("getLostGoodsInfoAccToClAreaPd", 403, fixture("gateway-not-registered.xml"));
-        noKey(mockMvc.perform(get("/api/public-items/lost"))
+        noKey(mockMvc.perform(get("/api/public-items/lost?page=1"))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.code").value("EXTERNAL_API_AUTH_ERROR"))
                 .andExpect(content().string(not(containsString("SERVICE_KEY_IS_NOT_REGISTERED")))));
         SERVER.replyFixture("getLostGoodsInfoAccToClAreaPd", "gateway-http-error.xml");
-        noKey(mockMvc.perform(get("/api/public-items/lost")).andExpect(status().isBadGateway())
+        noKey(mockMvc.perform(get("/api/public-items/lost?page=2")).andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.code").value("EXTERNAL_API_ERROR")));
         SERVER.replyFixture("getLostGoodsInfoAccToClAreaPd", "result-99.xml");
-        noKey(mockMvc.perform(get("/api/public-items/lost")).andExpect(status().isBadGateway())
+        noKey(mockMvc.perform(get("/api/public-items/lost?page=3")).andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.code").value("EXTERNAL_API_ERROR")));
         SERVER.replyFixture("getLostGoodsInfoAccToClAreaPd", "malformed.xml");
-        noKey(mockMvc.perform(get("/api/public-items/lost")).andExpect(status().isBadGateway())
+        noKey(mockMvc.perform(get("/api/public-items/lost?page=4")).andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.code").value("EXTERNAL_API_INVALID_RESPONSE")));
         SERVER.replyFixture("getLostGoodsInfoAccToClAreaPd", "xxe-billion-laughs.xml");
-        noKey(mockMvc.perform(get("/api/public-items/lost")).andExpect(status().isBadGateway())
+        noKey(mockMvc.perform(get("/api/public-items/lost?page=5")).andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.code").value("EXTERNAL_API_INVALID_RESPONSE")));
         SERVER.reply("getLostGoodsInfoAccToClAreaPd", 500, ("upstream echo " + LOST_KEY).getBytes(StandardCharsets.UTF_8));
-        noKey(mockMvc.perform(get("/api/public-items/lost")).andExpect(status().isBadGateway()));
+        noKey(mockMvc.perform(get("/api/public-items/lost?page=6")).andExpect(status().isBadGateway()));
         SERVER.reply("getLostGoodsInfoAccToClAreaPd", 429, new byte[0]);
-        noKey(mockMvc.perform(get("/api/public-items/lost")).andExpect(status().isServiceUnavailable())
+        noKey(mockMvc.perform(get("/api/public-items/lost?page=7")).andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.code").value("EXTERNAL_API_RATE_LIMITED")));
         SERVER.replySlow("getLostGoodsInfoAccToClAreaPd", "lost-list.xml", 2_500);
-        noKey(mockMvc.perform(get("/api/public-items/lost")).andExpect(status().isGatewayTimeout())
+        noKey(mockMvc.perform(get("/api/public-items/lost?page=8")).andExpect(status().isGatewayTimeout())
                 .andExpect(jsonPath("$.code").value("EXTERNAL_API_TIMEOUT")));
     }
 

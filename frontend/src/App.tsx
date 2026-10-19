@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Route, Routes, Link, Navigate } from 'react-router-dom';
+import { Route, Routes, Link } from 'react-router-dom';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
@@ -13,13 +13,14 @@ const MyPage = lazy(() => import('./pages/MyPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 const GuidePage = lazy(() => import('./pages/GuidePage'));
 const CommunityInboxPage = lazy(() => import('./pages/CommunityInboxPage'));
+const CommunityPage = lazy(() => import('./pages/CommunityPage'));
 
 export default function App() {
   return <Layout><Suspense fallback={<div className="page-container empty-state" role="status"><span className="loading-dot" />화면을 준비하고 있어요.</div>}>
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/search" element={<SearchPage />} />
-      <Route path="/community" element={<Navigate to="/search?source=community" replace />} />
+      <Route path="/community" element={<CommunityPage />} />
       <Route path="/community-inbox" element={<CommunityInboxPage />} />
       <Route path="/items/:id" element={<ItemDetailPage />} />
       <Route path="/items/:id/edit" element={<EditItemPage />} />

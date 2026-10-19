@@ -4,6 +4,7 @@ import com.lostquest.config.PoliceApiProperties;
 import com.lostquest.exception.ExternalApiException;
 import com.lostquest.exception.ExternalApiException.Kind;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -66,9 +67,16 @@ public class PoliceApiClient {
 
     private final PoliceApiProperties properties;
     private final HttpClient httpClient;
+    private final PoliceApiTrafficGuard traffic;
 
     public PoliceApiClient(PoliceApiProperties properties) {
+        this(properties, new PoliceApiTrafficGuard());
+    }
+
+    @Autowired
+    public PoliceApiClient(PoliceApiProperties properties, PoliceApiTrafficGuard traffic) {
         this.properties = properties;
+        this.traffic = traffic;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(properties.connectTimeout())
                 .followRedirects(HttpClient.Redirect.NEVER)
@@ -93,7 +101,7 @@ public class PoliceApiClient {
 
         HttpResponse<InputStream> response;
         byte[] body;
-        try {
+        try (var permit = traffic.acquire(operation.service)) {
             response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
             try (InputStream in = response.body()) {
                 body = in.readNBytes(MAX_BODY_BYTES + 1);

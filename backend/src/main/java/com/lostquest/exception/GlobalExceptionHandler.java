@@ -57,7 +57,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<ApiError> handleExternalApi(ExternalApiException ex, HttpServletRequest request) {
         log.warn("External API failure {}: {}", ex.getKind(), ex.getDetail());
         ExternalApiException.Kind kind = ex.getKind();
-        return ResponseEntity.status(kind.status()).body(ApiError.of(kind.status(), kind.code(), kind.message(), request.getRequestURI()));
+        var response = ResponseEntity.status(kind.status());
+        if (kind == ExternalApiException.Kind.RATE_LIMITED) response.header("Retry-After", "60");
+        return response.body(ApiError.of(kind.status(), kind.code(), kind.message(), request.getRequestURI()));
     }
 
     @ExceptionHandler(InvalidRequestParameterException.class)

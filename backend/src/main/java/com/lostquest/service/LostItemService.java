@@ -116,7 +116,10 @@ public class LostItemService {
         if (!item.getUser().getId().equals(author.getId())) {
             throw new AccessDeniedException("등록자만 물품글을 수정하거나 삭제할 수 있습니다.");
         }
-        if (item.isHidden() || item.getStatus() != LostItemStatus.LOST || returnRequests.existsByLostItem_IdAndStatusNot(id, ReturnStatus.REJECTED)) {
+        if (item.isHidden()) {
+            throw new WorkflowConflictException("관리자가 숨김 처리한 물품글은 수정하거나 삭제할 수 없습니다.");
+        }
+        if (item.getStatus() != LostItemStatus.LOST || returnRequests.existsByLostItem_IdAndStatusNot(id, ReturnStatus.REJECTED)) {
             throw new WorkflowConflictException("반환 요청이 진행 중이거나 완료된 물품글은 수정하거나 삭제할 수 없습니다.");
         }
         return item;

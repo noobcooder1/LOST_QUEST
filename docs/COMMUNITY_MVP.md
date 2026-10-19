@@ -13,6 +13,121 @@
 
 ---
 
+## 독립 리뷰 후속 안정화 — 2026-10-14
+
+- H1: 실제 TypeScript/Vite 파일 누락을 확인했습니다. 사용자 승인 후 5173 Vite만 종료하고 잠금 파일 기준 `npm ci`로 복구했습니다. 설치된 전역 Node 24.14.1은 jsdom 등의 최소 요구보다 낮으므로 `.local/h1-runtime`의 Node 24.15.0으로 설치·검증·개발 서버를 실행했습니다. `package.json`과 `package-lock.json`은 수정하지 않았습니다. PowerShell의 기존 npm 래퍼가 전역 node.exe를 선택하므로 검증 시에는 Node 24.15.0으로 `C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js`를 직접 실행했습니다.
+- M1: `MatchNotificationWriter`가 기존 습득물 → 분실물 잠금 순서에서 두 물품의 `hidden`을 다시 확인합니다. 알림 목록·단건·읽지 않음 집계의 공통 `VISIBLE` 조건도 두 물품의 숨김 상태를 제외합니다. 기존 CLOSED 조건은 유지합니다.
+- 경합 검증: `HiddenMatchNotificationRaceTest`는 실제 H2 트랜잭션 두 개를 서로 다른 스레드에서 실행합니다. 관리자의 `CommunityService.hide` 트랜잭션을 열린 채 유지하고 오래된 매칭 스냅샷으로 writer를 시작합니다. `INFORMATION_SCHEMA.SESSIONS`의 `BLOCKER_ID`와 `FOR UPDATE` 실행 문장을 확인한 뒤 숨김 트랜잭션을 커밋합니다. writer가 대기 후 false를 반환하고 행을 생성하지 않는지 분실물·습득물 각각 검증합니다. 이는 순차 호출 테스트가 아닙니다. 별도 3개 테스트는 남아 있는 오래된 행의 목록·단건·미읽음 제외를 검증합니다. MySQL/InnoDB 경합을 이번에 검증했다고 주장하지 않습니다.
+- M2: 작성자 권한 확인 후 숨김 상태에는 정확한 409 메시지를 반환합니다. 마이페이지 API의 `hidden` 필드를 UI로 전달하고 숨김 글은 안내문이 있는 비링크 카드로 표시합니다. 공개 상세 404, 타인 수정/삭제 403, 비인증 삭제 401, 반환 내역·관리자 정책을 유지합니다.
+- 이번 작업은 코드·의존성 복구·로컬 검증만 수행하며 commit/push/PR/Sites 배포/ngrok 변경과 실제 관리자 계정 변경을 하지 않습니다. 실행 중인 8080 서버는 이전 JAR이므로 이번 서버 수정은 승인된 재시작 때 적용해야 합니다.
+
+검증 결과:
+
+| 검증 | 결과 |
+| --- | --- |
+| 프론트엔드 전체 | 34개 파일, 373개 테스트 통과, 실패 0 |
+| TypeScript | `tsc -b` 종료 코드 0 |
+| Vite 빌드 | 성공 |
+| Java 21 백엔드 전체/H2 | 332개 테스트, 실패/오류/스킵 0 |
+| 신규 알림 검증 (전체에 포함) | 실제 잠금 경합 2개 + 조회 방어 3개 통과 |
+| 커뮤니티 검증 (전체에 포함) | 13개 통과, 신규 숨김 권한/오류 검증 2개 포함 |
+| Chrome 화면 | API fixture를 사용한 실제 데스크톱/모바일 표시, 숨김 글 링크 없음, 일반 글 링크 유지, 가로 넘침/JS 오류 없음 |
+| MySQL 재실행 | 수행하지 않음: 별도 테스트 DB 미확인 |
+| MySQL 실행 도구 | Java 21 컴파일, 필수 설정 누락/업무 DB명 거절 확인, JDBC 접속 없음 |
+| 기존 작업 보존 | 로고·Layout·styles·배포 문서·회의록 및 package/lock 파일의 작업 전후 SHA-256 일치 |
+
+위 Chrome 검증은 실제 DB 숨김 흐름을 수행한 결과와 구분합니다. 이번 작업에서 업무 MySQL에는 쓰지 않았습니다. 캡처와 로그는 `.local/stabilization-*`에 있습니다. 기존 커뮤니티·매칭·경찰청 실패 격리·반환 회귀 테스트는 전체 실행에 포함됩니다.
+
+이번 안정화 변경 파일 (15개, 기존 미커밋 파일 제외):
+
+- `backend/src/main/java/com/lostquest/dto/FoundItemResponse.java`
+- `backend/src/main/java/com/lostquest/dto/LostItemResponse.java`
+- `backend/src/main/java/com/lostquest/repository/MatchNotificationRepository.java`
+- `backend/src/main/java/com/lostquest/service/FoundItemService.java`
+- `backend/src/main/java/com/lostquest/service/LostItemService.java`
+- `backend/src/main/java/com/lostquest/service/notification/MatchNotificationWriter.java`
+- `backend/src/test/java/com/lostquest/controller/CommunityControllerTest.java`
+- `backend/src/test/java/com/lostquest/service/notification/HiddenMatchNotificationRaceTest.java`
+- `backend/scripts/CommunityMySqlCheck.java`
+- `frontend/src/components/MyItemList.tsx`
+- `frontend/src/components/myItemList.test.tsx`
+- `frontend/src/services/itemApi.ts`
+- `frontend/src/services/myItemsApi.test.ts`
+- `frontend/src/types.ts`
+- `docs/COMMUNITY_MVP.md`
+
+남은 사항: 현재 8080의 이전 JAR을 새 코드로 빌드/재시작한 뒤 실제 ADMIN 계정으로 신고 → 숨김 → 마이페이지 표시/알림 제외 → 기존 진행 중 반환 유지 흐름을 두 브라우저에서 확인해야 합니다. MySQL 잠금 경합은 별도 테스트 DB에서 후속 검증해야 합니다. `npm audit`는 기존 잠금 파일의 전이 의존성 `source-map-js`에 high 1건을 보고했습니다. 이번 범위에서는 잠금 파일을 변경하지 않았습니다. 전역 Node 버전도 바꾸지 않았으므로 이후 실행에는 지원되는 Node를 선택해야 합니다. 코드 수준 시연 준비는 통과했으나 현재 8080 프로세스에 안정화 수정이 적용되었다고 볼 수는 없습니다.
+
+Vite 재실행 (프로젝트 루트에서, 현재 서버가 종료되어 있을 때):
+
+```powershell
+$env:VITE_API_BASE_URL = 'http://127.0.0.1:8080'
+Set-Location frontend
+& ../.local/h1-runtime/node_modules/node/bin/node.exe node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5173 --strictPort
+```
+
+### M3: 기존 MySQL 통합 테스트 재현
+
+기존 **62개**는 아래 6개 클래스의 실행 결과입니다. `MySqlIntegrationIT`나 `mysql-test` 프로필을 실행한 결과가 아닙니다.
+
+| 실행 클래스 | 19fd1db 당시 | 이번 수정 후 실행 대상 개수 |
+| --- | ---: | ---: |
+| `CommunityControllerTest` | 11 | 13 |
+| `CommunityWriteLimiterTest` | 1 | 1 |
+| `ItemControllerTest` | 12 | 12 |
+| `ItemManagementControllerTest` | 12 | 12 |
+| `ItemImageUploadTest` | 15 | 15 |
+| `ReturnControllerTest` | 11 | 11 |
+| 합계 | 62 | 64 |
+
+이 클래스들은 `@ActiveProfiles("test")`로 실행합니다. 기본 `application-test.yml`은 H2이며, MySQL 재현 시 아래 환경변수로 datasource와 JPA 설정을 덮어씁니다. 커뮤니티 경합의 H2 세션 확인 테스트는 이 MySQL 실행 목록에 포함하지 않습니다.
+
+기존 실행 도구는 Git에서 제외된 `.local/CommunityMySqlCheck.java`였고 로컬 설정의 업무 스키마 안에 접두사 테이블을 만들었습니다. **이번부터 그 도구를 재사용하지 마세요.** 재현 가능한 `backend/scripts/CommunityMySqlCheck.java`를 추가했습니다. 이 도구는 로컬의 별도 테스트 DB만 허용하며 `application-local.yml`을 읽지 않습니다.
+
+실행 전 별도 MySQL 인스턴스 또는 `lost_quest_test`/`lq_test_*` 테스트 스키마와 그 스키마에만 권한이 있는 테스트 계정을 준비합니다. 업무 DB명 `lost_quest`는 도구에서 거절합니다. URL에 인증정보/옵션을 넣거나 원격 호스트를 지정하는 것도 거절합니다. 도구는 스키마를 생성하거나 초기화하지 않습니다. 준비된 DB가 없으면 아래 명령을 실행하지 마세요. 이번 안정화에서는 별도 DB가 확인되지 않아 MySQL 재실행을 하지 않았습니다.
+
+PowerShell에서 `backend/`를 작업 디렉터리로 사용합니다. 아래 환경변수는 **테스트 전용**입니다. 비밀번호는 화면 출력·Git·명령 인자에 넣지 않습니다.
+
+```powershell
+$env:JAVA_HOME = 'C:/Program Files/Java/jdk-21.0.10' # 자신의 Java 21 경로
+$env:Path = "$env:JAVA_HOME/bin;$env:Path"
+$env:MYSQL_TEST_URL = 'jdbc:mysql://127.0.0.1:3306/lost_quest_test'
+$env:MYSQL_TEST_USERNAME = 'lq_test_runner' # 테스트 스키마에만 권한이 있는 계정
+$env:MYSQL_TEST_PASSWORD = Read-Host '테스트 DB 비밀번호' -MaskInput
+$env:MYSQL_TEST_CONFIRM = 'isolated-test-database'
+try {
+    New-Item -ItemType Directory -Force ../.local | Out-Null
+    .\mvnw.cmd dependency:build-classpath '-Dmdep.includeScope=test' '-Dmdep.outputFile=../.local/community-test-classpath.txt'
+    if ($LASTEXITCODE -ne 0) { throw 'Classpath 생성 실패' }
+    $taskClasspath = (Get-Content ../.local/community-test-classpath.txt -Raw).Trim()
+    java --class-path $taskClasspath scripts/CommunityMySqlCheck.java
+    if ($LASTEXITCODE -ne 0) { throw 'MySQL 검증 실패: ../.local/community-mysql-reproduction.log 확인' }
+} finally {
+    Remove-Item Env:MYSQL_TEST_PASSWORD -ErrorAction SilentlyContinue
+    Remove-Item Env:MYSQL_TEST_URL,Env:MYSQL_TEST_USERNAME,Env:MYSQL_TEST_CONFIRM -ErrorAction SilentlyContinue
+}
+```
+
+도구가 Maven 자식 프로세스에 설정하는 값:
+
+| 환경변수 | 값/목적 |
+| --- | --- |
+| `SPRING_DATASOURCE_URL/USERNAME/PASSWORD` | 명시한 별도 테스트 DB, 테스트 계정 |
+| `SPRING_DATASOURCE_DRIVER_CLASS_NAME` | `com.mysql.cj.jdbc.Driver` |
+| `SPRING_CONFIG_IMPORT` | 빈 값: 로컬 업무 설정 import 차단 |
+| `SPRING_JPA_HIBERNATE_DDL_AUTO` | `create-drop`: 아래 접두사 테이블에만 적용 |
+| `SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT` | `org.hibernate.dialect.MySQLDialect` |
+| `SPRING_JPA_HIBERNATE_NAMING_PHYSICAL_STRATEGY` | `com.lostquest.IsolatedMySqlNamingStrategy` |
+| `COMMUNITY_TEST_TABLE_PREFIX` | 실행마다 생성하는 `lq_test_<12자리 hex>_` |
+
+NamingStrategy는 `src/test/java`에 있으므로 Maven test classpath에서만 사용하며 모든 JPA 테이블·시퀀스 이름에 접두사를 적용합니다. 접두사가 없거나 정규식과 다르면 Hibernate 시작을 거절합니다. 실행 전 DB에 접두사 없는 테이블이 있거나 이번 접두사가 이미 있으면 도구가 거절합니다. 클래스 목록은 도구 안에 고정되어 있으며 외부 `SPRING_*` 오버라이드는 제거합니다.
+
+정상 종료에는 Hibernate `create-drop`이 정리합니다. 테스트 실패 때도 도구의 `finally`가 실제 DB 메타데이터에서 **이번 접두사** 테이블만 다시 확인하고 정확한 이름을 검증한 뒤 제거합니다. FK 검사 해제는 이 정리 JDBC 세션에만 적용하며 복원합니다. DB 자체·다른 실행의 접두사 테이블은 삭제하지 않습니다. 부모 프로세스를 강제 종료하면 `finally`가 실행되지 않을 수 있으므로 로그의 해당 접두사로 테스트 DB 관리자에게 잔여 테이블 정리를 요청합니다. 전체 스키마 초기화는 하지 않습니다.
+
+도구는 Java 21로 컴파일 확인했고, 명시적 설정이 없거나 업무 DB명 `lost_quest`를 지정했을 때 JDBC 연결 전에 거절하는 보호 조건을 확인했습니다. 별도 DB에서의 실제 실행·정리 검증은 아직 수행하지 않았습니다.
+
+---
+
 2026-10-13 구현·로컬 검증 보고서. 커밋·푸시·PR 생성·Sites 배포를 하지 않았습니다. 기존 Sites 주소·ngrok 설정·실행 중인 서버·업무용 DB 테이블과 데이터를 유지했습니다.
 
 ## 1. 기존 코드 분석과 재사용

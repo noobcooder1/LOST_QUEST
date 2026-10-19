@@ -91,6 +91,19 @@ const cards = () => [...container.querySelectorAll('a.profile-item')];
 const retryButton = () => [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('다시 시도'));
 
 describe('MyItemList', () => {
+  it('labels hidden lost/found history and does not link hidden posts to public details', async () => {
+    handler = () => json({ lostItems: [lost(15, '숨김 분실 지갑', { hidden: true }), lost(12, '공개 지갑', { hidden: false })],
+      foundItems: [found(7, '숨김 이어폰', { hidden: true, status: 'RETURNED' })] });
+    await renderList();
+    expect(container.querySelectorAll('article.profile-item')).toHaveLength(2);
+    expect(text()).toContain('관리자 숨김');
+    expect(text()).toContain('기존 반환 기록은 반환 내역에서 확인해 주세요.');
+    expect(cards()).toHaveLength(1);
+    expect(cards()[0].getAttribute('href')).toBe('/items/api-lost-12');
+    expect(container.querySelector('a[href="/items/api-lost-15"]')).toBeNull();
+    expect(container.querySelector('a[href="/items/api-found-7"]')).toBeNull();
+    expect(text()).toContain('반환 완료');
+  });
   it('shows a loading state until the server answers', async () => {
     let release!: (response: Response) => void;
     handler = (url, init) => (url.endsWith('/api/me/items') ? new Promise<Response>((resolve) => { release = resolve; }) : defaultHandler(url, init));

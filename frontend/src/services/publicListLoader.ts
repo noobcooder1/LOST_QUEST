@@ -13,11 +13,11 @@ export function isPublicConnectionFailure(error: unknown): boolean {
     || (error.code === 'HTTP_ERROR' && [500, 502, 503, 504].includes(error.status ?? 0));
 }
 
-export async function loadPublicList(request: PublicListRequest, load: () => Promise<PublicListData>): Promise<SourceState> {
+export async function loadPublicList(request: PublicListRequest, load: () => Promise<PublicListData>, shouldStore: () => boolean = () => true): Promise<SourceState> {
   try {
     const data = await load();
-    const lastSyncedAt = Date.now();
-    const cacheSaved = await savePublicList(request, data, lastSyncedAt);
+    const lastSyncedAt = data.cache ? Date.parse(data.cache.fetchedAt) : Date.now();
+    const cacheSaved = shouldStore() ? await savePublicList(request, data, lastSyncedAt, Date.now()) : false;
     return { ...idleSource, ...data, status: 'ready', dataStatus: 'live', lastSyncedAt, cacheSaved };
   } catch (error) {
     const errorMessage = describeSourceError(error);
@@ -43,7 +43,8 @@ export function loadCommunityPublicList(type: ItemType): Promise<SourceState> {
   });
 }
 
-export function loadPolicePublicList(type: ItemType, query: PoliceQuery): Promise<SourceState> {
-  return loadPublicList({ kind: type === 'lost' ? 'policeLost' : 'policeFound', query: { ...query }, page: query.page ?? 1, size: query.size ?? 20 },
-    () => listPoliceItems(type, query));
+export function loadPolicePublicList(type: ItemType, query: PoliceQuery, shouldStore: () => boolean = () => true): Promise<SourceState> {
+  const { refresh: _refresh, ...conditions } = query;
+  return loadPublicList({ kind: type === 'lost' ? 'policeLost' : 'policeFound', query: { ...conditions }, page: query.page ?? 1, size: query.size ?? 50 },
+    () => listPoliceItems(type, query), shouldStore);
 }

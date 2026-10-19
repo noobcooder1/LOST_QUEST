@@ -18,11 +18,12 @@ public record LostItemResponse(
         String location,
         String imageUrl,
         LostItemStatus status,
-        Instant createdAt
+        Instant createdAt,
+        boolean hidden
 ) {
     public static LostItemResponse from(LostItem item) {
         return new LostItemResponse(item.getId(), item.getUser().getId(), item.getTitle(),
                 item.getCategory(), item.getColor(), item.getDescription(), item.getLostDate(),
-                item.getRegion(), item.getLocation(), item.getImageUrl(), item.getStatus(), item.getCreatedAt());
+                item.getRegion(), item.getLocation(), item.getImageUrl(), item.getStatus(), item.getCreatedAt(), item.isHidden());
     }
 }

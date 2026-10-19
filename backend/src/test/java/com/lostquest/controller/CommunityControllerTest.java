@@ -137,6 +137,32 @@ class CommunityControllerTest {
                 FoundItemStatus.STORED, LocalDate.now(), LocalDate.now().plusDays(1), requester.getId())).isEmpty();
         }
     }
+    @ParameterizedTest @ValueSource(strings = {"lost", "found"})
+    void hiddenHistoryIsLabelledAndMutationsExplainModerationAfterCheckingOwner(String type) throws Exception {
+        if (type.equals("lost")) lostPost.hide(); else foundPost.hide();
+        em.flush();
+        String collection = type.equals("lost") ? "lostItems" : "foundItems";
+        read(a, "/api/me/items").andExpect(status().isOk()).andExpect(jsonPath("$." + collection + "[0].hidden").value(true));
+        read(b, "/api/me/items").andExpect(jsonPath("$." + collection).isEmpty());
+        long id = type.equals("lost") ? lostPost.getId() : foundPost.getId();
+        String path = "/api/" + type + "-items/" + id;
+        read(null, path).andExpect(status().isNotFound());
+        Map<String, Object> edit = new HashMap<>(Map.of("title", "검정 지갑", "category", "지갑", "color", "검정",
+                "description", "검증용 물품 설명입니다", "region", "서울", "location", "서울역"));
+        edit.put(type + "Date", LocalDate.now().toString());
+        for (String token : List.of(a, b)) {
+            var update = mvc.perform(put(path).header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsBytes(edit)));
+            var deletion = mvc.perform(delete(path).header("Authorization", "Bearer " + token));
+            if (token.equals(a)) {
+                update.andExpect(status().isConflict()).andExpect(jsonPath("$.message").value("관리자가 숨김 처리한 물품글은 수정하거나 삭제할 수 없습니다."));
+                deletion.andExpect(status().isConflict()).andExpect(jsonPath("$.message").value("관리자가 숨김 처리한 물품글은 수정하거나 삭제할 수 없습니다."));
+            } else {
+                update.andExpect(status().isForbidden()); deletion.andExpect(status().isForbidden());
+            }
+        }
+        mvc.perform(delete(path)).andExpect(status().isUnauthorized());
+    }
     @Test void correspondenceDoesNotBypassOwnershipQrOrOneTimeReward() throws Exception {
         long question = ask("found");
         send(a, "/api/community/questions/" + question + "/answer", Map.of("message", "소유자 확인 후 돌려드릴게요.")).andExpect(status().isOk());

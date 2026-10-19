@@ -5,7 +5,7 @@ import { defaultItemImage } from '../data/seed';
 import ItemImage from './ItemImage';
 import { formatRegistrationTime } from '../services/dateTime';
 
-export default function ItemCard({ item, readOnly = false }: { item: Item; readOnly?: boolean }) {
+export default function ItemCard({ item, readOnly = false, returnTo }: { item: Item; readOnly?: boolean; returnTo?: string }) {
   const registeredAt = formatRegistrationTime(item.createdAt);
   const content = <>
     <div className={`item-card-image image-${item.category}`}><ItemImage src={item.image} fallbackSrc={defaultItemImage(item.category, item.title)} alt={item.image.startsWith('/images/') ? `${item.title} 예시 이미지` : `${item.title} 사진`} loading="lazy" /><span className={`badge ${item.type === 'found' ? 'badge-green' : 'badge-blue'}`}>{item.type === 'found' ? '주인을 찾아요' : '찾고 있어요'}</span><span className="item-hover-arrow"><ArrowUpRight size={18}/></span></div>
@@ -13,5 +13,5 @@ export default function ItemCard({ item, readOnly = false }: { item: Item; readO
     {readOnly && <p className="cached-item-note">저장 당시 정보 · 상세 조회는 다시 연결 후 이용해 주세요.</p>}
   </>;
   return readOnly ? <article className="item-card item-card-readonly" aria-label={`${item.title} 저장된 목록`}>{content}</article>
-    : <Link to={`/items/${item.id}`} className="item-card" aria-label={`${item.title} 상세 보기`}>{content}</Link>;
+    : <Link to={`/items/${item.id}`} state={returnTo ? { communityReturnTo: returnTo } : undefined} className="item-card" aria-label={`${item.title} 상세 보기`}>{content}</Link>;
 }

@@ -28,6 +28,8 @@ export interface Item {
   ownerId?: number;
   ownershipQuestion?: string;
   ownershipConfigured?: boolean;
+  /** Moderation state returned in the author's private registration history. */
+  hidden?: boolean;
 }
 
 export type ReturnStatus =

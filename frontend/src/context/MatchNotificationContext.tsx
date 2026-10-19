@@ -19,11 +19,12 @@ const MatchNotificationContext = createContext<MatchNotificationValue | null>(nu
 
 /**
  * Match-notification state shared by the header badge and the notification list. No polling, WebSocket or push:
- * the server re-matches when the user signs in (and when asked), and the cheap unread count is reloaded on navigation.
+ * re-matching starts in the notification view or when explicitly requested. Ordinary navigation only reads the count.
  */
 export function MatchNotificationProvider({ children }: { children: ReactNode }) {
   const { authUser } = useApp();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const notificationView = pathname === '/mypage' && new URLSearchParams(search).get('tab') === 'notifications';
   const userId = authUser?.id ?? null;
   const [unreadCount, setUnreadCountState] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -72,8 +73,11 @@ export function MatchNotificationProvider({ children }: { children: ReactNode })
     setRefreshing(false);
     if (userId === null) return;
     void reloadCount();
-    void runRefresh();
-  }, [userId, reloadCount, runRefresh]);
+  }, [userId, reloadCount]);
+
+  useEffect(() => {
+    if (userId !== null && notificationView) void runRefresh();
+  }, [userId, notificationView, runRefresh]);
 
   useEffect(() => {
     void reloadCount();

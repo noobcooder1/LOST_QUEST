@@ -51,11 +51,11 @@ public class MatchNotificationWriter {
         // found -> lost lock order as return creation, and validate snapshots before persisting old scores.
         if (n.source() == MatchSource.LOST_QUEST) {
             var candidate = foundItemRepository.findLocked(n.foundItemId()).orElse(null);
-            if (candidate == null || candidate.getStatus() != FoundItemStatus.STORED ||
+            if (candidate == null || candidate.isHidden() || candidate.getStatus() != FoundItemStatus.STORED ||
                     !MatchingService.toCandidate(candidate).equals(n.candidateSnapshot())) return false;
         }
         LostItem target = lostItemRepository.findLocked(n.lostItemId()).orElse(null);
-        if (target == null || target.getStatus() != LostItemStatus.LOST ||
+        if (target == null || target.isHidden() || target.getStatus() != LostItemStatus.LOST ||
                 !target.getUser().getId().equals(n.ownerId()) || !MatchTarget.of(target).equals(n.targetSnapshot())) return false;
         if (notificationRepository.existsByLostItem_IdAndCandidateKey(n.lostItemId(), n.candidateKey())) {
             return false;

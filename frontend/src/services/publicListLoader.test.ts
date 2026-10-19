@@ -15,6 +15,28 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(
 const fail = (error: unknown) => () => Promise.reject(error);
 
 describe('public GET connectivity and fallback', () => {
+  it('keeps the original server fetch time and following pages on a cache hit', async () => {
+    const policeRequest: PublicListRequest = { kind: 'policeFound', page: 1, size: 50 };
+    const policeItem: Item = { ...item, id: 'police-found-F2026100500000001-1', source: 'public', createdBy: 'police' };
+    const fetchedAt = Date.now() - 3600_000;
+    const cache = { fetchedAt: new Date(fetchedAt).toISOString(), expiresAt: new Date(fetchedAt + 12 * 3600_000).toISOString(), refreshAllowedAt: new Date(fetchedAt + 60_000).toISOString(), hit: true, stale: false, refreshError: null };
+    await savePublicList(policeRequest, { ...data([policeItem]), totalPages: 2 }, fetchedAt);
+    await savePublicList({ ...policeRequest, page: 2 }, { ...data([{ ...policeItem, id: 'police-found-F2026100500000002-1' }]), page: 2, totalPages: 2 }, fetchedAt + 1000);
+    expect(await loadPublicList(policeRequest, async () => ({ ...data([policeItem]), totalPages: 2, cache }))).toMatchObject({ lastSyncedAt: fetchedAt, cacheSaved: true });
+    expect((await readPublicList(policeRequest, Date.now(), true))?.page).toBe(2);
+    expect((await readPublicList(policeRequest))?.updatedAt).toBe(fetchedAt);
+  });
+
+  it('does not persist an obsolete response after a newer refresh starts', async () => {
+    expect(await loadPublicList(request, async () => data(), () => false)).toMatchObject({ status: 'ready', cacheSaved: false });
+    expect(await readPublicList(request)).toBeNull();
+  });
+
+  it('uses the same browser cache key for an explicit police refresh and a normal read', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [], page: 1, size: 50, totalCount: 0, totalPages: 0 }))));
+    expect(await loadPolicePublicList('lost', { refresh: true })).toMatchObject({ cacheSaved: true });
+    expect(await readPublicList({ kind: 'policeLost', page: 1, size: 50 })).not.toBeNull();
+  });
   it('always requests the API even if navigator reports offline, then saves a successful response', async () => {
     vi.stubGlobal('navigator', { onLine: false });
     const load = vi.fn(async () => data());

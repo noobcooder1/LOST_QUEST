@@ -40,10 +40,12 @@ class PublicItemKeyIsolationTest {
 
     @Autowired
     private MockMvc mockMvc;
+    @Autowired private com.lostquest.service.PoliceListCache listCache;
 
     @org.junit.jupiter.api.BeforeEach
     void reset() {
         SERVER.reset();
+        ((java.util.Map<?, ?>) org.springframework.test.util.ReflectionTestUtils.getField(listCache, "entries")).clear();
     }
 
     @Test

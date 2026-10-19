@@ -66,7 +66,8 @@ export function fromServerItem(type: ItemType, value: unknown, baseUrl = getApiB
       !isText(raw.title) || !isText(raw.category) || !isText(raw.location) || !isDate(date) || !isText(raw.status) ||
       (raw.color != null && !isText(raw.color)) || (raw.description != null && !isText(raw.description)) ||
       (raw.region != null && !isText(raw.region)) ||
-      (raw.createdAt != null && !isTimestamp(raw.createdAt))) throw invalidResponse();
+      (raw.createdAt != null && !isTimestamp(raw.createdAt)) ||
+      (raw.hidden != null && typeof raw.hidden !== 'boolean')) throw invalidResponse();
   return {
     id: toServerRouteId(type, raw.id),
     title: raw.title,
@@ -86,6 +87,7 @@ export function fromServerItem(type: ItemType, value: unknown, baseUrl = getApiB
     createdBy: 'server',
     serverId: raw.id,
     ownerId: raw.userId,
+    ...(typeof raw.hidden === 'boolean' ? { hidden: raw.hidden } : {}),
     ...(typeof raw.ownershipQuestion === 'string' ? { ownershipQuestion: raw.ownershipQuestion } : {}),
     ...(type === 'found' ? { ownershipConfigured: raw.ownershipConfigured === true } : {}),
   };

@@ -13,10 +13,10 @@ import java.util.Optional;
 
 public interface MatchNotificationRepository extends JpaRepository<MatchNotification, Long> {
 
-    /** Also hides late notification inserts from a refresh that started before a post was deleted. */
-    String VISIBLE = "n.lostItem.status <> com.lostquest.entity.LostItemStatus.CLOSED and " +
+    /** Defense in depth for stale notifications after a post is deleted or hidden. */
+    String VISIBLE = "n.lostItem.hidden = false and n.lostItem.status <> com.lostquest.entity.LostItemStatus.CLOSED and " +
             "(n.foundItemId is null or exists (select f.id from FoundItem f where f.id = n.foundItemId " +
-            "and f.status <> com.lostquest.entity.FoundItemStatus.CLOSED))";
+            "and f.hidden = false and f.status <> com.lostquest.entity.FoundItemStatus.CLOSED))";
 
     boolean existsByLostItem_IdAndCandidateKey(Long lostItemId, String candidateKey);
 

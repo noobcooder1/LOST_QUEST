@@ -5,6 +5,7 @@ import com.lostquest.dto.PublicItemPageResponse;
 import com.lostquest.dto.PublicItemResponse;
 import com.lostquest.service.PoliceCodeService;
 import com.lostquest.service.PoliceItemService;
+import com.lostquest.service.PoliceListCache;
 import com.lostquest.service.PoliceItemService.PoliceFilter;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -22,7 +23,7 @@ import java.time.LocalDate;
 
 /**
  * 경찰청 공공데이터 (public data) read API. Kept separate from /api/lost-items and /api/found-items, which
- * serve LOST QUEST's own registrations. Data is fetched live from the police OpenAPI and not stored.
+ * serve LOST QUEST's own registrations. Public lists share a bounded 12-hour memory cache; details stay live.
  */
 @Validated
 @RestController
@@ -37,10 +38,12 @@ public class PublicItemController {
 
     private final PoliceItemService policeItemService;
     private final PoliceCodeService policeCodeService;
+    private final PoliceListCache listCache;
 
-    public PublicItemController(PoliceItemService policeItemService, PoliceCodeService policeCodeService) {
+    public PublicItemController(PoliceItemService policeItemService, PoliceCodeService policeCodeService, PoliceListCache listCache) {
         this.policeItemService = policeItemService;
         this.policeCodeService = policeCodeService;
+        this.listCache = listCache;
     }
 
     /**
@@ -51,7 +54,7 @@ public class PublicItemController {
     @GetMapping("/lost")
     public PublicItemPageResponse getLostItems(
             @RequestParam(defaultValue = "1") @Min(1) @Max(1000) int page,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(50) int size,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) @Size(max = 50) String q,
@@ -59,15 +62,18 @@ public class PublicItemController {
             @RequestParam(required = false) @Pattern(regexp = REGION) String region,
             @RequestParam(required = false) @Pattern(regexp = CATEGORY) String category,
             @RequestParam(required = false) @Pattern(regexp = SUB_CATEGORY) String subCategory,
-            @RequestParam(required = false) @Pattern(regexp = COLOR) String color) {
-        return policeItemService.listLost(page, size, from, to, q, place, new PoliceFilter(region, category, subCategory, color));
+            @RequestParam(required = false) @Pattern(regexp = COLOR) String color,
+            @RequestParam(defaultValue = "false") boolean refresh) {
+        var filter = new PoliceFilter(region, category, subCategory, color);
+        return listCache.get(listCache.key("lost", page, size, from, to, q, place, filter), refresh,
+                () -> policeItemService.listLost(page, size, from, to, q, place, filter));
     }
 
     /** Same as lost items plus {@code color} (a color group id; the lost-item API has no color condition). */
     @GetMapping("/found")
     public PublicItemPageResponse getFoundItems(
             @RequestParam(defaultValue = "1") @Min(1) @Max(1000) int page,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(50) int size,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) @Size(max = 50) String q,
@@ -75,8 +81,11 @@ public class PublicItemController {
             @RequestParam(required = false) @Pattern(regexp = REGION) String region,
             @RequestParam(required = false) @Pattern(regexp = CATEGORY) String category,
             @RequestParam(required = false) @Pattern(regexp = SUB_CATEGORY) String subCategory,
-            @RequestParam(required = false) @Pattern(regexp = COLOR) String color) {
-        return policeItemService.listFound(page, size, from, to, q, storagePlace, new PoliceFilter(region, category, subCategory, color));
+            @RequestParam(required = false) @Pattern(regexp = COLOR) String color,
+            @RequestParam(defaultValue = "false") boolean refresh) {
+        var filter = new PoliceFilter(region, category, subCategory, color);
+        return listCache.get(listCache.key("found", page, size, from, to, q, storagePlace, filter), refresh,
+                () -> policeItemService.listFound(page, size, from, to, q, storagePlace, filter));
     }
 
     /** Region / item-class / color options from the live 경찰청 common-code API (cached). */

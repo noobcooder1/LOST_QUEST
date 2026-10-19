@@ -55,6 +55,50 @@ async function reconnect() {
 const disconnect = () => vi.mocked(listServerItems).mockRejectedValue(new ApiClientError('NETWORK_ERROR', '연결 실패'));
 
 describe('public-list offline user flow', () => {
+  it('refreshes with 50 rows, prevents duplicate clicks and retains accumulated rows on failure', async () => {
+    const fetchedAt = new Date(Date.now() - 3600_000).toISOString();
+    const cache = { fetchedAt, expiresAt: new Date(Date.now() + 11 * 3600_000).toISOString(), refreshAllowedAt: new Date(Date.now() - 1000).toISOString(), hit: true, stale: false, refreshError: null };
+    const first = { ...lost, id: 'police-lost-L2026100500000001', title: '경찰청 첫 지갑', source: 'public' as const, createdBy: 'police' };
+    const second = { ...first, id: 'police-lost-L2026100500000002', title: '경찰청 다음 지갑' };
+    let finishRefresh: ((value: Awaited<ReturnType<typeof listPoliceItems>>) => void) | undefined;
+    vi.mocked(listPoliceItems).mockImplementation(async (type, query) => {
+      if (type === 'found') return { items: [], page: 1, size: 50, totalCount: 0, totalPages: 0, searchMode: 'DATE_RANGE' };
+      if (query?.refresh) return new Promise(resolve => { finishRefresh = resolve; });
+      return { items: [query?.page === 2 ? second : first], page: query?.page ?? 1, size: 50, totalCount: 100, totalPages: 2, searchMode: 'DATE_RANGE', cache };
+    });
+    await mount('/search?source=public');
+    expect(listPoliceItems).toHaveBeenCalledWith('lost', expect.objectContaining({ size: 50 }));
+    const more = [...container.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === '경찰청 분실물 더 보기')!;
+    await act(async () => more.click()); await settle();
+    expect(container.textContent).toContain(second.title);
+    const refresh = container.querySelector<HTMLButtonElement>('button[aria-label="경찰청 분실물 새로고침"]')!;
+    await act(async () => { refresh.click(); refresh.click(); });
+    expect(vi.mocked(listPoliceItems).mock.calls.filter(([, q]) => q?.refresh)).toHaveLength(1);
+    expect(refresh.disabled).toBe(true);
+    await act(async () => finishRefresh!({ items: [first], page: 1, size: 50, totalCount: 100, totalPages: 2, searchMode: 'DATE_RANGE', cache: { ...cache, stale: true, refreshError: '갱신 실패: 이전 조회 결과 유지', refreshAllowedAt: new Date(Date.now() + 60_000).toISOString() } }));
+    await settle();
+    expect(container.textContent).toContain(first.title); expect(container.textContent).toContain(second.title);
+    expect(statuses().textContent).toContain('갱신 실패: 이전 조회 결과 유지');
+    expect(statuses().querySelector<HTMLButtonElement>('.public-list-status-refresh')?.disabled).toBe(true);
+    const stored = await readPublicList({ kind: 'policeLost', page: 1, size: 50 }, Date.now(), true);
+    expect(stored?.page).toBe(2); expect(stored?.updatedAt).toBe(Date.parse(fetchedAt));
+  });
+
+  it('replaces accumulated police pages only after a successful refresh', async () => {
+    const cache = { fetchedAt: new Date(Date.now() - 3600_000).toISOString(), expiresAt: new Date(Date.now() + 11 * 3600_000).toISOString(), refreshAllowedAt: new Date(Date.now() - 1000).toISOString(), hit: true, stale: false, refreshError: null };
+    const first = { ...lost, id: 'police-lost-L2026100500000001', title: '이전 경찰청 지갑', source: 'public' as const, createdBy: 'police' };
+    const second = { ...first, id: 'police-lost-L2026100500000002', title: '추가 경찰청 지갑' };
+    vi.mocked(listPoliceItems).mockImplementation(async (type, query) => {
+      if (type === 'found') return { items: [], page: 1, size: 50, totalCount: 0, totalPages: 0, searchMode: 'DATE_RANGE' };
+      return { items: [query?.refresh ? { ...first, title: '갱신된 경찰청 지갑' } : query?.page === 2 ? second : first], page: query?.page ?? 1, size: 50, totalCount: 100, totalPages: 2, searchMode: 'DATE_RANGE', cache: query?.refresh ? { ...cache, hit: false, fetchedAt: new Date().toISOString(), refreshAllowedAt: new Date(Date.now() + 60_000).toISOString() } : cache };
+    });
+    await mount('/search?source=public');
+    await act(async () => [...container.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === '경찰청 분실물 더 보기')!.click()); await settle();
+    expect(container.textContent).toContain(second.title);
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="경찰청 분실물 새로고침"]')!.click()); await settle();
+    expect(container.textContent).toContain('갱신된 경찰청 지갑'); expect(container.textContent).not.toContain(second.title);
+    expect((await readPublicList({ kind: 'policeLost', page: 1, size: 50 }, Date.now(), true))?.page).toBe(1);
+  });
   it('runs the community board without any police requests and sorts by actual registration time', async () => {
     vi.mocked(listServerItems).mockImplementation(async type => type === 'lost' ? [
       { ...lost, id: 'api-lost-1', title: '먼저 등록한 지갑', date: '2026-10-13', createdAt: '2026-10-12T00:00:00Z' },
@@ -100,12 +144,15 @@ describe('public-list offline user flow', () => {
     expect(statuses().textContent).not.toContain('LOST QUEST 습득물');
   });
 
-  it('does not report a police-only outage as a community outage', async () => {
+  it('keeps the default source usable after a police-only outage', async () => {
     vi.mocked(listPoliceItems).mockRejectedValue(new ApiClientError('HTTP_ERROR', '경찰청 장애', 502));
-    await mount('/search');
+    await mount('/search?source=public');
     const rows = [...statuses().querySelectorAll('li')].map(row => row.textContent);
-    expect(rows.filter(text => text?.includes('LOST QUEST')).every(text => text?.includes('최신 데이터'))).toBe(true);
+    expect(rows.some(text => text?.includes('LOST QUEST'))).toBe(false);
     expect(rows.filter(text => text?.includes('경찰청')).every(text => text?.includes('서버 연결 불가'))).toBe(true);
+    await act(async () => container.querySelector<HTMLButtonElement>('.source-tabs > button')!.click()); await settle();
+    expect(statuses().textContent?.match(/최신 데이터/g)).toHaveLength(2);
+    expect(statuses().textContent).not.toContain('경찰청');
     expect(container.querySelectorAll('a.item-card')).toHaveLength(2);
   });
 
@@ -207,7 +254,7 @@ describe('public-list offline user flow', () => {
     if (outcome === 'success') {
       let stored = false;
       for (let n = 0; n < 40; n += 1) {
-        await act(async () => { stored = !!await readPublicList({ kind: 'policeLost', query: { q: '지갑' }, page: 2, size: 20 }); });
+        await act(async () => { stored = !!await readPublicList({ kind: 'policeLost', query: { q: '지갑' }, page: 2, size: 50 }); });
         if (stored) break;
         await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
       }

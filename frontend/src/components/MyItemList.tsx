@@ -12,17 +12,20 @@ type State = { status: 'loading' } | { status: 'error'; message: string } | { st
 
 function MyItemCard({ item }: { item: Item }) {
   const registeredAt = formatRegistrationTime(item.createdAt);
-  return <Link className="card profile-item" to={`/items/${item.id}`} aria-label={`${item.title} 상세 보기`}>
+  const content = <>
     <span className="profile-item-photo"><ItemImage src={item.image} fallbackSrc={defaultItemImage(item.category, item.title)} alt={item.title} loading="lazy" /></span>
     <div>
-      <div className="profile-item-badges"><span className={`badge ${item.type === 'lost' ? 'badge-orange' : 'badge-blue'}`}>{item.type === 'lost' ? '분실물' : '습득물'}</span>{item.status === 'returned' && <span className="badge badge-green">반환 완료</span>}</div>
+      <div className="profile-item-badges"><span className={`badge ${item.type === 'lost' ? 'badge-orange' : 'badge-blue'}`}>{item.type === 'lost' ? '분실물' : '습득물'}</span>{item.hidden && <span className="badge badge-orange">관리자 숨김</span>}{item.status === 'returned' && <span className="badge badge-green">반환 완료</span>}</div>
       <h3>{item.title}</h3>
       <p>{item.region || item.location}</p>
       <time className="muted" dateTime={item.date}>{item.type === 'lost' ? '분실' : '습득'} {item.date}</time>
       {registeredAt && <p className="item-registration-time">글 등록 <time dateTime={item.createdAt}>{registeredAt}</time> (한국 시간)</p>}
+      {item.hidden && <p className="muted">숨김 처리되어 공개 조회·수정·삭제할 수 없어요. 기존 반환 기록은 반환 내역에서 확인해 주세요.</p>}
     </div>
-    <ChevronRight size={17} aria-hidden="true" />
-  </Link>;
+    {!item.hidden && <ChevronRight size={17} aria-hidden="true" />}
+  </>;
+  return item.hidden ? <article className="card profile-item" aria-label={`${item.title} 숨김 처리`}>{content}</article>
+    : <Link className="card profile-item" to={`/items/${item.id}`} aria-label={`${item.title} 상세 보기`}>{content}</Link>;
 }
 
 /**

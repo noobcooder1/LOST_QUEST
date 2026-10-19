@@ -42,7 +42,7 @@ describe('경찰청 filter requests', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(emptyPage));
     vi.stubGlobal('fetch', fetchMock);
     await listPoliceItems('found', { from: '2026-10-01', to: '2026-10-05', region: 'LCA000', category: 'PRH000', subCategory: 'PRH200', color: 'CL1002' }, BASE);
-    expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:8080/api/public-items/found?page=1&size=20&from=2026-10-01&to=2026-10-05&region=LCA000&category=PRH000&subCategory=PRH200&color=CL1002');
+    expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:8080/api/public-items/found?page=1&size=50&from=2026-10-01&to=2026-10-05&region=LCA000&category=PRH000&subCategory=PRH200&color=CL1002');
   });
 
   it('never sends color for lost items, and no code filters in keyword mode', async () => {
@@ -50,8 +50,8 @@ describe('경찰청 filter requests', () => {
     vi.stubGlobal('fetch', fetchMock);
     await listPoliceItems('lost', { region: 'LCA000', color: 'CL1002' }, BASE);
     await listPoliceItems('found', { q: '지갑', region: 'LCA000', color: 'CL1002' }, BASE);
-    expect((fetchMock.mock.calls[0] as unknown[])[0]).toBe('http://localhost:8080/api/public-items/lost?page=1&size=20&region=LCA000');
-    expect((fetchMock.mock.calls[1] as unknown[])[0]).toBe('http://localhost:8080/api/public-items/found?page=1&size=20&q=%EC%A7%80%EA%B0%91');
+    expect((fetchMock.mock.calls[0] as unknown[])[0]).toBe('http://localhost:8080/api/public-items/lost?page=1&size=50&region=LCA000');
+    expect((fetchMock.mock.calls[1] as unknown[])[0]).toBe('http://localhost:8080/api/public-items/found?page=1&size=50&q=%EC%A7%80%EA%B0%91');
   });
 });
 

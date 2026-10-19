@@ -11,6 +11,14 @@ const policePage = (items: Item[], page = 1) => ({ items, page, size: 20, totalC
 const externalError = new ApiClientError('HTTP_ERROR', '경찰청 공공데이터 서버에 연결할 수 없습니다.', 502, { serverCode: 'EXTERNAL_API_UNAVAILABLE' });
 
 describe('independent search sources', () => {
+  it('keeps the oldest actual fetch time when appended server pages use different timestamp precision', () => {
+    const cache = { fetchedAt: '2026-10-15T00:00:00Z', expiresAt: '2026-10-15T12:00:00Z', refreshAllowedAt: '2026-10-15T00:01:00Z', hit: true, stale: false, refreshError: null };
+    const previous = { ...idleSource, status: 'ready' as const, cache, page: 1 };
+    const result = applyPolicePage(previous, { ...previous, page: 2, cache: { ...cache, fetchedAt: '2026-10-15T00:00:00.100Z', expiresAt: '2026-10-15T12:00:00.100Z' } }, 2);
+    expect(result.cache?.fetchedAt).toBe(cache.fetchedAt);
+    expect(result.cache?.expiresAt).toBe(cache.expiresAt);
+    expect(result.lastSyncedAt).toBe(Date.parse(cache.fetchedAt));
+  });
   it('keeps LOST QUEST items when 경찰청 sources fail', async () => {
     const community = await loadCommunity(async () => [item('api-lost-1', 'server')]);
     const policeLost = await loadPolicePage(() => Promise.reject(externalError));

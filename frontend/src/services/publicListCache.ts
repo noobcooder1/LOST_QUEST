@@ -1,7 +1,7 @@
 import type { Item } from '../types';
 import { getApiBaseUrl } from './apiClient';
 import { parseServerRouteId, resolveServerImageUrl } from './itemApi';
-import { parsePoliceRouteId, safePoliceImageUrl } from './publicItemApi';
+import { parsePoliceRouteId, safePoliceImageUrl, type PoliceCacheInfo } from './publicItemApi';
 import { defaultItemImage } from '../data/seed';
 
 export type PublicListKind = 'communityLost' | 'communityFound' | 'policeLost' | 'policeFound';
@@ -16,6 +16,8 @@ export interface PublicListData {
   page: number;
   totalCount: number;
   totalPages: number;
+  /** Runtime-only server metadata; offline records still whitelist public summary fields. */
+  cache?: PoliceCacheInfo;
 }
 export const PUBLIC_CACHE_DB = 'lost-quest-public-lists';
 export const PUBLIC_CACHE_STORE = 'lists';
@@ -139,7 +141,7 @@ function keepWithinPolicy(rows: CacheRecord[], store: IDBObjectStore, now: numbe
   return kept;
 }
 
-export async function savePublicList(request: PublicListRequest, data: PublicListData, now = Date.now()): Promise<boolean> {
+export async function savePublicList(request: PublicListRequest, data: PublicListData, now = Date.now(), observedAt = now): Promise<boolean> {
   try {
     if (!kinds.includes(request.kind) || data.items.length > CACHE_POLICY.maxItems) return false;
     const key = await publicListKey(request);
@@ -154,17 +156,18 @@ export async function savePublicList(request: PublicListRequest, data: PublicLis
       const all = store.getAll();
       all.onsuccess = () => {
         const previous = (all.result as CacheRecord[]).find(row => row.key === key && validRecord(row, now));
-        if (previous) record.createdAt = previous.createdAt;
+        if (previous) record.createdAt = Math.min(previous.createdAt, now);
         const others = all.result.filter((row: CacheRecord) => {
           if (row.key === key) return false;
           // Refreshing page one starts a new result set; never attach old following pages to it.
-          if (request.page === 1 && row.page > 1 && typeof row.key === 'string' && row.key.slice(0, row.key.lastIndexOf(':')) === scope) {
+          if (request.page === 1 && !(data.cache?.hit && previous?.updatedAt === now) && row.page > 1 && typeof row.key === 'string' && row.key.slice(0, row.key.lastIndexOf(':')) === scope) {
             store.delete(row.key); return false;
           }
           return true;
         });
         // The new successful snapshot replaces this exact query/page, including an empty result.
-        const kept = keepWithinPolicy([record, ...others], store, now);
+        // Fetch time can be old on a server-cache hit; storage cleanup uses the actual receipt time.
+        const kept = keepWithinPolicy([record, ...others], store, observedAt);
         if (kept.includes(record)) { store.put(record); setResult(true); }
       };
     }) ?? false;

@@ -6,9 +6,12 @@
 
 - 사이트: `https://lost-quest-seho-8e2c.yseho.chatgpt.site`
 - API: `https://gratify-amuck-grove.ngrok-free.dev` → `http://localhost:8080`
-- Sites 버전 4, 배포 상태 `succeeded`
-- 배포 소스 커밋: `a93b8d584d91911d9db5cf65572b80de389766be`
-- 배포 ID: `appgdep_6acd7d80a6bc8191a0d40e160b9c9543`
+- Sites 버전 7, 배포 상태 `succeeded`
+- 배포 소스 커밋: `27612bd666743314b68d69bc5c164e10a3f17a23`
+- 배포 ID: `appgdep_6acd83ee70a081918d5a28db0f22f058`
+- 버전 7에서는 서버 오류 안내에 닫기 버튼을 추가했습니다. 같은 오류는 페이지 이동 후에도 닫힌 상태를 유지하고, 오류 내용 변경이나 복구 후 재발 시 다시 표시합니다. 상태 전환 테스트 3개와 TypeScript·Vite 빌드가 통과했습니다.
+- 버전 6에서는 상단·하단 로고와 favicon을 돋보기·위치 핀 조합으로 교체했습니다. 기존 나침반 십자 장식을 제거했고 TypeScript·Vite 빌드 및 배포된 SVG·JS 응답을 확인했습니다.
+- 버전 5에서는 모든 페이지의 상단 안내 배너를 제거했습니다. TypeScript·Vite 빌드가 성공했고 배포된 번들에서 배너 문구가 제거된 것을 확인했습니다. 기존 ngrok API 주소를 유지합니다.
 - 기존 Site ID와 공개 범위를 유지했습니다. 원본 `frontend/.env.local`과 기존 UI도 유지합니다.
 - 프론트엔드 전체 테스트: 28개 파일·305개 통과. 배포 체크아웃에서 TypeScript·Vite 빌드 및 소스 패키징 성공.
 - 백엔드 health·CORS 테스트: 7개 통과, Java 21 실행 JAR 빌드 성공. 사용자가 백엔드를 재시작하여 CORS 변경을 적용했습니다.

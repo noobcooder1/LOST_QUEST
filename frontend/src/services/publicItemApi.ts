@@ -1,6 +1,7 @@
 import { defaultItemImage } from '../data/seed';
 import type { Item, ItemType } from '../types';
 import { ApiClientError, apiRequest, type ApiRequestOptions } from './apiClient';
+import { isTimestamp } from './dateTime';
 
 /**
  * 경찰청 공공데이터, served live by LOST QUEST (/api/public-items/...). The browser never talks to the
@@ -28,6 +29,8 @@ export interface PoliceQuery {
   subCategory?: string;
   /** Found items only: the 경찰청 lost-item API has no color condition. */
   color?: string;
+  /** Explicit refresh still respects the server's cooldown and traffic budget. */
+  refresh?: boolean;
 }
 
 export interface FilterOption {
@@ -48,6 +51,16 @@ export interface PolicePage {
   totalCount: number;
   totalPages: number;
   searchMode: 'DATE_RANGE' | 'KEYWORD';
+  cache?: PoliceCacheInfo;
+}
+
+export interface PoliceCacheInfo {
+  fetchedAt: string;
+  expiresAt: string;
+  refreshAllowedAt: string;
+  hit: boolean;
+  stale: boolean;
+  refreshError: string | null;
 }
 
 export function toPoliceRouteId(type: ItemType, atcId: string, fdSn?: number | null): string {
@@ -114,7 +127,8 @@ export function fromPublicItem(value: unknown): Item {
 export async function listPoliceItems(type: ItemType, query: PoliceQuery = {}, config: RequestConfig = {}): Promise<PolicePage> {
   const params = new URLSearchParams();
   params.set('page', String(query.page ?? 1));
-  params.set('size', String(query.size ?? 20));
+  params.set('size', String(query.size ?? 50));
+  if (query.refresh) params.set('refresh', 'true');
   const keyword = query.q?.trim();
   if (keyword) {
     params.set('q', keyword.slice(0, 50));
@@ -130,6 +144,13 @@ export async function listPoliceItems(type: ItemType, query: PoliceQuery = {}, c
   if (!value || typeof value !== 'object' || !Array.isArray((value as Record<string, unknown>).items)) throw invalidResponse();
   const raw = value as Record<string, unknown>;
   const number = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  let cache: PoliceCacheInfo | undefined;
+  if (raw.cache != null) {
+    const c = raw.cache as Record<string, unknown>;
+    if (!isTimestamp(c.fetchedAt) || !isTimestamp(c.expiresAt) || !isTimestamp(c.refreshAllowedAt)
+      || typeof c.hit !== 'boolean' || typeof c.stale !== 'boolean' || (c.refreshError !== null && typeof c.refreshError !== 'string')) throw invalidResponse();
+    cache = { fetchedAt: c.fetchedAt, expiresAt: c.expiresAt, refreshAllowedAt: c.refreshAllowedAt, hit: c.hit, stale: c.stale, refreshError: c.refreshError };
+  }
   return {
     items: (raw.items as unknown[]).map(fromPublicItem),
     page: number(raw.page),
@@ -137,6 +158,7 @@ export async function listPoliceItems(type: ItemType, query: PoliceQuery = {}, c
     totalCount: number(raw.totalCount),
     totalPages: number(raw.totalPages),
     searchMode: raw.searchMode === 'KEYWORD' ? 'KEYWORD' : 'DATE_RANGE',
+    ...(cache ? { cache } : {}),
   };
 }
 

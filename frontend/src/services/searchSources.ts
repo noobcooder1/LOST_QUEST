@@ -1,6 +1,6 @@
 import type { Item } from '../types';
 import { ApiClientError } from './apiClient';
-import type { PolicePage, PoliceQuery } from './publicItemApi';
+import type { PolicePage, PoliceQuery, PoliceCacheInfo } from './publicItemApi';
 
 /**
  * The search page combines three independent sources. Each one loads and fails on its own, so a 경찰청
@@ -23,6 +23,9 @@ export interface SourceState {
   /** Additional-page state never changes the status of the already loaded result set. */
   pageLoading?: boolean;
   pageError?: { page: number; message: string };
+  cache?: PoliceCacheInfo;
+  refreshing?: boolean;
+  refreshError?: string;
 }
 
 export const idleSource: SourceState = { status: 'idle', items: [], error: '', page: 0, totalPages: 0, totalCount: 0 };
@@ -45,6 +48,11 @@ export function applyPolicePage(previous: SourceState, result: SourceState, requ
     seen.add(item.id); return true;
   });
   return { ...result, items, pageLoading: false, pageError: undefined,
+    ...(previous.cache && result.cache ? { cache: { ...result.cache,
+      fetchedAt: Date.parse(previous.cache.fetchedAt) < Date.parse(result.cache.fetchedAt) ? previous.cache.fetchedAt : result.cache.fetchedAt,
+      expiresAt: Date.parse(previous.cache.expiresAt) < Date.parse(result.cache.expiresAt) ? previous.cache.expiresAt : result.cache.expiresAt,
+      stale: previous.cache.stale || result.cache.stale, refreshError: result.cache.refreshError ?? previous.cache.refreshError },
+      lastSyncedAt: Math.min(Date.parse(previous.cache.fetchedAt), Date.parse(result.cache.fetchedAt)) } : {}),
     ...(previous.dataStatus === 'cached' ? { dataStatus: 'cached', lastSyncedAt: previous.lastSyncedAt } : {}) };
 }
 

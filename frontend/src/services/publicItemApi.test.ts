@@ -86,6 +86,18 @@ describe('normalized DTO → Item', () => {
 });
 
 describe('public item API requests', () => {
+  it('requests 50 rows with an explicit refresh and accepts server cache timestamps', async () => {
+    const cache = { fetchedAt: '2026-10-15T00:00:00Z', expiresAt: '2026-10-15T12:00:00Z', refreshAllowedAt: '2026-10-15T00:01:00Z', hit: true, stale: false, refreshError: null };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(page([LOST], { cache })));
+    vi.stubGlobal('fetch', fetchMock);
+    expect((await listPoliceItems('lost', { refresh: true }, BASE)).cache).toEqual(cache);
+    expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:8080/api/public-items/lost?page=1&size=50&refresh=true');
+  });
+
+  it('rejects invalid cache metadata instead of displaying a fabricated sync time', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(page([], { cache: { fetchedAt: 'invalid' } }))));
+    await expect(listPoliceItems('lost', {}, BASE)).rejects.toMatchObject({ code: 'INVALID_RESPONSE' });
+  });
   it('requests a date-range page through the LOST QUEST backend, never the police API', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(page([LOST])));
     vi.stubGlobal('fetch', fetchMock);
@@ -102,7 +114,7 @@ describe('public item API requests', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(page([], { totalCount: 0, totalPages: 0, searchMode: 'KEYWORD' })));
     vi.stubGlobal('fetch', fetchMock);
     const result = await listPoliceItems('found', { q: ' 검정 지갑 ', from: '2026-10-01' }, BASE);
-    expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:8080/api/public-items/found?page=1&size=20&q=%EA%B2%80%EC%A0%95+%EC%A7%80%EA%B0%91');
+    expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:8080/api/public-items/found?page=1&size=50&q=%EA%B2%80%EC%A0%95+%EC%A7%80%EA%B0%91');
     expect(result).toMatchObject({ items: [], totalCount: 0, searchMode: 'KEYWORD' });
   });
 
