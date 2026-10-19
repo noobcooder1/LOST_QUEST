@@ -58,10 +58,36 @@ public class PoliceCandidateCollector {
         this.clock = clock;
     }
 
+    /**
+     * 경찰청 top-level category for an item kind read from the title, used only when the LOST QUEST category name
+     * has no exact 경찰청 counterpart (e.g. "액세서리"/"기타" for an umbrella). Kinds split across several 경찰청
+     * categories (keys, watches, cards, bottles) are left out so no real candidates are filtered away.
+     */
+    static final Map<String, String> KIND_CATEGORIES = Map.ofEntries(
+            Map.entry("umbrella", "기타물품"), Map.entry("glasses", "기타물품"),
+            Map.entry("clothes", "의류"), Map.entry("shoes", "의류"), Map.entry("hat", "의류"),
+            Map.entry("wallet", "지갑"), Map.entry("bag", "가방"), Map.entry("phone", "휴대폰"),
+            Map.entry("earbuds", "전자기기"), Map.entry("headphones", "전자기기"), Map.entry("tablet", "전자기기"),
+            Map.entry("camera", "전자기기"), Map.entry("laptop", "컴퓨터"), Map.entry("book", "도서용품"),
+            Map.entry("jewelry", "귀금속"), Map.entry("fishing", "스포츠용품"), Map.entry("golf", "스포츠용품"));
+
     private record Query(String regionCode, String regionName) {
     }
 
+    /** Notifications: the category filter only applies when the category names match exactly. */
     public SourceResult collect(MatchTarget target) {
+        return query(target, false);
+    }
+
+    /**
+     * {@code byItemKind} (recommendation list only) also maps the item kind in the title to a 경찰청 category when
+     * the category name itself has no match, so the one page of 50 is drawn from the right category.
+     */
+    public SourceResult collect(MatchTarget target, boolean byItemKind) {
+        return byItemKind ? query(target, true) : collect(target);
+    }
+
+    private SourceResult query(MatchTarget target, boolean byItemKind) {
         LocalDate today = LocalDate.now(clock);
         LocalDate from = target.lostDate();
         if (from == null || from.isAfter(today)) {
@@ -77,11 +103,13 @@ public class PoliceCandidateCollector {
             log.warn("Matching: police codes unavailable {}: {}", ex.getKind(), ex.getDetail());
             return SourceResult.unavailable(MatchSource.POLICE, ex.getKind().message());
         }
-        String categoryCode = codes.categories().stream()
+        String exactCategoryCode = codes.categories().stream()
                 .filter(category -> MatchText.normalize(category.name()) != null
                         && MatchText.normalize(category.name()).equals(MatchText.normalize(target.category())))
                 .map(PoliceCodeService.CategoryOption::code)
                 .findFirst().orElse(null);
+        String categoryCode = exactCategoryCode != null || !byItemKind ? exactCategoryCode
+                : categoryCodeForKind(codes, ItemKind.of(target.title(), target.category()));
 
         List<Query> queries = new ArrayList<>();
         codes.regions().stream()
@@ -134,6 +162,15 @@ public class PoliceCandidateCollector {
                 "경찰청 습득물 일부 조회에 실패해 조회된 결과만 표시합니다.");
     }
 
+    static String categoryCodeForKind(PoliceCodes codes, String kind) {
+        String name = kind == null ? null : KIND_CATEGORIES.get(kind);
+        if (name == null) return null;
+        return codes.categories().stream()
+                .filter(category -> name.equals(MatchText.normalize(category.name())))
+                .map(PoliceCodeService.CategoryOption::code)
+                .findFirst().orElse(null);
+    }
+
     /** Items without the ids needed for a detail link are dropped rather than shown with an invented id. */
     static MatchCandidate toCandidate(PublicItemResponse item, String regionName) {
         if (item.atcId() == null || item.atcId().isBlank() || item.fdSn() == null) {
@@ -152,6 +189,6 @@ public class PoliceCandidateCollector {
                 regionName,
                 item.location(),
                 item.storagePlace(),
-                item.imageUrl());
+                item.imageUrl(), item.subject());
     }
 }

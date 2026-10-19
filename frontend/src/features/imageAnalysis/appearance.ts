@@ -17,6 +17,9 @@ function disposeWorker(error: Error) {
   for (const task of pending.values()) task.reject(error);
   pending.clear();
 }
+export function releaseAppearanceResources() {
+  disposeWorker(new DOMException('Aborted', 'AbortError'));
+}
 function extract(image: Blob, categoryId: string, loading: () => void, signal?: AbortSignal): Promise<Extracted> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) { reject(new DOMException('Aborted', 'AbortError')); return; }

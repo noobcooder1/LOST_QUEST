@@ -23,6 +23,10 @@ public record MatchCandidate(
         String region,
         String location,
         String storagePlace,
-        String imageUrl
+        String imageUrl,
+        String description
 ) {
+    public MatchCandidate(MatchSource source,String key,Long foundItemId,String atcId,Integer fdSn,String title,String category,String color,LocalDate foundDate,String region,String location,String storagePlace,String imageUrl) {
+        this(source,key,foundItemId,atcId,fdSn,title,category,color,foundDate,region,location,storagePlace,imageUrl,null);
+    }
 }

@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "setup:text": "node scripts/setup-text-model.mjs",
     "setup:vision": "node scripts/setup-vision.mjs",
     "postinstall": "node scripts/setup-vision.mjs --runtime-only",
     "predev": "node scripts/setup-vision.mjs --check --allow-missing",

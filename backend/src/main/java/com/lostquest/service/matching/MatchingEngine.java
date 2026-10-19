@@ -66,6 +66,37 @@ public class MatchingEngine {
                 .toList();
     }
 
+    /**
+     * Recommendation list only: candidates whose title names the same kind of item come first, then unknown kinds;
+     * a clearly different kind (e.g. a fishing rod for a lost umbrella) is left out. Within each group the usual
+     * score order applies. Scores, the {@code minScore} floor and notifications ({@link #rank}) are unchanged.
+     */
+    public List<ScoredMatch> rankNameFirst(MatchTarget target, List<MatchCandidate> candidates, int minScore, int limit) {
+        String targetKind = ItemKind.of(target.title(), target.category());
+        Comparator<ScoredMatch> order = Comparator
+                .comparingInt((ScoredMatch match) -> nameTier(targetKind, match.candidate()))
+                .thenComparing(ORDER);
+        Set<String> seen = new HashSet<>();
+        return candidates.stream()
+                .filter(Objects::nonNull)
+                .filter(candidate -> nameTier(targetKind, candidate) != DIFFERENT_KIND)
+                .map(candidate -> score(target, candidate))
+                .filter(match -> match.score() >= minScore)
+                .sorted(order)
+                .filter(match -> seen.add(match.candidate().key()))
+                .limit(limit)
+                .toList();
+    }
+
+    static final int DIFFERENT_KIND = 2;
+
+    /** 0: same kind by name, 1: kind unknown on either side, 2: a different kind (e.g. umbrella vs hoodie). */
+    static int nameTier(String targetKind, MatchCandidate candidate) {
+        String candidateKind = ItemKind.of(candidate.title(), candidate.category());
+        if (targetKind == null || candidateKind == null) return 1;
+        return targetKind.equals(candidateKind) ? 0 : DIFFERENT_KIND;
+    }
+
     private static Long dateDistance(ScoredMatch match) {
         return match.daysAfterLoss() == null ? null : Math.abs(match.daysAfterLoss());
     }

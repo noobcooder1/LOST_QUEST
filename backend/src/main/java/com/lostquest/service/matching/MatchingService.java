@@ -53,15 +53,20 @@ public class MatchingService {
 
     /** Only the author of the lost item may see its recommendations; the caller comes from the JWT subject. */
     public ItemMatchResponse findMatches(String authenticatedSubject, Long lostItemId, int limit) {
+        LostItem lostItem = requireOwned(authenticatedSubject, lostItemId);
+        int boundedLimit = Math.max(1, Math.min(limit, MAX_LIMIT));
+        MatchRun run = run(lostItem, boundedLimit, true);
+        return ItemMatchResponse.of(run.target(), engine.maxScore(), MIN_SCORE, boundedLimit, run.matches(), run.sources());
+    }
+
+    private LostItem requireOwned(String authenticatedSubject, Long lostItemId) {
         User caller = currentUserReader.require(authenticatedSubject);
         LostItem lostItem = lostItemRepository.findWithUserById(lostItemId)
                 .orElseThrow(() -> new ResourceNotFoundException("분실물을 찾을 수 없습니다. id: " + lostItemId));
         if (!lostItem.getUser().getId().equals(caller.getId())) {
             throw new AccessDeniedException("not the owner of lost item " + lostItemId);
         }
-        int boundedLimit = Math.max(1, Math.min(limit, MAX_LIMIT));
-        MatchRun run = run(lostItem, boundedLimit);
-        return ItemMatchResponse.of(run.target(), engine.maxScore(), MIN_SCORE, boundedLimit, run.matches(), run.sources());
+        return lostItem;
     }
 
     /** Ranked matches for a lost item plus how each source went; the caller has already checked ownership. */
@@ -74,13 +79,21 @@ public class MatchingService {
      * user must be loaded (e.g. via {@link LostItemRepository#findWithUserById}).
      */
     public MatchRun run(LostItem lostItem, int limit) {
+        return run(lostItem, limit, false);
+    }
+
+    /** {@code nameFirst} only changes the recommendation list order; notifications always use the score order. */
+    private MatchRun run(LostItem lostItem, int limit, boolean nameFirst) {
         MatchTarget target = MatchTarget.of(lostItem);
         SourceResult lostQuest = collectLostQuest(target, lostItem.getUser().getId());
-        SourceResult police = policeCandidateCollector.collect(target);
+        SourceResult police = policeCandidateCollector.collect(target, nameFirst);
 
         List<MatchCandidate> candidates = new ArrayList<>(lostQuest.candidates());
         candidates.addAll(police.candidates());
-        List<ScoredMatch> matches = engine.rank(target, candidates, MIN_SCORE, Math.max(1, Math.min(limit, MAX_LIMIT)));
+        int boundedLimit = Math.max(1, Math.min(limit, MAX_LIMIT));
+        List<ScoredMatch> matches = nameFirst
+                ? engine.rankNameFirst(target, candidates, MIN_SCORE, boundedLimit)
+                : engine.rank(target, candidates, MIN_SCORE, boundedLimit);
         return new MatchRun(target, matches, List.of(lostQuest, police));
     }
 
@@ -115,6 +128,6 @@ public class MatchingService {
                 item.getRegion(),
                 item.getLocation(),
                 null,
-                item.getImageUrl());
+                item.getImageUrl(), item.getDescription());
     }
 }

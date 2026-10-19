@@ -1,0 +1,8 @@
+{
+  "directory": "multilingual-e5-small",
+  "source": "Xenova/multilingual-e5-small",
+  "revision": "761b726dd34fb83930e26aab4e9ac3899aa1fa78",
+  "dtype": "q8",
+  "dimensions": 384,
+  "files": ["config.json", "tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "onnx/model_quantized.onnx"]
+}
