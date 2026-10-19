@@ -61,7 +61,7 @@
 Vite 재실행 (프로젝트 루트에서, 현재 서버가 종료되어 있을 때):
 
 ```powershell
-$env:VITE_API_BASE_URL = 'http://127.0.0.1:8080'
+$env:VITE_API_BASE_URL = 'http://127.0.0.1:8081'
 Set-Location frontend
 & ../.local/h1-runtime/node_modules/node/bin/node.exe node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5173 --strictPort
 ```
