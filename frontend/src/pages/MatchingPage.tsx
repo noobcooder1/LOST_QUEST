@@ -6,13 +6,14 @@ import ItemImage from '../components/ItemImage'
 import { defaultItemImage } from '../data/seed'
 import { listServerItems, parseServerRouteId } from '../services/itemApi'
 import { uploadedPhotoUrl } from '../services/matchPhotoComparison'
+import { itemTypeForKind } from '../features/imageAnalysis/categories'
 import { describeMatchError, getItemMatches, SOURCE_LABELS, type ItemMatches, type MatchResult, type SourceStatus } from '../services/matchingApi'
 import type { Item } from '../types'
 import { compareMatchTexts } from '../features/textMatching/textMatching'
 import './JourneyPages.css'
 
-// The side-by-side comparison screen (and its model code) loads only when a card's photo button is pressed.
-const ImageAnalysisPage = lazy(() => import('./ImageAnalysisPage'))
+// The AI comparison screen (and its model code) loads only when a card's AI button is pressed.
+const MatchComparePanel = lazy(() => import('./MatchComparePanel'))
 
 const BREAKDOWN_LABELS: Record<string, string> = { category: '분류', region: '지역', color: '색상', date: '날짜' }
 
@@ -32,7 +33,7 @@ interface PhotoControl { onCompare: () => void }
 
 function PhotoCompareButton({ photo, compact }: { photo: PhotoControl; compact?: boolean }) {
   return <div className={`match-photo-action ${compact ? 'compact' : ''}`}>
-    <button type="button" className="button button-secondary" onClick={photo.onCompare}><Image size={15} />AI 사진 비교</button>
+    <button type="button" className="button button-secondary" onClick={photo.onCompare}><Image size={15} />AI 비교</button>
   </div>
 }
 
@@ -186,8 +187,9 @@ export default function MatchingPage() {
     return () => { document.body.style.overflow = previous; window.removeEventListener('keydown', close) }
   }, [comparing])
 
+  // The found photo is needed; the lost post may be compared by its words when it has no photo.
   const photoFor = (match: MatchResult): PhotoControl | undefined =>
-    lostHasPhoto && match.image && runKey ? { onCompare: () => setPhotoCompare({ key: runKey, match }) } : undefined
+    match.image && runKey ? { onCompare: () => setPhotoCompare({ key: runKey, match }) } : undefined
 
   const heading = <>
     <div className="journey-breadcrumb"><Link to="/">홈</Link><ChevronRight size={14} /><span>습득물 매칭 추천</span></div>
@@ -219,7 +221,7 @@ export default function MatchingPage() {
       : myItems && myItems.length > 0 && <div className="matching-notice"><CircleHelp size={20} /><p>선택한 분실물이 내 분실물 목록에 없어요. <button type="button" className="text-link" onClick={() => selectItem()}>내 분실물로 돌아가기</button></p></div>}
     <section className="card matching-stage matching-start" aria-label="매칭 시작">
       <div className="matching-stage-info"><h2>습득물 매칭</h2><p>{matching ? '등록한 조건으로 습득물을 비교하고 있어요.' : currentText?.busy ? `추천 결과를 먼저 보여 드리고, 텍스트 의미를 이 기기에서 비교하고 있어요. ${currentText.completed}/${currentText.total}` : current?.data ? '비교가 끝났어요. 아래 추천 결과를 확인해 주세요.' : '분류·지역·색상·날짜로 습득물을 찾고, 제목·공개 설명의 의미를 참고값으로 보여 드려요.'}</p>
-        {current?.data && matches.length > 0 && <p className="matching-photo-hint"><Image size={15} />{lostHasPhoto ? '사진이 있는 추천 항목에는 ‘AI 사진 비교’ 버튼이 생겨요. 사진은 이 기기에서만 비교하고 외부로 보내지 않아요.' : '내 분실물에 사진을 등록하면 사진이 있는 추천 항목과 사진을 비교할 수 있어요.'}</p>}</div>
+        {current?.data && matches.length > 0 && <p className="matching-photo-hint"><Image size={15} />{lostHasPhoto ? '사진이 있는 추천 항목에는 ‘AI 비교’ 버튼이 생겨요. 사진 외형·글·색상을 이 기기에서 함께 비교해요.' : '사진이 있는 추천 항목에는 ‘AI 비교’ 버튼이 생겨요. 내 분실물은 사진이 없어 글로 비교해요.'}</p>}</div>
       <button type="button" className="button button-primary" disabled={matching} onClick={startMatching}><Play size={16} />{matching ? '매칭 중…' : current?.data ? '다시 매칭' : '매칭 시작'}</button>
     </section>
     <div className="matching-layout"><section className="matching-results" aria-busy={matching}>
@@ -244,7 +246,7 @@ export default function MatchingPage() {
     </section>{comparing && selected && <div className="photo-compare-layer" role="dialog" aria-modal="true" aria-label="AI 사진 비교">
       <div className="photo-compare-sheet">
         <Suspense fallback={<div className="card empty-state matching-empty" role="status"><h3>사진 비교 화면을 불러오고 있어요…</h3></div>}>
-          <ImageAnalysisPage preset={{ lost: selected, match: comparing }} onClose={() => setPhotoCompare(null)} />
+          <MatchComparePanel lost={selected} match={comparing} lostKind={nameKind} itemType={comparing.nameMatch === 'SAME_KIND' ? itemTypeForKind(nameKind) : undefined} onClose={() => setPhotoCompare(null)} />
         </Suspense>
       </div>
     </div>}<aside className="matching-aside"><div className="card matching-summary"><span className="matching-summary-icon"><ListChecks size={25} /></span><span className="eyebrow">매칭 결과 한눈에 보기</span><h3>등록한 단서와<br />닮은 습득물</h3><div className="matching-stat"><strong>{current?.data ? matches.length : '-'}<span>개</span></strong><span>추천 습득물</span></div><div className="matching-stat"><strong>{current?.data && matches.length ? bestScore : '-'}<span>점</span></strong><span>가장 높은 매칭도 ({current?.data?.maxScore ?? 100}점 만점)</span></div><p><CircleHelp size={15} /> 분류 35 · 지역 25 · 색상 20 · 날짜 20점. 정보가 없는 조건은 점수를 받지 않아요.</p></div><div className="matching-next"><h3>내 물건을 발견했다면?</h3><ol><li><span>1</span>물품 상세 정보와 사진 확인</li><li><span>2</span>경찰청 물품은 담당 기관에 문의</li><li><span>3</span>LOST QUEST 물품은 등록자와 확인</li></ol><Link to="/search" className="text-link">전국 검색도 둘러보기 <ArrowRight size={15} /></Link></div></aside></div>

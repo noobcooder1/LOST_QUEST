@@ -8,7 +8,9 @@ import { VISION_MODELS } from './modelConfig';
 let worker: Worker | null = null;
 let nextId = 0;
 type Extracted = { vector: number[]; category: CategoryPrediction };
-type Pending = { resolve: (result: Extracted) => void; reject: (error: Error) => void; loading: () => void };
+export type RankedPrompt = { label: string; score: number };
+type Reply = { id: number; type: string; vector?: number[]; category?: CategoryPrediction; ranked?: RankedPrompt[]; message?: string };
+type Pending = { resolve: (reply: Reply) => void; reject: (error: Error) => void; loading: () => void };
 const pending = new Map<number, Pending>();
 
 function disposeWorker(error: Error) {
@@ -20,17 +22,17 @@ function disposeWorker(error: Error) {
 export function releaseAppearanceResources() {
   disposeWorker(new DOMException('Aborted', 'AbortError'));
 }
-function extract(image: Blob, categoryId: string, loading: () => void, signal?: AbortSignal): Promise<Extracted> {
+function request(payload: { image: Blob; categoryId?: string; prompts?: string[] }, loading: () => void, signal?: AbortSignal): Promise<Reply> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) { reject(new DOMException('Aborted', 'AbortError')); return; }
     if (!worker) {
       worker = new Worker(new URL('./vision.worker.ts', import.meta.url), { type: 'module' });
-      worker.onmessage = (event: MessageEvent<{ id: number; type: string; vector?: number[]; category?: CategoryPrediction; message?: string }>) => {
+      worker.onmessage = (event: MessageEvent<Reply>) => {
         const task = pending.get(event.data.id);
         if (!task) return;
         if (event.data.type === 'loading') { task.loading(); return; }
         pending.delete(event.data.id);
-        if (event.data.type === 'result' && event.data.vector && event.data.category) task.resolve({ vector: event.data.vector, category: event.data.category });
+        if ((event.data.type === 'result' && event.data.vector && event.data.category) || (event.data.type === 'describe' && event.data.ranked)) task.resolve(event.data);
         else task.reject(new Error(`로컬 외형 모델을 실행하지 못했습니다. npm run setup:vision으로 파일을 준비해 주세요. 상세: ${event.data.message?.slice(0, 250) ?? '알 수 없는 응답'}`));
       };
       worker.onerror = () => disposeWorker(new Error('외형 분석 작업을 실행하지 못했습니다. 브라우저를 새로고침하고 모델 파일을 확인해 주세요.'));
@@ -39,10 +41,24 @@ function extract(image: Blob, categoryId: string, loading: () => void, signal?: 
     const timer = setTimeout(() => disposeWorker(new Error('로컬 외형 분석 대기 시간(180초)을 초과했습니다.')), 180_000);
     const finish = () => { clearTimeout(timer); signal?.removeEventListener('abort', abort); };
     const id = ++nextId;
-    pending.set(id, { resolve: vector => { finish(); resolve(vector); }, reject: error => { finish(); reject(error); }, loading });
+    pending.set(id, { resolve: reply => { finish(); resolve(reply); }, reject: error => { finish(); reject(error); }, loading });
     signal?.addEventListener('abort', abort, { once: true });
-    worker.postMessage({ id, image, categoryId });
+    worker.postMessage({ id, ...payload });
   });
+}
+
+async function extract(image: Blob, categoryId: string, loading: () => void, signal?: AbortSignal): Promise<Extracted> {
+  const reply = await request({ image, categoryId }, loading, signal);
+  return { vector: reply.vector!, category: reply.category! };
+}
+
+/** CLIP text ↔ photo: probability of each English prompt for this photo (they sum to 1 over the given prompts). */
+export async function describeImage(file: File, prompts: string[], signal?: AbortSignal): Promise<RankedPrompt[]> {
+  const prepared = await prepare(file, { x: 0, y: 0, width: 1, height: 1 }, signal);
+  const reply = await request({ image: prepared.blob, prompts }, () => {}, signal);
+  const ranked = reply.ranked ?? [];
+  if (ranked.length !== prompts.length || ranked.some(r => !prompts.includes(r.label) || !Number.isFinite(r.score) || r.score < 0 || r.score > 1)) throw new Error('글↔사진 비교 결과가 올바르지 않습니다.');
+  return ranked;
 }
 
 async function prepare(file: File, crop: CropRect, signal?: AbortSignal) {

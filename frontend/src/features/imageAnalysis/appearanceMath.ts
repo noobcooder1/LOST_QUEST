@@ -47,7 +47,3 @@ export function colorSimilarity(a: number[], b: number[]): number {
   return Math.max(0, Math.min(1, coefficient)) * 100;
 }
 
-export function combinedAppearance(visual: number, color: number, visualWeight: number): number {
-  if (![visual, color, visualWeight].every(Number.isFinite) || visual < 0 || visual > 100 || color < 0 || color > 100 || visualWeight < 0 || visualWeight > 100) throw new Error('외형 비교 점수 또는 비중이 올바르지 않습니다.');
-  return (visual * visualWeight + color * (100 - visualWeight)) / 100;
-}

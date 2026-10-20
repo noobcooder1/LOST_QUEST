@@ -49,3 +49,4 @@
 .image-analysis-embedded .analysis-upload-heading button{display:none}
 .image-analysis-embedded .analysis-upload-heading strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:640px){.image-analysis-embedded .analysis-upload-heading strong{font-size:.8125rem}.image-analysis-embedded .analysis-upload-heading>span{width:24px;height:24px}}
+.analysis-metrics article.analysis-metric-reference strong{color:#8a9aa6}

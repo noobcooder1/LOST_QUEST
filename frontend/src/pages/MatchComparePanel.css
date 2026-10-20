@@ -1,0 +1,8 @@
+/* AI combined comparison opened over the matching results (shares the embedded image-analysis layout). */
+.match-compare .match-compare-photo { cursor:default; }
+.match-compare-textonly { display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px 14px; text-align:center; color:#6f8495; }
+.match-compare-textonly strong { font-size:0.8125rem; color:#4f6b80; }
+.match-compare-textonly p { font-size:0.75rem; line-height:1.5; color:#8a9aa6; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; margin:0; }
+.match-compare .analysis-center-score small { white-space:nowrap; }
+.match-compare-metrics article.is-missing strong { color:#a3afb8; }
+.match-compare-metrics article small { overflow-wrap:anywhere; }
