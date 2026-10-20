@@ -71,4 +71,16 @@ public class User extends BaseEntity {
     public UserRole getRole() {
         return role;
     }
+
+    public void changeNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+    /** Receives an already encoded BCrypt hash, never a raw password. */
+    public void changePassword(String passwordHash) {
+        if (passwordHash == null || !passwordHash.matches(BCRYPT_PATTERN)) {
+            throw new IllegalArgumentException("비밀번호는 BCrypt로 암호화한 해시를 전달해야 합니다.");
+        }
+        this.password = passwordHash;
+    }
 }

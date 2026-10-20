@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { ArrowRight, Award, Bell, CheckCircle2, ChevronRight, Compass, HeartHandshake, LockKeyhole, Package, ShieldCheck, Sparkles, Trophy, UserRound } from 'lucide-react';
+import { ArrowRight, Award, Bell, CheckCircle2, ChevronRight, Compass, HeartHandshake, LockKeyhole, Package, Settings, ShieldCheck, Sparkles, Trophy, UserRound } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useMatchNotifications } from '../context/MatchNotificationContext';
 import MatchNotificationList from '../components/MatchNotificationList';
 import MyItemList from '../components/MyItemList';
+import ProfileSettings from '../components/ProfileSettings';
 import type { ReturnRequest } from '../types';
 import './workflow.css';
 import '../components/ItemManagementMenu.css';
@@ -15,7 +16,7 @@ export default function MyPage() {
   const { items, requests, profile, notifications, isLoggedIn, markNotificationsRead, activityLoading } = useApp();
   const location = useLocation();
   const [params, setParams] = useSearchParams();
-  const tab = ['items', 'returns', 'badges', 'notifications'].includes(params.get('tab') ?? '') ? params.get('tab')! : 'items';
+  const tab = ['items', 'returns', 'badges', 'notifications', 'settings'].includes(params.get('tab') ?? '') ? params.get('tab')! : 'items';
   const setTab = (value: string) => setParams(value === 'items' ? {} : { tab: value });
   const [error, setError] = useState('');
   const level = Math.floor(profile.xp / 100) + 1;
@@ -44,9 +45,10 @@ export default function MyPage() {
     <section className="card profile-card"><div className="profile-overview"><div className="profile-avatar"><UserRound size={43} strokeWidth={1.5} /><span>Lv.{level}</span></div><div className="profile-identity"><span className="eyebrow">일상을 되찾아 주는 탐험가</span><h2>{profile.name} <span className="badge badge-blue">회원</span></h2><p className="muted">작은 친절을 함께 나누고 있어요.</p><div className="profile-xp-label"><strong>레벨 {level}</strong><span><b>{progress}</b> / 100 XP</span></div><div className="profile-progress" role="progressbar" aria-label="다음 레벨까지 경험치" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div><p className="profile-next-level">다음 레벨까지 <strong>{100 - progress} XP</strong> 남았어요</p></div></div><div className="profile-stat-grid"><div><HeartHandshake size={20} /><strong>{profile.returnedCount}</strong><span>반환 완료</span></div><div><Sparkles size={20} /><strong>{profile.xp}</strong><span>누적 경험치</span></div><div><Award size={20} /><strong>{badges.filter((badge) => badge.unlocked).length}</strong><span>획득 업적</span></div></div></section>
     <div className="profile-tip"><span><Sparkles size={19} /><strong>친절을 경험치로!</strong> 물품 등록과 반환 활동으로 성장해요.</span><Link to="/guide">경험치 안내 <ChevronRight size={15} /></Link></div>
     <div className="workflow-tabs profile-tabs" aria-label="마이페이지 메뉴">{([
-      ['items', '등록 내역', Package], ['returns', '반환 내역', HeartHandshake], ['badges', '획득 업적', Award], ['notifications', '알림', Bell],
+      ['items', '등록 내역', Package], ['returns', '반환 내역', HeartHandshake], ['badges', '획득 업적', Award], ['notifications', '알림', Bell], ['settings', '내 정보', Settings],
     ] as const).map(([value, label, Icon]) => <button key={value} className={tab === value ? 'active' : ''} aria-pressed={tab === value} onClick={() => setTab(value)}><Icon size={17} />{label}{value === 'notifications' && unread > 0 && <span className="notification-count">{unread}</span>}</button>)}</div>
     {tab === 'items' && <MyItemList />}
+    {tab === 'settings' && <ProfileSettings />}
     {tab === 'returns' && <section><div className="workflow-section-heading"><h2>내 반환 요청 <span>{requests.length}</span></h2><span className="muted">요청한 반환과 등록한 주운 물건의 반환</span></div>{requests.length ? <div className="profile-return-list">{requests.map((request) => {
       const item = items.find((entry) => entry.id === request.itemId);
       if (!item) return null;

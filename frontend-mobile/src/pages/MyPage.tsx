@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { ArrowRight, Award, Bell, CheckCircle2, ChevronRight, Compass, HeartHandshake, Inbox, LockKeyhole, LogOut, Package, ShieldCheck, Sparkles, Trophy, UserRound, UsersRound } from 'lucide-react';
+import { ArrowRight, Award, Bell, CheckCircle2, ChevronRight, Compass, HeartHandshake, Inbox, LockKeyhole, LogOut, Package, Settings, ShieldCheck, Sparkles, Trophy, UserRound, UsersRound } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useMatchNotifications } from '../context/MatchNotificationContext';
 import MatchNotificationList from '../components/MatchNotificationList';
 import MyItemList from '../components/MyItemList';
+import ProfileSettings from '../components/ProfileSettings';
 import type { ReturnRequest } from '../types';
 import './workflow.css';
 import '../components/ItemManagementMenu.css';
@@ -15,7 +16,7 @@ export default function MyPage() {
   const { items, requests, profile, notifications, isLoggedIn, logout, markNotificationsRead, activityLoading } = useApp();
   const location = useLocation();
   const [params, setParams] = useSearchParams();
-  const tab = ['items', 'returns', 'badges', 'notifications'].includes(params.get('tab') ?? '') ? params.get('tab')! : 'items';
+  const tab = ['items', 'returns', 'badges', 'notifications', 'settings'].includes(params.get('tab') ?? '') ? params.get('tab')! : 'items';
   const setTab = (value: string) => setParams(value === 'items' ? {} : { tab: value });
   const [error, setError] = useState('');
   const level = Math.floor(profile.xp / 100) + 1;
@@ -47,9 +48,10 @@ export default function MyPage() {
       <Link to="/guide"><Sparkles size={19} aria-hidden="true" />경험치 안내<ChevronRight size={17} aria-hidden="true" /></Link>
     </nav>
     <div className="workflow-tabs profile-tabs" aria-label="마이페이지 메뉴">{([
-      ['items', '등록 내역', Package], ['returns', '반환 내역', HeartHandshake], ['badges', '획득 업적', Award], ['notifications', '알림', Bell],
+      ['items', '등록 내역', Package], ['returns', '반환 내역', HeartHandshake], ['badges', '획득 업적', Award], ['notifications', '알림', Bell], ['settings', '내 정보', Settings],
     ] as const).map(([value, label, Icon]) => <button key={value} className={tab === value ? 'active' : ''} aria-pressed={tab === value} onClick={() => setTab(value)}><Icon size={17} />{label}{value === 'notifications' && unread > 0 && <span className="notification-count">{unread}</span>}</button>)}</div>
     {tab === 'items' && <MyItemList />}
+    {tab === 'settings' && <ProfileSettings />}
     {tab === 'returns' && <section><div className="workflow-section-heading"><h2>내 반환 요청 <span>{requests.length}</span></h2><span className="muted">요청한 반환과 등록한 주운 물건의 반환</span></div>{requests.length ? <div className="profile-return-list">{requests.map((request) => {
       const item = items.find((entry) => entry.id === request.itemId);
       if (!item) return null;

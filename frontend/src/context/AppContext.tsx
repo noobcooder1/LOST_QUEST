@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { login as loginRequest, restoreAuthSession, signup as signupRequest, type AuthUser, type SignupInput } from '../services/authApi';
+import { changePassword as changePasswordRequest, login as loginRequest, restoreAuthSession, signup as signupRequest, updateNickname as updateNicknameRequest, type AuthUser, type SignupInput } from '../services/authApi';
 import { clearAuthSession, saveAuthSession } from '../services/authSession';
 import { createReturn, describeActivityError, loadActivity, markActivityRead, returnAction } from '../services/activityApi';
 import { listAllServerItems } from '../services/itemApi';
@@ -13,6 +13,8 @@ interface AppContextValue extends AppData {
   login: (email: string, password: string) => Promise<void>;
   signup: (input: SignupInput) => Promise<void>;
   logout: () => void;
+  updateNickname: (nickname: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   refreshData: () => Promise<void>;
   createRequest: (itemId: string, lostItemId?: string) => Promise<ReturnRequest>;
   verifyOwner: (id: string, answer: string) => Promise<boolean>;
@@ -107,6 +109,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const signup = async (input: SignupInput) => { await signupRequest(input); await login(input.email, input.password); };
   const logout = () => { authVersion.current += 1; clearAuthSession(); applySession(null, null); };
   const requireSession = () => { if (!userRef.current) throw new Error('로그인한 뒤 이용해 주세요.'); };
+  const updateNickname = async (nickname: string) => {
+    requireSession();
+    const version = authVersion.current;
+    const user = await updateNicknameRequest(nickname);
+    // Ignore a late response after logout or an account switch.
+    if (version !== authVersion.current || user.id !== userRef.current?.id) return;
+    userRef.current = user; setAuthUser(user);
+    setData(previous => ({ ...previous, profile: { ...previous.profile, name: user.nickname } }));
+  };
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    requireSession(); await changePasswordRequest(currentPassword, newPassword);
+  };
   const createRequest = async (itemId: string, lostItemId?: string) => {
     requireSession();
     const request = await createReturn(itemId, lostItemId);
@@ -116,7 +130,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     requireSession(); await returnAction(id, action, body); await refreshData();
   };
   return <AppContext.Provider value={{
-    ...data, isLoggedIn: authUser !== null, authUser, authChecking, activityLoading, login, signup, logout,
+    ...data, isLoggedIn: authUser !== null, authUser, authChecking, activityLoading, login, signup, logout, updateNickname, changePassword,
     refreshData, createRequest, storageError,
     verifyOwner: async (id, answer) => { await act(id, 'verify-owner', { answer }); return true; },
     approveRequest: id => act(id, 'approve'),

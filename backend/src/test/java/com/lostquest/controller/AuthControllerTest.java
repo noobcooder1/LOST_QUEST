@@ -45,6 +45,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -399,6 +400,62 @@ class AuthControllerTest {
                         .header(HttpHeaders.ORIGIN, "https://evil.example")
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("닉네임 변경: 로그인 필요, 앞뒤 공백 제거, 20자 제한, /me에 바로 반영")
+    void updatesNicknameForTheSignedInUserOnly() throws Exception {
+        signup("rename@lostquest.test", PASSWORD, "처음이름").andExpect(status().isCreated());
+        String token = accessToken("rename@lostquest.test");
+        mockMvc.perform(put("/api/auth/me/nickname").contentType(MediaType.APPLICATION_JSON).content("{\"nickname\":\"새이름\"}"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(put("/api/auth/me/nickname").header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"nickname\":\"  비오는날우산  \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nickname").value("비오는날우산"))
+                .andExpect(jsonPath("$.email").value("rename@lostquest.test"));
+        mockMvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(jsonPath("$.nickname").value("비오는날우산"));
+        for (String bad : new String[]{"   ", "가".repeat(21)}) {
+            mockMvc.perform(put("/api/auth/me/nickname").header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(Map.of("nickname", bad))))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors[*].field", hasItem("nickname")));
+        }
+        assertThat(userRepository.findByEmail("rename@lostquest.test").orElseThrow().getNickname()).isEqualTo("비오는날우산");
+    }
+
+    @Test
+    @DisplayName("비밀번호 변경: 현재 비밀번호 확인, 틀리면 400(로그인 유지), 새 비밀번호로만 로그인")
+    void changesPasswordOnlyWithTheCurrentPassword() throws Exception {
+        signup("password@lostquest.test", PASSWORD, "비번").andExpect(status().isCreated());
+        String token = accessToken("password@lostquest.test");
+        mockMvc.perform(put("/api/auth/me/password").header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("currentPassword", "Wrong1234!", "newPassword", "NewQuest5678!"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[*].field", hasItem("currentPassword")));
+        mockMvc.perform(put("/api/auth/me/password").header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("currentPassword", PASSWORD, "newPassword", "short"))))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/auth/me/password").header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("currentPassword", PASSWORD, "newPassword", PASSWORD))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[*].field", hasItem("newPassword")));
+        mockMvc.perform(put("/api/auth/me/password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("currentPassword", PASSWORD, "newPassword", "NewQuest5678!"))))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(put("/api/auth/me/password").header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("currentPassword", PASSWORD, "newPassword", "NewQuest5678!"))))
+                .andExpect(status().isNoContent());
+        login("password@lostquest.test", PASSWORD).andExpect(status().isUnauthorized());
+        login("password@lostquest.test", "NewQuest5678!").andExpect(status().isOk());
+        User saved = userRepository.findByEmail("password@lostquest.test").orElseThrow();
+        assertThat(saved.getPassword()).startsWith("$2").doesNotContain("NewQuest5678!");
     }
 
     private ResultActions signup(String email, String password, String nickname) throws Exception {
