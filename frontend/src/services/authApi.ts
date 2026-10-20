@@ -51,6 +51,26 @@ export async function login(email: string, password: string, config: RequestConf
   return { accessToken: result.accessToken, expiresIn: result.expiresIn, user: parseAuthUser(result.user) };
 }
 
+export const MAX_NICKNAME_LENGTH = 20;
+function sessionToken(): string {
+  const session = loadAuthSession();
+  if (!session) throw new ApiClientError('HTTP_ERROR', '로그인 후 이용해 주세요.', 401);
+  return session.accessToken;
+}
+
+/** Posts and comments show the current nickname, so the change appears everywhere at once. */
+export async function updateNickname(nickname: string, config: RequestConfig = {}): Promise<AuthUser> {
+  const value = nickname.trim();
+  if (!value || value.length > MAX_NICKNAME_LENGTH) throw new ApiClientError('INVALID_INPUT', `닉네임은 1~${MAX_NICKNAME_LENGTH}자로 입력해 주세요.`);
+  return parseAuthUser(await apiRequest('/api/auth/me/nickname', { ...config, accessToken: sessionToken(), method: 'PUT', body: { nickname: value } }));
+}
+
+export async function changePassword(currentPassword: string, newPassword: string, config: RequestConfig = {}): Promise<void> {
+  if (!currentPassword) throw new ApiClientError('INVALID_INPUT', '현재 비밀번호를 입력해 주세요.');
+  if (newPassword.length < 8 || newPassword.length > 64) throw new ApiClientError('INVALID_INPUT', '새 비밀번호는 8~64자로 입력해 주세요.');
+  await apiRequest('/api/auth/me/password', { ...config, accessToken: sessionToken(), method: 'PUT', body: { currentPassword, newPassword } });
+}
+
 export async function fetchCurrentUser(accessToken: string, config: RequestConfig = {}): Promise<AuthUser> {
   return parseAuthUser(await apiRequest('/api/auth/me', { ...config, accessToken }));
 }
@@ -78,7 +98,8 @@ export async function restoreAuthSession(
 export function describeAuthError(error: unknown): string {
   if (!(error instanceof ApiClientError)) return '요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.';
   if (error.serverCode === 'VALIDATION_ERROR' && error.fieldErrors.length > 0) {
-    const labels: Record<string, string> = { email: '이메일', password: '비밀번호', nickname: '닉네임', passwordWithinBcryptLimit: '비밀번호' };
+    const labels: Record<string, string> = { email: '이메일', password: '비밀번호', nickname: '닉네임', passwordWithinBcryptLimit: '비밀번호',
+      currentPassword: '현재 비밀번호', newPassword: '새 비밀번호', newPasswordWithinBcryptLimit: '새 비밀번호' };
     return error.fieldErrors.map(({ field, message }) => `${labels[field] ?? field}: ${message}`).join('\n');
   }
   return error.message;

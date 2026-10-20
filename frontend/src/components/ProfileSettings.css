@@ -1,0 +1,12 @@
+/* My page "내 정보" forms; one column so they read the same on desktop and in the phone-width app shell. */
+.profile-settings{display:grid;gap:16px;max-width:640px}
+.profile-settings .workflow-section-heading{flex-wrap:wrap;gap:6px 16px}
+.profile-settings-card{display:grid;gap:12px;padding:22px}
+.profile-settings-card h3{display:flex;align-items:center;gap:8px;font-size:1.0625rem;color:#15364e}
+.profile-settings-card>p.muted{margin-top:-6px;font-size:.875rem}
+.profile-settings-card input{width:100%;box-sizing:border-box;padding:11px 13px;border:1px solid #dbe5ee;border-radius:10px;font:inherit;font-size:1rem;background:#fff}
+.profile-settings-actions{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.profile-settings-actions small{color:#9aa9b5;font-size:.8125rem}
+.profile-settings-done{display:flex;align-items:center;gap:6px;color:#268469;font-size:.9375rem}
+.profile-settings .spin{animation:profile-settings-spin 1s linear infinite}
+@keyframes profile-settings-spin{to{transform:rotate(360deg)}}

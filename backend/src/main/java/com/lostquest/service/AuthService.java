@@ -1,13 +1,16 @@
 package com.lostquest.service;
 
 import com.lostquest.dto.AuthUserResponse;
+import com.lostquest.dto.ChangePasswordRequest;
 import com.lostquest.dto.LoginRequest;
 import com.lostquest.dto.LoginResponse;
 import com.lostquest.dto.SignupRequest;
+import com.lostquest.dto.UpdateNicknameRequest;
 import com.lostquest.entity.User;
 import com.lostquest.entity.UserRole;
 import com.lostquest.exception.AuthenticationFailedException;
 import com.lostquest.exception.DuplicateEmailException;
+import com.lostquest.exception.InvalidRequestParameterException;
 import com.lostquest.repository.UserRepository;
 import com.lostquest.security.JwtTokenProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -59,9 +62,33 @@ public class AuthService {
 
     /** Resolves the JWT subject against the database so deleted accounts lose access immediately. */
     public AuthUserResponse getCurrentUser(String subject) {
+        return AuthUserResponse.from(requireUser(subject));
+    }
+
+    @Transactional
+    public AuthUserResponse updateNickname(String subject, UpdateNicknameRequest request) {
+        User user = requireUser(subject);
+        user.changeNickname(request.nickname().trim());
+        return AuthUserResponse.from(userRepository.saveAndFlush(user));
+    }
+
+    /** A wrong current password is a form error (400), not an expired session, so the client stays signed in. */
+    @Transactional
+    public void changePassword(String subject, ChangePasswordRequest request) {
+        User user = requireUser(subject);
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new InvalidRequestParameterException("currentPassword", "현재 비밀번호가 올바르지 않습니다.");
+        }
+        if (passwordEncoder.matches(request.newPassword(), user.getPassword())) {
+            throw new InvalidRequestParameterException("newPassword", "새 비밀번호가 현재 비밀번호와 같습니다.");
+        }
+        user.changePassword(passwordEncoder.encode(request.newPassword()));
+        userRepository.saveAndFlush(user);
+    }
+
+    private User requireUser(String subject) {
         return parseUserId(subject)
                 .flatMap(userRepository::findById)
-                .map(AuthUserResponse::from)
                 .orElseThrow(() -> new AuthenticationFailedException("UNAUTHORIZED", "사용자 정보를 확인할 수 없습니다. 다시 로그인해 주세요."));
     }
 
