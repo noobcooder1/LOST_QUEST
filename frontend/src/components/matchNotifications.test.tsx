@@ -85,7 +85,7 @@ describe('MatchNotificationList', () => {
     const [first, second, third] = items();
     expect(first.className).toContain('unread');
     expect(first.textContent).toContain('새 알림');
-    expect(first.textContent).toContain('등록한 ‘검정 지갑’과 유사한 습득물이 발견되었습니다.');
+    expect(first.textContent).toContain('등록한 ‘검정 지갑’과 유사한 주운 물건이 발견되었습니다.');
     expect(first.textContent).toContain('매칭도 98점 · LOST QUEST');
     expect(second.textContent).toContain('매칭도 92점 · 경찰청');
     expect(third.className).not.toContain('unread');
@@ -103,7 +103,7 @@ describe('MatchNotificationList', () => {
 
   it('marks a notification read and opens the matched item when clicked', async () => {
     await renderList();
-    const link = [...items()[0].querySelectorAll('a')].find((a) => a.textContent?.includes('습득물 자세히 보기'))!;
+    const link = [...items()[0].querySelectorAll('a')].find((a) => a.textContent?.includes('주운 물건 자세히 보기'))!;
     expect(link.getAttribute('href')).toBe('/items/api-found-7');
     await act(async () => { link.click(); });
     await settle();
@@ -150,7 +150,7 @@ describe('MatchNotificationList', () => {
 
 describe('account switch on the same mounted list (A → B)', () => {
   const TOKEN_B = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI0In0.c2lnbmF0dXJl';
-  const B_NOTIFICATION = { ...LQ_NOTIFICATION, id: 40, lostItemId: 30, lostItemTitle: '파란 우산', foundItemId: 31, foundTitle: 'B의 습득물', score: 80 };
+  const B_NOTIFICATION = { ...LQ_NOTIFICATION, id: 40, lostItemId: 30, lostItemTitle: '파란 우산', foundItemId: 31, foundTitle: 'B의 주운 물건', score: 80 };
   const B_LIST = { notifications: [B_NOTIFICATION], unreadCount: 1 };
   const pendingA: Record<'list' | 'read' | 'readAll', ((response: Response) => void)[]> = { list: [], read: [], readAll: [] };
   const hold = (bucket: keyof typeof pendingA) => new Promise<Response>((resolve) => { pendingA[bucket].push(resolve); }) as unknown as Response;
@@ -182,7 +182,7 @@ describe('account switch on the same mounted list (A → B)', () => {
   function expectOnlyB() {
     expect(items()).toHaveLength(1);
     expect(items()[0].className).toContain('unread');
-    expect(text()).toContain('B의 습득물');
+    expect(text()).toContain('B의 주운 물건');
     expect(text()).not.toContain('검정 지갑');
     expect(text()).not.toContain('검은 지갑 주웠어요');
     expect(heading()).toBe('매칭 알림 1');
@@ -211,7 +211,7 @@ describe('account switch on the same mounted list (A → B)', () => {
     await renderList();
     expect(heading()).toBe('매칭 알림 2');
     const mounted = section();
-    const link = [...items()[0].querySelectorAll('a')].find((a) => a.textContent?.includes('습득물 자세히 보기'))!;
+    const link = [...items()[0].querySelectorAll('a')].find((a) => a.textContent?.includes('주운 물건 자세히 보기'))!;
     await act(async () => { link.click(); });
     expect(pendingA.read).toHaveLength(1);
 
@@ -245,7 +245,7 @@ describe('account switch on the same mounted list (A → B)', () => {
     serve({});
     handler = ((base) => (url: string, init: RequestInit) => (url.endsWith('/5/read') ? json({ status: 500, code: 'X', message: '오류' }, 500) : base(url, init)))(handler);
     await renderList();
-    const link = [...items()[0].querySelectorAll('a')].find((a) => a.textContent?.includes('습득물 자세히 보기'))!;
+    const link = [...items()[0].querySelectorAll('a')].find((a) => a.textContent?.includes('주운 물건 자세히 보기'))!;
     await act(async () => { link.click(); });
     await settle();
     expect(container.querySelector('[data-testid="where"]')?.textContent).toBe('/items/api-found-7');

@@ -120,7 +120,7 @@ describe('author-only item management', () => {
     expect(button('물품글 삭제', menu).disabled).toBe(false);
     expect(container.querySelector('form')).toBeNull();
     expect(container.querySelector('input')).toBeNull();
-    expect(container.querySelector('a[href="/admin"]')?.textContent).toContain('내 습득물 반환 관리');
+    expect(container.querySelector('a[href="/admin"]')?.textContent).toContain('내가 주운 물건 반환 관리');
   });
 
   it('offers lost-item editing and deletion without ownership-question controls', async () => {

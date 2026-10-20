@@ -61,7 +61,7 @@ describe('read-only registered photo comparisons', () => {
 
   it.each([{ hidden: true }, { status: 'RETURNED' }, { status: 'CLOSED' }, { userId: 9 }])('rejects unavailable or foreign target %j', async changes => {
     fetchMock.mockResolvedValue(json({ ...lost, ...changes }));
-    await expect(run()).rejects.toThrow('내 분실물'); expect(engine.analyze).not.toHaveBeenCalled();
+    await expect(run()).rejects.toThrow('내 물건이 아니에요'); expect(engine.analyze).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 

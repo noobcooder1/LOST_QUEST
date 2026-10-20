@@ -22,7 +22,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     <header className="site-header"><div className="header-inner">
       <Link to="/" aria-label="LOST QUEST 홈"><Logo /></Link>
       <nav className="desktop-nav" aria-label="주 내비게이션">
-        <NavLink to="/" end>홈</NavLink><NavLink to="/search">분실물 찾기</NavLink><NavLink to="/matches">매칭 추천</NavLink><NavLink to="/community">커뮤니티</NavLink><NavLink to="/guide">이용 안내</NavLink><NavLink to="/quest-game">탐정 게임</NavLink>
+        <NavLink to="/" end>홈</NavLink><NavLink to="/search">물건 검색</NavLink><NavLink to="/matches">매칭 추천</NavLink><NavLink to="/community">커뮤니티</NavLink><NavLink to="/guide">이용 안내</NavLink><NavLink to="/quest-game">탐정 게임</NavLink>
       </nav>
       <div className="header-actions"><Link to="/mypage?tab=notifications" className="notification-button" aria-label={unread > 0 ? `알림, 읽지 않은 매칭 알림 ${unread}개` : '알림'}><Bell size={19} aria-hidden="true" />{unread > 0 && <i className="notification-badge" aria-hidden="true">{unread > 99 ? '99+' : unread}</i>}</Link><span className="header-divider" />{isLoggedIn ? <Link to="/mypage" className="header-profile"><span className="mini-avatar"><UserRound size={16}/></span><span>{profile.name}</span></Link> : <Link to="/login" className="login-link">로그인</Link>}<Link to="/register?type=found" className="button button-primary header-register"><Plus size={16} />물품 등록</Link>{isLoggedIn && <button type="button" className="button button-secondary header-logout" onClick={logout}><LogOut size={16} aria-hidden="true" />로그아웃</button>}</div>
     </div></header>

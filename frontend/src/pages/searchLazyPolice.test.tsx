@@ -169,9 +169,9 @@ describe('explicit police source loading', () => {
     await mount('/search?source=public');
     await click(tabs()[2]);
     expect(cards()).toEqual([expect.stringContaining(policeFound.title)]);
-    await act(async () => finish(page('lost', '이전 분실물 응답'))); await flush();
+    await act(async () => finish(page('lost', '이전 잃어버린 물건 응답'))); await flush();
     expect(cards()).toEqual([expect.stringContaining(policeFound.title)]);
-    expect(container.textContent).not.toContain('이전 분실물 응답');
+    expect(container.textContent).not.toContain('이전 잃어버린 물건 응답');
     expect(statusRows()).toHaveLength(1); expect(statusRows()[0].textContent).toContain('경찰청 습득물');
     expect(moreButtons()).toHaveLength(1); expect(moreButtons()[0].textContent).toBe('경찰청 습득물 더 보기');
   });

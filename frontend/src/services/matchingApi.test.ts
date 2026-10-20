@@ -57,12 +57,12 @@ describe('match response parsing', () => {
 
 describe('GET /api/lost-items/{id}/matches', () => {
   it('parses only public matching text and never asks for a wider candidate pool', async () => {
-    const fetchMock=vi.fn().mockResolvedValue(jsonResponse({...RESPONSE,lostItem:{...RESPONSE.lostItem,description:'공개 설명',ownershipAnswer:'private'},matches:[{...LQ_MATCH,description:'습득물 공개 설명',ownershipQuestion:'private'}]}));
+    const fetchMock=vi.fn().mockResolvedValue(jsonResponse({...RESPONSE,lostItem:{...RESPONSE.lostItem,description:'공개 설명',ownershipAnswer:'private'},matches:[{...LQ_MATCH,description:'주운 물건 공개 설명',ownershipQuestion:'private'}]}));
     vi.stubGlobal('fetch',fetchMock);
     const result=await getItemMatches(12,{baseUrl:BASE,accessToken:TOKEN});
     expect(fetchMock.mock.calls[0][0]).toBe(`${BASE}/api/lost-items/12/matches?limit=10`);
     expect(result.target?.description).toBe('공개 설명');
-    expect(result.matches[0].description).toBe('습득물 공개 설명');expect(JSON.stringify(result)).not.toContain('private');
+    expect(result.matches[0].description).toBe('주운 물건 공개 설명');expect(JSON.stringify(result)).not.toContain('private');
   });
   it('reads only known name-kind hints', async () => {
     vi.stubGlobal('fetch',vi.fn().mockResolvedValue(jsonResponse({...RESPONSE,lostItem:{...RESPONSE.lostItem,nameKind:'우산'},matches:[{...LQ_MATCH,nameMatch:'SAME_KIND'},{...POLICE_MATCH,nameMatch:'SOMETHING'}]})));
@@ -87,7 +87,7 @@ describe('GET /api/lost-items/{id}/matches', () => {
   });
 
   it('turns 401/403/404 into clear messages', async () => {
-    for (const [status, text] of [[401, '로그인이 만료'], [403, '본인이 등록한 분실물'], [404, '분실물을 찾을 수 없어요']] as const) {
+    for (const [status, text] of [[401, '로그인이 만료'], [403, '본인이 등록한 잃어버린 물건'], [404, '잃어버린 물건을 찾을 수 없어요']] as const) {
       vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ status, code: 'X', message: 'server' }, status))));
       const error = await getItemMatches(12, { baseUrl: BASE, accessToken: TOKEN }).catch((caught: unknown) => caught);
       expect(error).toBeInstanceOf(ApiClientError);

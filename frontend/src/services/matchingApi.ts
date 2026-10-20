@@ -160,7 +160,7 @@ export function parseItemMatches(value: unknown, baseUrl = getApiBaseUrl()): Ite
 /** Sends the signed-in user's token; the server decides ownership from it (no user id is sent). */
 export async function getItemMatches(lostServerId: number, config: RequestConfig = {}): Promise<ItemMatches> {
   const { accessToken = loadAuthSession()?.accessToken ?? null, limit = DEFAULT_MATCH_LIMIT, ...requestConfig } = config;
-  if (!Number.isSafeInteger(lostServerId) || lostServerId <= 0) throw new ApiClientError('INVALID_CONFIG', '분실물 번호를 확인해 주세요.');
+  if (!Number.isSafeInteger(lostServerId) || lostServerId <= 0) throw new ApiClientError('INVALID_CONFIG', '물건 번호를 확인해 주세요.');
   const boundedLimit = Math.min(Math.max(Math.trunc(limit) || DEFAULT_MATCH_LIMIT, 1), MAX_MATCH_LIMIT);
   const body = await apiRequest(`/api/lost-items/${lostServerId}/matches?limit=${boundedLimit}`, {
     timeoutMs: MATCH_TIMEOUT_MS, ...requestConfig, accessToken,
@@ -171,8 +171,8 @@ export async function getItemMatches(lostServerId: number, config: RequestConfig
 export function describeMatchError(error: unknown): string {
   if (!(error instanceof ApiClientError)) return '매칭 추천을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
   if (error.status === 401) return '로그인이 만료되었어요. 다시 로그인한 뒤 확인해 주세요.';
-  if (error.status === 403) return '본인이 등록한 분실물의 추천만 볼 수 있어요.';
-  if (error.status === 404) return '분실물을 찾을 수 없어요. 삭제되었거나 주소가 잘못되었을 수 있어요.';
+  if (error.status === 403) return '본인이 등록한 잃어버린 물건의 추천만 볼 수 있어요.';
+  if (error.status === 404) return '잃어버린 물건을 찾을 수 없어요. 삭제되었거나 주소가 잘못되었을 수 있어요.';
   return error.message;
 }
 

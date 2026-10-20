@@ -1,9 +1,10 @@
 import { env, pipeline, type FeatureExtractionPipeline } from '@huggingface/transformers';
 import spec from '../../../config/text-model.json';
+// Same switch as the vision models: a hosted build without bundled models downloads the pinned revision once.
 env.allowLocalModels=true;
-env.allowRemoteModels=false;
+env.allowRemoteModels=__ALLOW_REMOTE_MODELS__;
 env.localModelPath='/models/';
-env.useBrowserCache=false;
+env.useBrowserCache=__ALLOW_REMOTE_MODELS__;
 env.backends.onnx.wasm!.wasmPaths='/onnx/';
 env.backends.onnx.wasm!.numThreads=1;
 env.backends.onnx.wasm!.proxy=false;
@@ -12,7 +13,7 @@ self.onmessage=async(event:MessageEvent<{texts:string[];roles:('query'|'passage'
  try{
   const {texts,roles}=event.data;
   if(!texts.length||texts.length>61||roles.length!==texts.length)throw new Error('Invalid text batch');
-  const model=await create('feature-extraction',spec.directory,{device:'wasm',dtype:spec.dtype,local_files_only:true});
+  const model=await create('feature-extraction',__ALLOW_REMOTE_MODELS__?spec.source:spec.directory,{device:'wasm',dtype:spec.dtype,local_files_only:!__ALLOW_REMOTE_MODELS__,...(__ALLOW_REMOTE_MODELS__?{revision:spec.revision}:{})});
   model.tokenizer.model_max_length=256;
   const vectors:number[][]=[];
   for(let i=0;i<texts.length;i++){

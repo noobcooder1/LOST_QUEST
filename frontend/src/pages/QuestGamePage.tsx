@@ -258,7 +258,7 @@ export default function QuestGamePage() {
         </div>
       </div>}
 
-      <section className="card quest-board" aria-label="분실물 매칭 게임 보드">
+      <section className="card quest-board" aria-label="잃어버린 물건 매칭 게임 보드">
         {phase === 'ready' && (
           <div className="quest-ready">
           <div className="quest-intro">
@@ -295,7 +295,7 @@ export default function QuestGamePage() {
               <span>{feedback.text}</span>
             </div>
 
-            <div className="quest-choices" role="group" aria-label="습득물 후보 4개">
+            <div className="quest-choices" role="group" aria-label="주운 물건 후보 4개">
               {currentRound.choices.map((card, idx) => {
                 const Icon = ITEM_ICONS[card.icon];
                 return (
@@ -337,7 +337,7 @@ export default function QuestGamePage() {
             <div className="button-row quest-over-actions">
               <button type="button" className="button button-primary" onClick={startGame}><RefreshCw size={16} />다시 플레이하기</button>
               <button type="button" className="button button-secondary" onClick={() => setPhase('ready')}><ListOrdered size={16} />랭킹 보기</button>
-              <Link to="/search" className="button button-secondary">실제 분실물 찾기</Link>
+              <Link to="/search" className="button button-secondary">실제 물건 검색하기</Link>
             </div>
           </div>
         )}
