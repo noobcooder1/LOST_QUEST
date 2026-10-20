@@ -16,6 +16,8 @@ const screenTitles: [pattern: string, title: string][] = [
   ['/matches', '매칭 추천'],
   ['/mypage', '마이페이지'],
   ['/community', '커뮤니티'],
+  ['/community/write', '게시글 작성'],
+  ['/community/posts/:id', '커뮤니티 게시글'],
   ['/community-inbox', '비공개 질문함'],
   ['/items/:id/edit', '물품 수정'],
   ['/items/:id', '물품 상세'],
@@ -29,7 +31,7 @@ const screenTitles: [pattern: string, title: string][] = [
 ];
 
 /** Focused flows hide the tab bar so their own actions stay within reach. */
-const hideTabBarOn = ['/login', '/signup', '/items/:id/edit', '/returns/:id'];
+const hideTabBarOn = ['/login', '/signup', '/items/:id/edit', '/returns/:id', '/community/write'];
 
 const menuLinks = [
   { to: '/community', label: '커뮤니티', icon: UsersRound, tone: 'blue' },
