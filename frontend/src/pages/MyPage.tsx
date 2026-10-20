@@ -12,7 +12,7 @@ import '../components/ItemManagementMenu.css';
 const requestLabels: Record<ReturnRequest['status'], string> = { pending: '소유자 확인 대기', owner_verified: '요청 승인 대기', approved: 'QR 인증 대기', qr_verified: '반환 완료 확인 대기', completed: '반환 완료', rejected: '반려' };
 
 export default function MyPage() {
-  const { items, requests, profile, notifications, isLoggedIn, logout, markNotificationsRead, activityLoading } = useApp();
+  const { items, requests, profile, notifications, isLoggedIn, markNotificationsRead, activityLoading } = useApp();
   const location = useLocation();
   const [params, setParams] = useSearchParams();
   const tab = ['items', 'returns', 'badges', 'notifications'].includes(params.get('tab') ?? '') ? params.get('tab')! : 'items';
@@ -36,8 +36,8 @@ export default function MyPage() {
   if (!isLoggedIn) return <div className="page-container workflow-auth"><LockKeyhole size={32} /><h1>나의 작은 친절을 모아 보세요</h1><p className="muted">로그인하고 등록 내역과 경험치, 업적을 확인해요.</p><Link className="button button-primary" to={`/login?returnTo=${encodeURIComponent(`/mypage?tab=${tab}`)}`}>로그인 <ArrowRight size={16} /></Link></div>;
 
   return <div className="page-container workflow-page">
-    <div className="page-heading"><div className="eyebrow">나의 퀘스트</div><h1>마이페이지</h1><p>함께 찾아 준 순간들이 모여, 나만의 여정이 됩니다.</p><button className="text-link" style={{ marginTop: 14 }} onClick={logout}>로그아웃</button></div>
-    <div className="button-row"><Link className="text-link" to="/community-inbox">내 비공개 질문함</Link><Link className="text-link" to="/community">사용자 물품 게시판</Link></div>
+    <div className="page-heading"><div className="eyebrow">나의 퀘스트</div><h1>마이페이지</h1><p>함께 찾아 준 순간들이 모여, 나만의 여정이 됩니다.</p></div>
+    <div className="button-row"><Link className="text-link" to="/community-inbox">내 비공개 질문함</Link><Link className="text-link" to="/community">이웃과 이야기 나누기</Link></div>
     {location.state?.itemDeleted && <p className="item-mutation-notice" role="status"><CheckCircle2 size={18} />물품글을 삭제했어요.</p>}
     {activityLoading && <p role="status">계정 기록을 불러오고 있어요…</p>}
     {error && <p className="field-error" role="alert">{error}</p>}

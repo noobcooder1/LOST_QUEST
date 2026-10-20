@@ -1,23 +1,24 @@
-import { ArrowUpRight, Clock3, MapPin } from 'lucide-react';
+import { ArrowUpRight, Clock3, Link2, UserRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { defaultItemImage } from '../data/seed';
+import { COMMUNITY_CATEGORIES, type DiscussionPost } from '../services/communityApi';
 import { formatRegistrationTime } from '../services/dateTime';
-import type { Item } from '../types';
+import { resolveServerImageUrl, toServerRouteId } from '../services/itemApi';
 import ItemImage from './ItemImage';
 
-export default function CommunityPost({ item, returnTo }: { item: Item; returnTo: string }) {
-  const registeredAt = formatRegistrationTime(item.createdAt);
-  const location = item.location.startsWith(item.region) ? item.location : [item.region, item.location].filter(Boolean).join(' ');
-  const status = item.status === 'returned' ? '반환 완료' : item.type === 'found' ? '보관 중' : '찾는 중';
+export default function CommunityPost({ post, returnTo }: { post: DiscussionPost; returnTo: string }) {
+  const createdAt = formatRegistrationTime(post.createdAt);
+  const image = resolveServerImageUrl(post.imageUrl);
+  const detailTo = `/community/posts/${post.id}`;
+  const category = COMMUNITY_CATEGORIES.find(category => category.value === post.category)?.label;
   return <li>
-    <Link className="community-post" to={`/items/${item.id}`} state={{ communityReturnTo: returnTo }} aria-label={`${item.title} 게시글 보기`}>
+    <Link className={`community-post${image ? ' has-photo' : ''}`} to={detailTo} state={{ communityReturnTo: returnTo }} aria-label={`${post.title} 게시글 보기`}>
       <div className="community-post-body">
-        <div className="community-post-labels"><span className={`badge ${item.type === 'found' ? 'badge-green' : 'badge-blue'}`}>{item.type === 'found' ? '습득물' : '분실물'}</span><span className="community-post-category">{item.category}</span><span className={`community-post-status ${item.status === 'returned' ? 'is-returned' : ''}`}><i aria-hidden="true" />{status}</span></div>
-        <h3>{item.title}</h3>
-        {item.description.trim() && <p className="community-post-excerpt">{item.description}</p>}
+        <div className="community-post-labels"><span className={`badge ${post.category === 'story' ? 'badge-green' : 'badge-blue'}`}>{category}</span>{post.linkedItem && <span className="community-post-category"><Link2 size={12} aria-hidden="true" />관련 물품</span>}</div>
+        <h3>{post.title}</h3><p className="community-post-excerpt">{post.content}</p>
       </div>
-      <span className="community-post-thumbnail"><ItemImage src={item.image} fallbackSrc={defaultItemImage(item.category, item.title)} alt={`${item.title} ${!item.image || item.image.startsWith('/images/') ? '예시 이미지' : '사진'}`} loading="lazy" /></span>
-      <div className="community-post-footer"><div className="community-post-meta">{location && <span><MapPin size={13} aria-hidden="true" />{location}</span>}{registeredAt && <span className="community-post-date"><Clock3 size={13} aria-hidden="true" />글 등록 <time dateTime={item.createdAt} title="한국 시간">{registeredAt.replace(/:\d{2}$/, '')}</time></span>}</div><span className="community-post-open" aria-hidden="true">게시글 보기<ArrowUpRight size={16} /></span></div>
+      {image && <span className="community-post-thumbnail"><ItemImage src={image} fallbackSrc="" alt={`${post.title} 첨부 사진`} loading="lazy" /></span>}
+      <div className="community-post-footer"><div className="community-post-meta"><span><UserRound size={13} aria-hidden="true" />{post.authorNickname}</span>{createdAt && <span className="community-post-date"><Clock3 size={13} aria-hidden="true" /><time dateTime={post.createdAt} title="한국 시간">{createdAt.replace(/:\d{2}$/, '')}</time></span>}</div><span className="community-post-open" aria-hidden="true">이야기 읽기<ArrowUpRight size={16} /></span></div>
     </Link>
+    {post.linkedItem && <div className="community-post-related"><span><Link2 size={15} aria-hidden="true" /><span>{post.linkedItem.title}</span></span><Link to={`/items/${toServerRouteId(post.linkedItem.type, post.linkedItem.id)}`} state={{ communityReturnTo: detailTo, communityListReturnTo: returnTo }}>물품글 보기<ArrowUpRight size={14} aria-hidden="true" /></Link></div>}
   </li>;
 }

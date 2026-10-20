@@ -37,7 +37,7 @@ export default function CommunityQuestions({ item }: { item?: Item }) {
   };
   return <section className="community-section card" aria-label="비공개 질문과 답변">
     <div className="community-heading"><h2>비공개 질문·답변</h2><Link className="text-link" to="/community-inbox">내 질문함</Link></div>
-    <p className="muted">질문자와 게시글 작성자만 볼 수 있어요. 연락처·주소·신분증 정보를 불필요하게 보내지 마세요. 답변만으로 소유자 인증이 완료되지는 않습니다.</p>
+    <p className="muted">질문자와 물품글 작성자만 볼 수 있어요. 연락처·주소·신분증 정보를 불필요하게 보내지 마세요. 답변만으로 소유자 인증이 완료되지는 않습니다.</p>
     {item && item.status === 'open' && item.ownerId !== authUser?.id && <form onSubmit={event => { void submit(event); }}>
       <label className="form-field"><span>작성자에게 보낼 질문</span><textarea required maxLength={1000} rows={3} value={question} onChange={event => setQuestion(event.target.value)} placeholder="물품 특징이나 발견 상황을 확인해 보세요." /></label>
       <button className="button button-primary" disabled={busy || loading}>{busy ? '저장 중…' : '비공개 질문 보내기'}</button>
