@@ -59,11 +59,12 @@ function LocationProbe() {
   const location = useLocation();
   return <output data-testid="location">{JSON.stringify({ pathname: location.pathname, state: location.state })}</output>;
 }
-async function render(item: Item) {
+async function render(item: Item, state?: Record<string, unknown>) {
   if (item.source === 'public') vi.mocked(getPoliceItem).mockResolvedValue(item);
   else vi.mocked(getServerItem).mockResolvedValue(item);
-  await act(async () => { root.render(<MemoryRouter initialEntries={[`/items/${item.id}`]}><LocationProbe /><Routes>
+  await act(async () => { root.render(<MemoryRouter initialEntries={[{ pathname: `/items/${item.id}`, state }]}><LocationProbe /><Routes>
     <Route path="/items/:id" element={<ItemDetailPage />} />
+    <Route path="/community/posts/:id" element={<p>커뮤니티 글</p>} />
     <Route path="/mypage" element={<p>내 등록 물품</p>} />
     <Route path="/login" element={<p>로그인</p>} />
   </Routes></MemoryRouter>); });
@@ -76,6 +77,38 @@ function button(label: string, scope: ParentNode = container): HTMLButtonElement
 async function click(element: HTMLElement) { await act(async () => { element.click(); }); }
 async function confirmDeletion() { await click(button('물품글 삭제')); }
 function location() { return JSON.parse(container.querySelector('[data-testid="location"]')!.textContent!) as { pathname: string; state: unknown }; }
+
+describe('linked item return navigation', () => {
+  it.each(['/community', '/community?category=chat&q=%EC%A7%80%EA%B0%91', '/community/posts/42'])('returns to the originating discussion path %s', async communityReturnTo => {
+    app.value.isLoggedIn = false; app.value.authUser = null;
+    await render(found, { communityReturnTo });
+    const back = container.querySelector<HTMLAnchorElement>('a.detail-back')!;
+    expect(back.getAttribute('href')).toBe(communityReturnTo);
+    expect(back.textContent).toContain('커뮤니티로 돌아가기');
+  });
+
+  it.each(['//example.com', '/community-other', '/community/posts/0', '/community/posts/-1', '/community/posts/1/edit', '/community/../search', '/community\n'])('falls back to item search for an unrecognized return path %s', async communityReturnTo => {
+    app.value.isLoggedIn = false; app.value.authUser = null;
+    await render(found, { communityReturnTo });
+    const back = container.querySelector<HTMLAnchorElement>('a.detail-back')!;
+    expect(back.getAttribute('href')).toBe('/search');
+    expect(back.textContent).toContain('물품 목록으로 돌아가기');
+  });
+
+  it.each(['/community', '/community?category=info&q=%EC%84%BC%ED%84%B0&page=2'])('preserves the board filters when returning through a discussion from its item %s', async communityListReturnTo => {
+    app.value.isLoggedIn = false; app.value.authUser = null;
+    await render(found, { communityReturnTo: '/community/posts/42', communityListReturnTo });
+    await click(container.querySelector<HTMLAnchorElement>('a.detail-back')!);
+    expect(location()).toEqual({ pathname: '/community/posts/42', state: { communityReturnTo: communityListReturnTo } });
+  });
+
+  it.each(['//example.com', '/community/posts/1', '/community\n'])('discards an invalid board return state %s', async communityListReturnTo => {
+    app.value.isLoggedIn = false; app.value.authUser = null;
+    await render(found, { communityReturnTo: '/community/posts/42', communityListReturnTo });
+    await click(container.querySelector<HTMLAnchorElement>('a.detail-back')!);
+    expect(location()).toEqual({ pathname: '/community/posts/42', state: null });
+  });
+});
 
 describe('author-only item management', () => {
   it('offers one unified edit entry for found items without a separate ownership-question menu or inline form', async () => {

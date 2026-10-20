@@ -14,6 +14,8 @@ const AdminPage = lazy(() => import('./pages/AdminPage'));
 const GuidePage = lazy(() => import('./pages/GuidePage'));
 const CommunityInboxPage = lazy(() => import('./pages/CommunityInboxPage'));
 const CommunityPage = lazy(() => import('./pages/CommunityPage'));
+const CommunityWritePage = lazy(() => import('./pages/CommunityWritePage'));
+const CommunityDetailPage = lazy(() => import('./pages/CommunityDetailPage'));
 const QuestGamePage = lazy(() => import('./pages/QuestGamePage'));
 const ImageAnalysisPage = lazy(() => import('./pages/ImageAnalysisPage'));
 
@@ -23,6 +25,8 @@ export default function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/search" element={<SearchPage />} />
       <Route path="/community" element={<CommunityPage />} />
+      <Route path="/community/write" element={<CommunityWritePage />} />
+      <Route path="/community/posts/:id" element={<CommunityDetailPage />} />
       <Route path="/community-inbox" element={<CommunityInboxPage />} />
       <Route path="/items/:id" element={<ItemDetailPage />} />
       <Route path="/items/:id/edit" element={<EditItemPage />} />
