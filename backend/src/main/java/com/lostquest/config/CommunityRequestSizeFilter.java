@@ -19,6 +19,9 @@ public class CommunityRequestSizeFilter extends OncePerRequestFilter {
     @Override protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath().isEmpty() ? request.getRequestURI() : request.getServletPath();
         boolean write = request.getMethod().equals("POST") || request.getMethod().equals("PUT");
+        // Multipart bodies must remain untouched for Spring's image/JSON-part parsing and 10/11 MiB limits.
+        if (request.getContentType() != null && request.getContentType().toLowerCase(java.util.Locale.ROOT).startsWith("multipart/"))
+            return true;
         boolean community = path.startsWith("/api/community/");
         boolean itemJson = (path.equals("/api/lost-items") || path.startsWith("/api/lost-items/")
             || path.equals("/api/found-items") || path.startsWith("/api/found-items/"))
