@@ -1,0 +1,43 @@
+/* App shell: a single phone-width column with a top app bar, bottom tab bar and a full-menu sheet. */
+:root{--app-width:480px;--app-bar-height:56px;--app-tabbar-height:64px;--app-bg:#f5f7fa;--safe-top:env(safe-area-inset-top);--safe-bottom:env(safe-area-inset-bottom)}
+.app-shell{position:relative;width:100%;max-width:var(--app-width);min-height:100vh;min-height:100dvh;margin:0 auto;background:var(--app-bg);display:flex;flex-direction:column;box-shadow:0 0 0 1px #dfe6ec,0 20px 60px #15364e14}
+.app-shell>main{flex:1;min-width:0;padding-bottom:28px}
+.app-shell.has-tabbar>main{padding-bottom:calc(var(--app-tabbar-height) + var(--safe-bottom) + 24px)}
+
+.app-bar{position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:8px;height:calc(var(--app-bar-height) + var(--safe-top));padding:var(--safe-top) 8px 0 12px;background:#ffffffeb;backdrop-filter:saturate(1.6) blur(14px);-webkit-backdrop-filter:saturate(1.6) blur(14px);border-bottom:1px solid #e9eef2}
+.app-bar-leading{display:flex;align-items:center;gap:2px;min-width:0}
+.app-bar-leading .brand{font-size:1.25rem;gap:7px}
+.app-bar-leading .brand-mark svg{width:28px;height:28px}
+.app-bar-title{font-size:1.125rem;font-weight:750;letter-spacing:-.035em;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:4px}
+.app-bar-actions{display:flex;align-items:center;gap:2px;flex-shrink:0}
+.app-bar-icon{position:relative;display:grid;place-items:center;width:44px;height:44px;border-radius:12px;color:#486276}
+.app-bar-icon:active{background:#edf2f6}
+.app-bar .notification-button i.notification-badge{right:3px;top:4px}
+
+.app-tabbar{position:fixed;z-index:45;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:var(--app-width);height:calc(var(--app-tabbar-height) + var(--safe-bottom));padding:0 6px var(--safe-bottom);display:flex;align-items:stretch;background:#fffffff2;backdrop-filter:saturate(1.6) blur(14px);-webkit-backdrop-filter:saturate(1.6) blur(14px);border-top:1px solid #e6ecf1}
+.app-tabbar>a{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#9aa7b2;font-size:.75rem;font-weight:600}
+.app-tabbar>a.active{color:var(--navy)}
+.app-tabbar>a.active svg{stroke-width:2.4}
+.app-tabbar-plus{display:grid;place-items:center;width:46px;height:46px;margin-top:-22px;border-radius:16px;background:var(--navy);color:#fff;box-shadow:0 8px 18px #15364e40;border:3px solid #fff}
+.app-tabbar>a.app-tabbar-register.active .app-tabbar-plus{background:var(--blue)}
+
+.app-sheet-layer{position:fixed;inset:0;z-index:60;background:#0f22314d;display:flex;align-items:flex-end;justify-content:center;animation:app-fade .18s ease-out}
+.app-sheet{width:100%;max-width:var(--app-width);max-height:88vh;overflow-y:auto;background:#fff;border-radius:22px 22px 0 0;padding:8px 18px calc(20px + var(--safe-bottom));animation:app-sheet-up .22s ease-out}
+.app-sheet-handle{width:38px;height:4px;border-radius:4px;background:#dbe3ea;margin:2px auto 6px}
+.app-sheet-header{display:flex;align-items:center;justify-content:space-between}
+.app-sheet-header strong{font-size:1.125rem;letter-spacing:-.03em;color:var(--navy)}
+.app-sheet-profile{display:flex;align-items:center;gap:12px;margin-top:6px;padding:14px;border-radius:14px;background:#f3f7fb;color:#6d8496}
+.app-sheet-avatar{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:#fff;color:#4f7898}
+.app-sheet-profile-copy{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.app-sheet-profile-copy strong{color:var(--navy);font-size:1rem}
+.app-sheet-profile-copy small{font-size:.8125rem}
+.app-sheet-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:16px}
+.app-sheet-grid>a{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 4px;border-radius:14px;font-size:.8125rem;font-weight:600;color:#4a6274;text-align:center;word-break:keep-all}
+.app-sheet-grid>a:active{background:#f3f6f9}
+.app-sheet-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:15px}
+.app-sheet .api-health-status{width:100%;margin:16px 0 0}
+.app-sheet-footer{margin-top:16px;text-align:center;font-size:.75rem;color:#a6b2bb}
+
+@keyframes app-fade{from{opacity:0}to{opacity:1}}
+@keyframes app-sheet-up{from{transform:translateY(40px);opacity:.6}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){.app-sheet-layer,.app-sheet{animation:none}}

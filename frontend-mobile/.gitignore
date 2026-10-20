@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.tsbuildinfo
+*.log
+.env
+.env.local
+public/models/*
+!public/models/README.md
+public/onnx/
+config/models.local.json

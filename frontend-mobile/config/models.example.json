@@ -1,0 +1,28 @@
+{
+  "ollama": {
+    "baseUrl": "http://127.0.0.1:11434",
+    "model": "embeddinggemma-2:740m"
+  },
+  "vision": {
+    "feature": {
+      "directory": "dinov2-small",
+      "source": "onnx-community/dinov2-small",
+      "revision": "ef1fb1005bfd7768839d18080f7038b403506f87",
+      "label": "DINOv2-small",
+      "adapter": "dinov2-cls",
+      "dimensions": 384,
+      "inputSize": 224,
+      "dtype": "q8",
+      "files": ["config.json", "preprocessor_config.json", "onnx/model_quantized.onnx"]
+    },
+    "classifier": {
+      "directory": "clip-vit-base-patch32",
+      "source": "Xenova/clip-vit-base-patch32",
+      "revision": "d15189d7028b43f1d3e65039190477f6af591c2a",
+      "label": "CLIP",
+      "adapter": "clip-zero-shot",
+      "dtype": "q8",
+      "files": ["config.json", "preprocessor_config.json", "tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "onnx/model_quantized.onnx"]
+    }
+  }
+}

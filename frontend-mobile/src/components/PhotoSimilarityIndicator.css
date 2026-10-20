@@ -1,0 +1,33 @@
+.photo-similarity { display:flex; gap:10px; align-items:flex-start; margin-top:10px; padding:11px 12px; border:1px solid #e6edf2; border-radius:7px; background:#fff; min-width:0; }
+.photo-similarity-icon { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:30px; height:30px; border-radius:7px; background:#f0f4f7; color:#7891a1; }
+.photo-similarity-body { flex:1; min-width:0; }
+.photo-similarity-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.photo-similarity-head>strong { font-size:0.875rem; font-weight:600; color:#5a7488; }
+.photo-similarity-tag { padding:1px 6px; border-radius:4px; background:#f0f4f7; color:#8a9aa6; font-size:0.75rem; font-weight:500; }
+.photo-similarity-state { display:inline-flex; align-items:center; gap:6px; margin-left:auto; font-size:0.8125rem; font-weight:600; color:#8a9aa6; white-space:nowrap; }
+.photo-similarity-percent { font-weight:600; }
+.photo-similarity-bars { display:inline-flex; gap:2px; align-items:flex-end; }
+.photo-similarity-bars>i { display:block; width:4px; border-radius:1px; background:#dfe6eb; }
+.photo-similarity-bars>i:nth-child(1) { height:6px; }
+.photo-similarity-bars>i:nth-child(2) { height:9px; }
+.photo-similarity-bars>i:nth-child(3) { height:12px; }
+.photo-similarity-bars>i.on { background:currentColor; }
+.photo-similarity-body>p { margin:4px 0 0; font-size:0.875rem; line-height:1.6; color:#7f929f; }
+.photo-similarity-body>small { display:flex; align-items:flex-start; gap:4px; margin-top:5px; font-size:0.75rem; line-height:1.6; color:#a3afb8; }
+.photo-similarity-body>small>svg { flex-shrink:0; margin-top:3px; }
+
+.photo-similarity-ready .photo-similarity-icon { background:#eef4fa; color:#6486a0; }
+.photo-similarity-level-high .photo-similarity-icon { background:#ebf5f1; color:#438a72; }
+.photo-similarity-level-high .photo-similarity-state { color:#438a72; }
+.photo-similarity-level-medium .photo-similarity-state { color:#6486a0; }
+.photo-similarity-pending .photo-similarity-icon { color:#6486a0; }
+.photo-similarity-pending .photo-similarity-icon>svg { animation:photo-similarity-spin 1.1s linear infinite; }
+.photo-similarity-unavailable .photo-similarity-icon,.photo-similarity-no_image .photo-similarity-icon { color:#a3afb8; }
+
+@keyframes photo-similarity-spin { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .photo-similarity-pending .photo-similarity-icon>svg { animation:none; } }
+
+  .photo-similarity { gap:8px; padding:10px; }
+  .photo-similarity-icon { width:26px; height:26px; }
+  .photo-similarity-state { margin-left:0; flex-basis:100%; }
+
