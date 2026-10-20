@@ -1,12 +1,44 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRequest, ApiClientError } from './apiClient';
 import { loadAuthSession } from './authSession';
-import { createDiscussionPost, getDiscussionPost, isDiscussionDate, listDiscussionPosts, parseDiscussionPost } from './communityApi';
+import { addDiscussionComment, createDiscussionPost, deleteDiscussionComment, getDiscussionPost, isDiscussionDate, listDiscussionComments, listDiscussionPosts, parseDiscussionPost } from './communityApi';
 vi.mock('./apiClient', async original => ({ ...await original<typeof import('./apiClient')>(), apiRequest: vi.fn() }));
 vi.mock('./authSession', () => ({ loadAuthSession: vi.fn() }));
-const row = { id: 1, category: 'chat', title: '오늘의 이야기', content: '이웃과 나눠요.', authorNickname: '회원', createdAt: '2026-10-20T01:00:00Z', imageUrl: null, linkedItem: null };
+const row = { id: 1, category: 'chat', title: '오늘의 이야기', content: '이웃과 나눠요.', authorNickname: '회원', createdAt: '2026-10-20T01:00:00Z', imageUrl: null, linkedItem: null, commentCount: 2 };
 beforeEach(() => { vi.clearAllMocks(); vi.mocked(loadAuthSession).mockReturnValue({ accessToken: 'test-only-token', expiresAt: Date.now() + 60000 }); });
 describe('standalone community discussion API', () => {
+  it('reads comment counts, defaulting to zero for servers that do not send one', () => {
+    expect(parseDiscussionPost(row).commentCount).toBe(2);
+    const { commentCount: _omitted, ...older } = row;
+    expect(parseDiscussionPost(older).commentCount).toBe(0);
+    expect(() => parseDiscussionPost({ ...row, commentCount: -1 })).toThrow(ApiClientError);
+    expect(() => parseDiscussionPost({ ...row, commentCount: '2' })).toThrow(ApiClientError);
+  });
+  it('lists public comments with the viewer token and falls back to an anonymous read when it expired', async () => {
+    const comment = { id: 5, content: '역무실에 문의해 보세요.', authorNickname: '이웃', createdAt: '2026-10-20T02:00:00Z', mine: false };
+    vi.mocked(apiRequest).mockResolvedValueOnce([comment]);
+    expect(await listDiscussionComments(3)).toEqual([comment]);
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/community/posts/3/comments', { accessToken: 'test-only-token' });
+    vi.mocked(apiRequest).mockRejectedValueOnce(new ApiClientError('HTTP_ERROR', 'expired', 401)).mockResolvedValueOnce([]);
+    expect(await listDiscussionComments(3)).toEqual([]);
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/community/posts/3/comments');
+    vi.mocked(apiRequest).mockResolvedValueOnce([{ ...comment, mine: 'yes' }]);
+    await expect(listDiscussionComments(3)).rejects.toMatchObject({ code: 'INVALID_RESPONSE' });
+    await expect(listDiscussionComments(0)).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  });
+  it('adds trimmed comments within the limit and deletes by post and comment id', async () => {
+    const saved = { id: 6, content: '감사합니다', authorNickname: '회원', createdAt: '2026-10-20T02:00:00Z', mine: true };
+    vi.mocked(apiRequest).mockResolvedValueOnce(saved);
+    expect(await addDiscussionComment(3, '  감사합니다  ')).toEqual(saved);
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/community/posts/3/comments', { accessToken: 'test-only-token', method: 'POST', body: { content: '감사합니다' } });
+    await expect(addDiscussionComment(3, '   ')).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    await expect(addDiscussionComment(3, '가'.repeat(1001))).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    vi.mocked(apiRequest).mockResolvedValueOnce(null);
+    await deleteDiscussionComment(3, 6);
+    expect(apiRequest).toHaveBeenLastCalledWith('/api/community/posts/3/comments/6', { accessToken: 'test-only-token', method: 'DELETE' });
+    vi.mocked(loadAuthSession).mockReturnValue(null);
+    await expect(addDiscussionComment(3, '로그인 없이')).rejects.toMatchObject({ status: 401 });
+  });
   it('uses public discussion endpoints without requiring or sending credentials', async () => {
     vi.mocked(loadAuthSession).mockReturnValue(null);
     vi.mocked(apiRequest).mockResolvedValueOnce({ items: [row], page: 2, hasNext: true });

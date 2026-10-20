@@ -5,6 +5,7 @@ import com.lostquest.service.CommunityPostService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.time.LocalDate;
+import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -30,6 +31,23 @@ public class CommunityPostController {
 
     @GetMapping("/{id}")
     public CommunityPostResponse detail(@PathVariable @Positive Long id) { return service.detail(id); }
+
+    /** Public like the post itself; a signed-in viewer additionally learns which replies are theirs. */
+    @GetMapping("/{id}/comments")
+    public List<CommunityCommentResponse> comments(@AuthenticationPrincipal Jwt jwt, @PathVariable @Positive Long id) {
+        return service.comments(id, jwt == null ? null : jwt.getSubject());
+    }
+
+    @PostMapping(value = "/{id}/comments", consumes = MediaType.APPLICATION_JSON_VALUE) @ResponseStatus(HttpStatus.CREATED)
+    public CommunityCommentResponse addComment(@AuthenticationPrincipal Jwt jwt, @PathVariable @Positive Long id,
+            @Valid @RequestBody CommunityCommentRequest input) {
+        return service.addComment(jwt.getSubject(), id, input);
+    }
+
+    @DeleteMapping("/{id}/comments/{commentId}") @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteComment(@AuthenticationPrincipal Jwt jwt, @PathVariable @Positive Long id, @PathVariable @Positive Long commentId) {
+        service.deleteComment(jwt.getSubject(), id, commentId);
+    }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE) @ResponseStatus(HttpStatus.CREATED)
     public CommunityPostResponse create(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CreateCommunityPostRequest input) {

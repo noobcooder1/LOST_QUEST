@@ -13,6 +13,11 @@
 | `GET /api/community/posts` | 공개 | `{items: CommunityPost[], page: number, hasNext: boolean}` |
 | `GET /api/community/posts/{id}` | 공개 | `CommunityPost` |
 | `POST /api/community/posts` | Bearer JWT | `201 CommunityPost` |
+| `GET /api/community/posts/{id}/comments` | 공개 (JWT가 있으면 `mine` 표시) | `CommunityComment[]` |
+| `POST /api/community/posts/{id}/comments` | Bearer JWT | `201 CommunityComment` |
+| `DELETE /api/community/posts/{id}/comments/{commentId}` | Bearer JWT (작성자 또는 관리자) | `204` |
+
+`CommunityPost`에는 댓글 수 `commentCount`가 포함됩니다. 댓글은 `{content}`(1–1000자, HTML 태그·이메일·휴대전화 번호 불가)로 작성하며 등록순으로 최대 300개를 반환합니다. `CommunityComment`는 `{id, content, authorNickname, createdAt, mine}`이고 작성자 ID·이메일은 응답에 넣지 않습니다. 댓글 작성은 회원당 1분에 20개로 제한합니다. 댓글 테이블은 [추가 SQL](../계획서및회의록/SQL/07_커뮤니티_댓글.sql)로 만듭니다.
 
 목록은 `category`, `q`, `from`, `to`, `page`를 선택적으로 받습니다. 페이지는 0부터 시작하고 20개 단위입니다. 정렬은 서버 등록 시각 내림차순, 동일 시각에는 ID 내림차순입니다. `from` / `to`는 `YYYY-MM-DD` 형식의 **한국 시간 등록일**이며 양쪽 날짜를 모두 포함합니다. 검색은 제목 또는 본문에서 대소문자를 구분하지 않는 부분 일치이고 `%`, `_`, `!`도 일반 문자로 검색합니다. 검색어는 100자 이하, 페이지는 0–10000입니다. 필터를 함께 보내면 모든 조건을 적용합니다.
 
