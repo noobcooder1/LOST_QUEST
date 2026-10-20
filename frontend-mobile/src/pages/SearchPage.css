@@ -1,0 +1,63 @@
+.search-page .source-tabs > button {
+  min-height: 48px;
+}
+
+.search-page .public-list-status-grid > :only-child {
+  grid-column: 1 / -1;
+}
+
+.search-page .police-date-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 560px;
+}
+
+.search-page .police-filter-group .police-lost-fields {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.search-page .catalog-load-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 32px;
+  padding: 4px 0 8px;
+}
+
+.search-page .catalog-load-more > .button {
+  min-width: 230px;
+  min-height: 48px;
+  padding: 12px 24px;
+}
+
+.search-page .catalog-load-more svg {
+  flex-shrink: 0;
+}
+
+
+  .search-page .source-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 8px;
+  }
+
+  .search-page .source-tabs > button {
+    font-size: .875rem;
+  }
+
+  .search-page .source-tabs > button > span {
+    flex-basis: 100%;
+    font-size: .75rem;
+  }
+
+  .search-page .police-filter-group .police-lost-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .search-page .catalog-load-more {
+    margin-top: 28px;
+  }
+
+  .search-page .catalog-load-more > .button {
+    width: min(100%, 320px);
+    min-width: 0;
+  }
+

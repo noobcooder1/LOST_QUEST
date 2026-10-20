@@ -1,0 +1,22 @@
+.search-page .public-list-status-grid{margin:16px 0;gap:8px;align-items:start}
+.search-page .public-list-status-grid>.public-list-status{padding:10px 13px;border-radius:8px}
+.public-list-status .public-list-status-heading{gap:8px;flex-wrap:wrap;min-height:20px}
+.public-list-status .public-list-status-heading>strong{font-size:.8125rem}
+.public-list-status-count{font-size:.75rem;color:#758b9d;white-space:nowrap}
+.public-list-status-age{font-size:.6875rem;white-space:nowrap;color:#7b8f9f}
+.public-list-status-refresh{display:inline-flex;align-items:center;gap:4px;padding:3px 5px;border-radius:4px;font-size:.6875rem;color:#2764a2;white-space:nowrap}
+.public-list-status-refresh:disabled{opacity:.5;cursor:not-allowed}.public-list-status-refresh:hover:not(:disabled){background:#e5effa}
+.public-list-status .public-list-status-label{margin-left:auto;font-size:.75rem;white-space:nowrap;gap:4px}
+.public-list-status-details{position:relative;flex-shrink:0;color:#8497a8}
+.public-list-status-details>summary{display:flex;align-items:center;justify-content:center;cursor:pointer;list-style:none;border-radius:4px;width:22px;height:22px}
+.public-list-status-details>summary::-webkit-details-marker{display:none}
+.public-list-status-details>summary:hover,.public-list-status-details[open]>summary{background:#e7eff8;color:#245d96}
+.public-list-status-details>summary:focus-visible{outline:2px solid #2874ed;outline-offset:2px}
+.public-list-status-popover{position:absolute;right:0;top:calc(100% + 8px);z-index:25;width:280px;max-width:calc(100vw - 48px);padding:14px 16px;background:white;border:1px solid #dce6f0;border-radius:10px;box-shadow:0 6px 22px #15364e15;color:#466477}
+.public-list-status-popover>strong{font-size:.8125rem}
+.public-list-status .public-list-status-popover small{margin-top:7px;font-size:.75rem;line-height:1.8}
+.public-list-status .public-list-status-sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.search-page .public-list-status p{font-size:.8125rem;line-height:1.7;margin-top:7px}
+.search-page .public-list-status small{font-size:.75rem;margin-top:6px}
+.search-page .public-list-status .text-link{margin-top:7px;font-size:.8125rem}
+.search-page .public-list-status-grid{grid-template-columns:minmax(0,1fr);gap:6px}.search-page .public-list-status-grid>.public-list-status{padding:9px 11px}.public-list-status .public-list-status-heading{gap:6px}.public-list-status .public-list-status-heading>strong{font-size:.75rem}.public-list-status-count,.public-list-status .public-list-status-label{font-size:.6875rem}
