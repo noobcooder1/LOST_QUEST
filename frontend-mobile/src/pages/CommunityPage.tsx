@@ -75,7 +75,7 @@ export default function CommunityPage() {
       <div className="community-hero-copy"><span className="eyebrow"><UsersRound size={16} aria-hidden="true" />LOST QUEST 커뮤니티</span>
         <h1>일상의 이야기, <span>함께 나눠요.</span></h1>
         <p>가벼운 잡담부터 유용한 정보, 다시 찾은 기쁨까지.<br />이웃과 자유롭게 이야기하는 공간이에요.</p>
-        <div className="button-row"><Link className="button button-primary" to="/community/write" state={{ communityReturnTo: returnTo }}><Plus size={18} aria-hidden="true" />게시글 작성</Link><Link className="community-inbox-link" to="/search"><Search size={17} aria-hidden="true" />물건 검색<ArrowRight size={16} aria-hidden="true" /></Link></div>
+        <div className="button-row"><Link className="button button-primary" to="/community/write" state={{ communityReturnTo: returnTo }}><Plus size={18} aria-hidden="true" />게시글 작성</Link><Link className="button button-secondary community-inbox-link" to="/search"><Search size={17} aria-hidden="true" />물건 검색<ArrowRight size={16} aria-hidden="true" /></Link></div>
         {!isLoggedIn && <small>게시글은 누구나 볼 수 있어요. 글 작성은 로그인 후 이용해 주세요.</small>}
       </div>
       <aside className="community-hero-note"><MessagesSquare size={26} aria-hidden="true" /><h2>이야기는 여기서, 물품은 물품찾기에서</h2><p>분실·습득 물품은 물품찾기에 등록해 주세요. 이야기와 관련된 물품은 게시글에 연결할 수 있어요.</p><Link to="/register">분실·습득 물품 등록<ArrowRight size={15} aria-hidden="true" /></Link></aside>

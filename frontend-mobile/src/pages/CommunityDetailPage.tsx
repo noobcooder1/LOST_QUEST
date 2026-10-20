@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, ChevronRight, Clock3, Link2, MessageSquare, UserRound } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Clock3, Link2, MessageSquare, UserRound } from 'lucide-react';
 import CommunityComments from '../components/CommunityComments';
 import ItemImage from '../components/ItemImage';
 import { ApiClientError } from '../services/apiClient';
@@ -37,14 +37,13 @@ export default function CommunityDetailPage() {
   const imageUrl = resolveServerImageUrl(post.imageUrl);
   const category = COMMUNITY_CATEGORIES.find(value => value.value === post.category)?.label ?? post.category;
   return <div className="page-container discussion-detail-page">
-    <nav className="discussion-breadcrumb" aria-label="현재 위치"><Link to={returnTo}>커뮤니티</Link><ChevronRight size={14} /><span>{category}</span></nav>
+    <nav className="discussion-breadcrumb" aria-label="게시글 탐색"><Link className="text-link" to={returnTo}><ArrowLeft size={16} aria-hidden="true" />커뮤니티로</Link></nav>
     {location.state?.postCreated && <p className="discussion-created-note" role="status">게시글이 등록되었어요. 이웃들과 이야기를 나눠 보세요.</p>}
     <article className="card discussion-article">
       <header className="discussion-article-header"><span className={`badge discussion-category-badge discussion-category-${post.category}`}>{category}</span><h1>{post.title}</h1><div className="discussion-article-meta"><span><UserRound size={15} />{post.authorNickname}</span><span><Clock3 size={15} /><time dateTime={post.createdAt}>{formatRegistrationTime(post.createdAt) ?? '작성 시간 확인 중'}</time></span></div></header>
       <div className="discussion-article-body"><p>{post.content}</p>{imageUrl && <figure className="discussion-article-photo"><ItemImage src={imageUrl} fallbackSrc="" alt={`${post.title} 첨부 사진`} /></figure>}</div>
       {post.linkedItem && <section className="discussion-linked-card" aria-labelledby="discussion-linked-heading"><span className="discussion-linked-icon"><Link2 size={22} /></span><div><h2 id="discussion-linked-heading">함께 볼 물품글</h2><p><span>{post.linkedItem.type === 'lost' ? '내 물건 찾기' : '주인 찾기'}</span>{post.linkedItem.title}</p></div><Link className="button button-secondary" to={`/items/api-${post.linkedItem.type}-${post.linkedItem.id}`} state={{ communityReturnTo: `/community/posts/${post.id}`, communityListReturnTo: returnTo }}>물품글 보기 <ArrowUpRight size={17} /></Link></section>}
       <CommunityComments postId={post.id} initialCount={post.commentCount} />
-      <footer className="discussion-article-footer"><Link className="button button-secondary" to={returnTo}><ArrowLeft size={17} />목록으로</Link><Link className="text-link" to="/community/write" state={{ communityReturnTo: returnTo }}>나도 글쓰기 <MessageSquare size={16} /></Link></footer>
     </article>
   </div>;
 }
