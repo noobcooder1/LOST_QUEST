@@ -89,16 +89,16 @@ async function candidatePhotoUrl(match: MatchResult, signal: AbortSignal): Promi
 }
 
 /**
- * The two real photos for the side-by-side comparison screen: [my lost item, the recommended found item].
- * Same checks as the card comparison; nothing is uploaded or stored.
+ * Photos for the AI comparison screen: the found item's real photo (required) and the caller's lost-item photo when
+ * there is one. Same checks as before (owner, open, not hidden, unchanged photo); nothing is uploaded or stored.
  */
-export async function loadMatchPhotoPair(target: Item, match: MatchResult, ownerId: number, signal: AbortSignal): Promise<[File, File]> {
+export async function loadMatchPhotos(target: Item, match: MatchResult, ownerId: number, signal: AbortSignal): Promise<{ lost: File | null; found: File }> {
   checkAbort(signal);
   const targetUrl = await freshTargetPhotoUrl(target, ownerId, signal);
-  if (!targetUrl) throw new Error('내 분실물에 등록된 사진이 없어요.');
   const candidateUrl = await candidatePhotoUrl(match, signal);
   if (!candidateUrl) throw new Error('이 습득물에는 비교할 사진이 없어요.');
-  return [await photoFile(targetUrl, signal), await photoFile(candidateUrl, signal)];
+  const found = await photoFile(candidateUrl, signal);
+  return { lost: targetUrl ? await photoFile(targetUrl, signal) : null, found };
 }
 
 /** Read-only second stage. Police pixels use the bounded server cache; no uploads or score/order changes. */

@@ -1,5 +1,5 @@
 import { env, pipeline, RawImage, type ImageFeatureExtractionPipeline, type ZeroShotImageClassificationPipeline } from '@huggingface/transformers';
-import { ITEM_TYPES, categoryPrediction, manualCategory } from './categories';
+import { CLASSIFIER_PROMPTS, categoryPrediction, manualCategory } from './categories';
 import { VISION_MODELS } from './modelConfig';
 
 env.allowLocalModels = true;
@@ -22,9 +22,28 @@ const modelOptions = (model: { revision: string; dtype: string }) => ({
   local_files_only: !__ALLOW_REMOTE_MODELS__,
   ...(__ALLOW_REMOTE_MODELS__ ? { revision: model.revision } : {}),
 });
-self.onmessage = async (event: MessageEvent<{ id: number; image: Blob; categoryId: string }>) => {
-  const { id, image, categoryId } = event.data;
+function loadClassifier(id: number) {
+  if (!classifier) {
+    self.postMessage({ id, type: 'loading' });
+    const classifierConfig = VISION_MODELS.classifier;
+    classifier = createClassifier('zero-shot-image-classification', modelId(classifierConfig), modelOptions(classifierConfig)).then(model => {
+      if (model.processor.image_processor) model.processor.image_processor.do_center_crop = false;
+      return model;
+    });
+  }
+  return classifier;
+}
+
+self.onmessage = async (event: MessageEvent<{ id: number; image: Blob; categoryId?: string; prompts?: string[] }>) => {
+  const { id, image, categoryId = 'auto', prompts } = event.data;
   try {
+    // Text ↔ photo: CLIP scores how well each English description fits this photo (softmax over the prompts).
+    if (prompts) {
+      if (!prompts.length || prompts.length > 64 || prompts.some(p => typeof p !== 'string' || !p || p.length > 200)) throw new Error('Invalid prompts');
+      const ranked = await (await loadClassifier(id))(await RawImage.fromBlob(image), prompts);
+      self.postMessage({ id, type: 'describe', ranked });
+      return;
+    }
     if (!extractor) {
       self.postMessage({ id, type: 'loading' });
       const feature = VISION_MODELS.feature;
@@ -49,15 +68,7 @@ self.onmessage = async (event: MessageEvent<{ id: number; image: Blob; categoryI
     let category;
     if (categoryId !== 'auto') category = manualCategory(categoryId);
     else {
-      if (!classifier) {
-        self.postMessage({ id, type: 'loading' });
-        const classifierConfig = VISION_MODELS.classifier;
-        classifier = createClassifier('zero-shot-image-classification', modelId(classifierConfig), modelOptions(classifierConfig)).then(model => {
-          if (model.processor.image_processor) model.processor.image_processor.do_center_crop = false;
-          return model;
-        });
-      }
-      const ranked = await (await classifier)(raw, ITEM_TYPES.map(item => item.prompt));
+      const ranked = await (await loadClassifier(id))(raw, CLASSIFIER_PROMPTS);
       category = categoryPrediction(ranked as { label: string; score: number }[]);
     }
     self.postMessage({ id, type: 'result', vector, category });

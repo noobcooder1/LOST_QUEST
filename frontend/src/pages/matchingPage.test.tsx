@@ -17,8 +17,8 @@ const LQ_ID = LQ_MATCH.id;
 const POLICE_ID = POLICE_MATCH.id;
 const photo = vi.hoisted(() => ({ run: vi.fn() }));
 vi.mock('../services/matchPhotoComparison', async (importOriginal) => ({ ...(await importOriginal<typeof import('../services/matchPhotoComparison')>()), compareMatchPhotos: photo.run }));
-vi.mock('./ImageAnalysisPage', () => ({ default: ({ preset, onClose }: { preset: { lost: { id: string }; match: { id: string } }; onClose: () => void }) =>
-  <div className="compare-stand-in">{preset.lost.id}|{preset.match.id}<button type="button" onClick={onClose}>매칭 결과로 돌아가기</button></div> }));
+vi.mock('./MatchComparePanel', () => ({ default: ({ lost, match, itemType, lostKind, onClose }: { lost: { id: string }; match: { id: string }; itemType?: string; lostKind?: string; onClose: () => void }) =>
+  <div className="compare-stand-in">{lost.id}|{match.id}|{itemType ?? 'auto'}|{lostKind ?? '-'}<button type="button" onClick={onClose}>매칭 결과로 돌아가기</button></div> }));
 const textAi = vi.hoisted(() => ({ compare: vi.fn() }));
 vi.mock('../features/textMatching/textMatching', () => ({ compareMatchTexts: textAi.compare }));
 
@@ -202,21 +202,23 @@ describe('MatchingPage', () => {
     expect(button('다시 매칭').disabled).toBe(false);
   });
 
-  it('shows a single start button and photo buttons only on cards with a real photo when the lost item has one', async () => {
+  it('shows a single start button and AI buttons only on cards whose found item has a real photo', async () => {
     lostList = LOST_WITH_PHOTO;
     matchesResponse = () => json({ ...RESPONSE, matches: [LQ_MATCH, POLICE_MATCH, { ...LQ_MATCH, id: 'LOST_QUEST:8', foundItemId: 8, title: '사진 없는 지갑', imageUrl: null }] });
     await renderAndStart();
     expect(container.querySelectorAll('.matching-start button')).toHaveLength(1);
     expect(cards()).toHaveLength(3);
     expect(cards().map(card => card.querySelector('.match-photo-action') !== null)).toEqual([true, true, false]);
-    expect(text()).toContain('사진이 있는 추천 항목에는 ‘AI 사진 비교’ 버튼이 생겨요');
+    expect(text()).toContain('사진이 있는 추천 항목에는 ‘AI 비교’ 버튼이 생겨요. 사진 외형·글·색상을');
     expect(photo.run).not.toHaveBeenCalled(); expect(container.querySelector('.photo-compare-layer')).toBeNull();
   });
 
-  it('shows no photo buttons when the lost item itself has no photo', async () => {
+  it('still offers the AI comparison when the lost item has no photo, comparing by its words', async () => {
     await renderAndStart();
-    expect(photoButtons()).toHaveLength(0);
-    expect(text()).toContain('내 분실물에 사진을 등록하면');
+    expect(photoButtons()).toHaveLength(2);
+    expect(text()).toContain('내 분실물은 사진이 없어 글로 비교해요');
+    await click(photoButtons()[0]);
+    expect(container.querySelector('.photo-compare-layer')?.textContent).toContain(`api-lost-12|${LQ_ID}`);
   });
 
   it('opens the side-by-side comparison for the clicked card over the results and closes back to them', async () => {
@@ -240,6 +242,18 @@ describe('MatchingPage', () => {
     expect(container.querySelector('.photo-compare-layer')?.textContent).toContain(`api-lost-12|${LQ_ID}`);
     await act(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
     expect(container.querySelector('.photo-compare-layer')).toBeNull();
+  });
+
+  it('hands the shared item kind of same-kind cards to the comparison, and nothing for other candidates', async () => {
+    lostList = LOST_WITH_PHOTO;
+    matchesResponse = () => json({ ...RESPONSE, lostItem: { ...RESPONSE.lostItem, nameKind: '지갑' },
+      matches: [{ ...LQ_MATCH, nameMatch: 'SAME_KIND' }, { ...POLICE_MATCH, nameMatch: 'UNKNOWN_KIND' }] });
+    await renderAndStart();
+    await click(cards()[0].querySelector<HTMLButtonElement>('.match-photo-action button')!);
+    expect(container.querySelector('.photo-compare-layer')?.textContent).toContain(`${LQ_ID}|wallet|지갑`);
+    await click(button('매칭 결과로 돌아가기'));
+    await click(cards()[1].querySelector<HTMLButtonElement>('.match-photo-action button')!);
+    expect(container.querySelector('.photo-compare-layer')?.textContent).toContain(`${POLICE_ID}|auto|지갑`);
   });
 
   it('closes the comparison when the match is re-run or another item is chosen', async () => {
