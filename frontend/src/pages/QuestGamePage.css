@@ -1,5 +1,6 @@
 /* Detective mini game — same palette, cards and buttons as the rest of LOST QUEST, sized to fit one screen. */
-.quest-game { padding:14px 0 24px; }
+/* As wide as the header bar (logo to "물품 등록"), so the board does not look narrower than the menu above it. */
+.quest-game { padding:14px 0 24px; width:min(1240px,calc(100% - 72px)); }
 
 .quest-head { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; }
 .quest-head h1 { font-size:1.75rem; line-height:1.35; letter-spacing:-.04em; color:var(--navy); margin-top:6px; }
@@ -176,3 +177,6 @@
   .quest-over-actions { flex-direction:column; align-items:stretch; width:100%; }
   .quest-over-actions .button { justify-content:center; }
 }
+/* Follow the header width at smaller screens too. */
+@media(max-width:1100px) { .quest-game { width:calc(100% - 48px); } }
+@media(max-width:640px) { .quest-game { width:calc(100% - 36px); } }

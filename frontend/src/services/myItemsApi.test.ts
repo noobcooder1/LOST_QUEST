@@ -26,7 +26,7 @@ afterEach(() => {
 describe('listMyItems', () => {
   it('preserves server moderation flags for both private history lists', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({
-      lostItems: [lost(15, '숨김 분실물', { hidden: true })], foundItems: [found(7, '일반 습득물', { hidden: false })],
+      lostItems: [lost(15, '숨김 잃어버린 물건', { hidden: true })], foundItems: [found(7, '일반 주운 물건', { hidden: false })],
     })));
     const result = await listMyItems({ ...BASE, accessToken: TOKEN });
     expect(result.lostItems[0].hidden).toBe(true);
@@ -38,7 +38,7 @@ describe('listMyItems', () => {
   });
   it('converts lostItems and foundItems into Items with the existing server route ids, keeping the server order', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({
-      lostItems: [lost(15, '가장 최근 분실물'), lost(12, '오래된 분실물', { imageUrl: IMAGE })],
+      lostItems: [lost(15, '가장 최근 잃어버린 물건'), lost(12, '오래된 잃어버린 물건', { imageUrl: IMAGE })],
       foundItems: [found(7, '화이트 무선 이어폰')],
     })));
     const result = await listMyItems({ ...BASE, accessToken: TOKEN });

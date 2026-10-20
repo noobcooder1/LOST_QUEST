@@ -48,7 +48,7 @@ export async function createReturn(itemId: string, lostItemId?: string) {
   const found = parseServerRouteId(itemId);
   const lost = parseServerRouteId(lostItemId);
   if (!found || found.type !== 'found' || (lostItemId && (!lost || lost.type !== 'lost')))
-    throw new ApiClientError('INVALID_INPUT', 'LOST QUEST에 등록된 습득물과 분실물만 연결할 수 있어요.');
+    throw new ApiClientError('INVALID_INPUT', 'LOST QUEST에 등록된 주운 물건과 잃어버린 물건만 연결할 수 있어요.');
   return parseReturn(await apiRequest('/api/returns', { ...options(), method: 'POST',
     body: { foundItemId: found.serverId, ...(lost ? { lostItemId: lost.serverId } : {}) } })).request;
 }

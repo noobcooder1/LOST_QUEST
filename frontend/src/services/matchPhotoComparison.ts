@@ -69,11 +69,11 @@ async function photoFile(url: string, signal: AbortSignal): Promise<File> {
 /** Re-reads the caller's lost item so a hidden/closed item or a replaced photo is never compared. */
 async function freshTargetPhotoUrl(target: Item, ownerId: number, signal: AbortSignal): Promise<string | null> {
   const id = parseServerRouteId(target.id);
-  if (!id || id.type !== 'lost') throw new Error('비교할 내 분실물을 다시 선택해 주세요.');
+  if (!id || id.type !== 'lost') throw new Error('비교할 물건을 다시 선택해 주세요.');
   const freshTarget = await getServerItem('lost', id.serverId);
   checkAbort(signal);
-  if (freshTarget.ownerId !== ownerId || freshTarget.hidden || freshTarget.status !== 'open') throw new Error('현재 비교할 수 있는 내 분실물이 아니에요.');
-  if (freshTarget.image !== target.image) throw new Error('분실물 사진이 변경됐어요. 매칭을 다시 시작해 주세요.');
+  if (freshTarget.ownerId !== ownerId || freshTarget.hidden || freshTarget.status !== 'open') throw new Error('현재 비교할 수 있는 내 물건이 아니에요.');
+  if (freshTarget.image !== target.image) throw new Error('잃어버린 물건 사진이 변경됐어요. 매칭을 다시 시작해 주세요.');
   return uploadedPhotoUrl(freshTarget.image);
 }
 
@@ -81,10 +81,10 @@ async function freshTargetPhotoUrl(target: Item, ownerId: number, signal: AbortS
 async function candidatePhotoUrl(match: MatchResult, signal: AbortSignal): Promise<string | null> {
   if (match.source === 'POLICE') return policePhotoUrl(match.image);
   const candidateId = parseServerRouteId(match.routeId);
-  if (!candidateId || candidateId.type !== 'found') throw new Error('잘못된 습득물');
+  if (!candidateId || candidateId.type !== 'found') throw new Error('잘못된 주운 물건');
   const candidate = await getServerItem('found', candidateId.serverId);
   checkAbort(signal);
-  if (candidate.hidden || candidate.status !== 'open' || candidate.image !== (match.image || candidate.image)) throw new Error('비교할 수 없는 습득물이에요.');
+  if (candidate.hidden || candidate.status !== 'open' || candidate.image !== (match.image || candidate.image)) throw new Error('비교할 수 없는 주운 물건이에요.');
   return uploadedPhotoUrl(candidate.image);
 }
 
@@ -96,7 +96,7 @@ export async function loadMatchPhotos(target: Item, match: MatchResult, ownerId:
   checkAbort(signal);
   const targetUrl = await freshTargetPhotoUrl(target, ownerId, signal);
   const candidateUrl = await candidatePhotoUrl(match, signal);
-  if (!candidateUrl) throw new Error('이 습득물에는 비교할 사진이 없어요.');
+  if (!candidateUrl) throw new Error('이 주운 물건에는 비교할 사진이 없어요.');
   const found = await photoFile(candidateUrl, signal);
   return { lost: targetUrl ? await photoFile(targetUrl, signal) : null, found };
 }

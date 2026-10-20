@@ -68,7 +68,7 @@ export function parseNotification(value: unknown): MatchNotification {
   return {
     id: raw.id,
     lostItemId: raw.lostItemId,
-    lostItemTitle: isText(raw.lostItemTitle) && raw.lostItemTitle.trim() ? raw.lostItemTitle.trim() : '내 분실물',
+    lostItemTitle: isText(raw.lostItemTitle) && raw.lostItemTitle.trim() ? raw.lostItemTitle.trim() : '내가 잃어버린 물건',
     source: raw.source as MatchSource,
     foundRouteId: foundRoute(raw),
     matchesPath: `/matches?item=${toServerRouteId('lost', raw.lostItemId)}`,
@@ -140,7 +140,7 @@ function withParticle(title: string): string {
 }
 
 export function notificationMessage(notification: MatchNotification): string {
-  return `등록한 ${withParticle(notification.lostItemTitle)} 유사한 습득물이 발견되었습니다.`;
+  return `등록한 ${withParticle(notification.lostItemTitle)} 유사한 주운 물건이 발견되었습니다.`;
 }
 
 export function notificationMeta(notification: MatchNotification): string {

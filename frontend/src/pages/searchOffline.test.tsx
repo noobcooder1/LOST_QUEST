@@ -152,7 +152,7 @@ describe('public-list offline user flow', () => {
     await revisit('/search?source=community&q=지갑&category=지갑&type=lost');
     expect(container.querySelectorAll('article.item-card')).toHaveLength(1);
     expect(container.querySelector('article.item-card')?.textContent).toContain('검은 지갑');
-    expect(statuses().textContent).not.toContain('LOST QUEST 습득물');
+    expect(statuses().textContent).not.toContain('LOST QUEST 주인 찾기');
   });
 
   it('keeps the default source usable after a police-only outage', async () => {

@@ -36,8 +36,8 @@ describe('notification parsing and wording', () => {
   });
 
   it('writes the message with the right particle and the score/source line', () => {
-    expect(notificationMessage(parseNotification(LQ_NOTIFICATION))).toBe('등록한 ‘검정 지갑’과 유사한 습득물이 발견되었습니다.');
-    expect(notificationMessage(parseNotification(READ_NOTIFICATION))).toBe('등록한 ‘노트북 파우치’와 유사한 습득물이 발견되었습니다.');
+    expect(notificationMessage(parseNotification(LQ_NOTIFICATION))).toBe('등록한 ‘검정 지갑’과 유사한 주운 물건이 발견되었습니다.');
+    expect(notificationMessage(parseNotification(READ_NOTIFICATION))).toBe('등록한 ‘노트북 파우치’와 유사한 주운 물건이 발견되었습니다.');
     expect(notificationMeta(parseNotification(POLICE_NOTIFICATION))).toBe('매칭도 92점 · 경찰청');
     expect(notificationMeta(parseNotification(LQ_NOTIFICATION))).toBe('매칭도 98점 · LOST QUEST');
   });

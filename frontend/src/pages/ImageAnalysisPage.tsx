@@ -39,7 +39,7 @@ function UploadPanel({ label, file, category, disabled, onFile, onCategory }: {
   const preview = useObjectUrl(file);
   const choose = (event: ChangeEvent<HTMLInputElement>) => onFile(event.target.files?.[0] ?? null);
   return <section className="analysis-upload-card">
-    <div className="analysis-upload-heading"><span>{label}</span><div><strong>{label === 'A' ? '분실물 사진' : '비교할 습득물 사진'}</strong><small>{file ? file.name : '이미지를 선택해 주세요'}</small></div>{file && <button type="button" aria-label={`${label} 이미지 삭제`} onClick={() => onFile(null)} disabled={disabled}><X size={17}/></button>}</div>
+    <div className="analysis-upload-heading"><span>{label}</span><div><strong>{label === 'A' ? '잃어버린 물건 사진' : '비교할 주운 물건 사진'}</strong><small>{file ? file.name : '이미지를 선택해 주세요'}</small></div>{file && <button type="button" aria-label={`${label} 이미지 삭제`} onClick={() => onFile(null)} disabled={disabled}><X size={17}/></button>}</div>
     <label className={`analysis-dropzone ${file ? 'has-image' : ''}`}>
       {preview ? <img src={preview} alt={`${label} 비교 이미지 미리보기`}/> : <><span><ImagePlus size={31}/></span><strong>사진 선택</strong><small>PNG · JPEG · WebP, 최대 20MB</small></>}
       <input type="file" accept="image/png,image/jpeg,image/webp" onChange={choose} disabled={disabled}/>

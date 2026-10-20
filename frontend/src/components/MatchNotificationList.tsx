@@ -15,11 +15,11 @@ function refreshSummary(result: RefreshResult): string {
   if (result.created > 0) parts.push(`새 매칭 알림 ${result.created}건이 도착했어요.`);
   else if (result.checkedLostItems > 0) parts.push('새로 발견된 매칭 후보가 없어요.');
   else if (result.throttledLostItems > 0) parts.push('최근에 이미 확인했어요. 잠시 후 다시 확인할 수 있어요.');
-  else parts.push('최근 30일 안에 등록한 진행 중인 분실물이 없어 확인할 대상이 없어요.');
+  else parts.push('최근 30일 안에 등록한 진행 중인 잃어버린 물건이 없어 확인할 대상이 없어요.');
   const police = result.sources.find((source) => source.source === 'POLICE');
   if (police && police.status !== 'OK') {
     const what = police.status === 'PARTIAL' ? '경찰청 공공데이터는 일부만 확인했어요' : '경찰청 공공데이터는 확인하지 못했어요';
-    parts.push(`${what}${police.message ? ` (${police.message})` : ''}. LOST QUEST 습득물은 확인했어요.`);
+    parts.push(`${what}${police.message ? ` (${police.message})` : ''}. LOST QUEST의 주운 물건은 확인했어요.`);
   }
   return parts.join(' ');
 }
@@ -107,21 +107,21 @@ export default function MatchNotificationList() {
         <button type="button" className="button button-ghost" onClick={() => void readAll()} disabled={unread === 0}><CheckCheck size={15} aria-hidden="true" /> 모두 읽음</button>
       </div>
     </div>
-    <p className="match-notification-status" role="status">{refreshing ? '내 분실물과 닮은 새 습득물을 확인하고 있어요…' : lastRefresh ? refreshSummary(lastRefresh) : ''}</p>
+    <p className="match-notification-status" role="status">{refreshing ? '내가 잃어버린 물건과 닮은 새 주운 물건을 확인하고 있어요…' : lastRefresh ? refreshSummary(lastRefresh) : ''}</p>
     {(refreshError || actionError) && <p className="match-notification-error" role="alert"><AlertTriangle size={15} aria-hidden="true" /> {actionError ?? `새 매칭을 확인하지 못했어요. ${refreshError}`}</p>}
     {shown.loading && shown.notifications.length === 0 ? <div className="card empty-state" role="status"><Bell size={32} aria-hidden="true" /><h3>알림을 불러오고 있어요…</h3></div>
       : shown.error ? <div className="card empty-state" role="alert"><AlertTriangle size={32} aria-hidden="true" /><h3>알림을 불러오지 못했어요</h3><p>{shown.error}</p><button type="button" className="button button-secondary" onClick={() => void load()}><RefreshCw size={15} aria-hidden="true" /> 다시 시도</button></div>
-        : shown.notifications.length === 0 ? <div className="card empty-state"><Bell size={35} aria-hidden="true" /><h3>아직 도착한 매칭 알림이 없어요</h3><p>분실물을 등록하면, 닮은 습득물이 새로 발견될 때 이곳에서 알려 드려요.</p><Link className="button button-primary" to="/register?type=lost">분실물 등록하기 <ArrowRight size={16} /></Link></div>
+        : shown.notifications.length === 0 ? <div className="card empty-state"><Bell size={35} aria-hidden="true" /><h3>아직 도착한 매칭 알림이 없어요</h3><p>잃어버린 물건을 등록하면, 닮은 주운 물건이 새로 발견될 때 이곳에서 알려 드려요.</p><Link className="button button-primary" to="/register?type=lost">내 물건 찾기 등록하기 <ArrowRight size={16} /></Link></div>
           : <ul className="profile-notifications match-notifications" aria-label="매칭 알림 목록">{shown.notifications.map((n) => {
             const detail = n.foundRouteId ? `/items/${n.foundRouteId}` : n.matchesPath;
             return <li key={n.id} className={`card profile-notification ${n.read ? '' : 'unread'}`}>
               <span className="profile-activity-icon"><ListChecks size={21} aria-hidden="true" /></span>
               <div>
                 <h3>{!n.read && <span className="badge badge-blue match-notification-new">새 알림</span>}<span>{notificationMessage(n)}</span></h3>
-                <p><strong className="match-notification-meta">{notificationMeta(n)}</strong> · 습득물 ‘{n.foundTitle}’{n.foundDate && ` · ${n.foundDate} 습득`}</p>
+                <p><strong className="match-notification-meta">{notificationMeta(n)}</strong> · 주운 물건 ‘{n.foundTitle}’{n.foundDate && ` · ${n.foundDate} 습득`}</p>
                 <time dateTime={n.createdAt}>{new Date(n.createdAt).toLocaleString('ko-KR', timeFormat)}{n.read ? ' · 읽음' : ''}</time>
                 <div className="match-notification-links">
-                  <Link to={detail} onClick={(event) => void open(event, n, detail)} aria-label={`‘${n.foundTitle}’ 습득물 자세히 보기`}>습득물 자세히 보기 <ArrowRight size={14} aria-hidden="true" /></Link>
+                  <Link to={detail} onClick={(event) => void open(event, n, detail)} aria-label={`‘${n.foundTitle}’ 주운 물건 자세히 보기`}>주운 물건 자세히 보기 <ArrowRight size={14} aria-hidden="true" /></Link>
                   <Link to={n.matchesPath} onClick={(event) => void open(event, n, n.matchesPath)} aria-label={`‘${n.lostItemTitle}’ 매칭 추천 보기`}>매칭 추천 보기 <ArrowRight size={14} aria-hidden="true" /></Link>
                 </div>
               </div>

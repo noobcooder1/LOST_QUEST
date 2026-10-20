@@ -47,7 +47,7 @@ export default function MyPage() {
       ['items', '등록 내역', Package], ['returns', '반환 내역', HeartHandshake], ['badges', '획득 업적', Award], ['notifications', '알림', Bell],
     ] as const).map(([value, label, Icon]) => <button key={value} className={tab === value ? 'active' : ''} aria-pressed={tab === value} onClick={() => setTab(value)}><Icon size={17} />{label}{value === 'notifications' && unread > 0 && <span className="notification-count">{unread}</span>}</button>)}</div>
     {tab === 'items' && <MyItemList />}
-    {tab === 'returns' && <section><div className="workflow-section-heading"><h2>내 반환 요청 <span>{requests.length}</span></h2><span className="muted">요청한 반환과 등록한 습득물의 반환</span></div>{requests.length ? <div className="profile-return-list">{requests.map((request) => {
+    {tab === 'returns' && <section><div className="workflow-section-heading"><h2>내 반환 요청 <span>{requests.length}</span></h2><span className="muted">요청한 반환과 등록한 주운 물건의 반환</span></div>{requests.length ? <div className="profile-return-list">{requests.map((request) => {
       const item = items.find((entry) => entry.id === request.itemId);
       if (!item) return null;
       return <Link className="card profile-return" key={request.id} to={`/returns/${request.id}`}><div className={`profile-activity-icon ${request.status === 'completed' ? 'completed' : ''}`}>{request.status === 'completed' ? <CheckCircle2 size={23} /> : <HeartHandshake size={23} />}</div><div><h3>{item.title}</h3><p>{new Date(request.createdAt).toLocaleDateString('ko-KR')} 요청 {request.status === 'completed' && <strong>· 반환 완료</strong>}</p></div><span className={`badge ${request.status === 'completed' ? 'badge-green' : 'badge-blue'}`}>{requestLabels[request.status]}</span><ChevronRight size={17} /></Link>;

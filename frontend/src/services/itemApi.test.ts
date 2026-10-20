@@ -86,7 +86,7 @@ describe('item API requests', () => {
   });
 
   it('reports a missing item as a 404 error', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ status: 404, code: 'NOT_FOUND', message: '분실물을 찾을 수 없습니다. id: 99' }, 404)));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ status: 404, code: 'NOT_FOUND', message: '잃어버린 물건을 찾을 수 없습니다. id: 99' }, 404)));
     await expect(getServerItem('lost', 99, BASE)).rejects.toMatchObject({ status: 404, serverCode: 'NOT_FOUND' });
   });
 

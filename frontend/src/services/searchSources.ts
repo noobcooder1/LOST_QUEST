@@ -31,8 +31,8 @@ export interface SourceState {
 export const idleSource: SourceState = { status: 'idle', items: [], error: '', page: 0, totalPages: 0, totalCount: 0 };
 
 export const SOURCE_LABELS: Record<SourceKey, string> = {
-  communityLost: 'LOST QUEST 분실물',
-  communityFound: 'LOST QUEST 습득물',
+  communityLost: 'LOST QUEST 내 물건 찾기',
+  communityFound: 'LOST QUEST 주인 찾기',
   policeLost: '경찰청 분실물',
   policeFound: '경찰청 습득물',
 };

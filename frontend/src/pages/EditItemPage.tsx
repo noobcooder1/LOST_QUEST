@@ -140,7 +140,7 @@ export default function EditItemPage() {
 
   return <div className="page-container register-page edit-item-page">
     <div className="journey-breadcrumb"><Link to="/">홈</Link><ChevronRight size={14} /><Link to={detailPath}>물품 상세</Link><ChevronRight size={14} /><span>물품글 수정</span></div>
-    <div className="page-heading"><div><span className="eyebrow">내가 등록한 물품 관리</span><h1>물품글 수정</h1><p>{found ? '물품 정보와 사진을 수정하고, 소유자 확인 질문도 함께 관리하세요.' : '물품 정보와 사진을 수정하세요.'}</p></div><span className={`badge ${found ? 'badge-green' : 'badge-blue'}`}>{found ? '습득물' : '분실물'}</span></div>
+    <div className="page-heading"><div><span className="eyebrow">내가 등록한 물품 관리</span><h1>물품글 수정</h1><p>{found ? '물품 정보와 사진을 수정하고, 소유자 확인 질문도 함께 관리하세요.' : '물품 정보와 사진을 수정하세요.'}</p></div><span className={`badge ${found ? 'badge-green' : 'badge-blue'}`}>{found ? '주인 찾기' : '내 물건 찾기'}</span></div>
     <div className="register-layout edit-item-layout">
       <form className="card register-form edit-item-form" onSubmit={submit}>
         <fieldset disabled={submitting}>

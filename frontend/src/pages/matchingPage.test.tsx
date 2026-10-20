@@ -142,7 +142,7 @@ describe('MatchingPage', () => {
     expect(cards()[1].textContent).toContain('매칭도 73점'); expect(cards()[1].textContent).toContain('텍스트 의미 94.0%');
     expect(cards()[0].textContent).toContain('추천 1순위'); expect(text()).toContain('매칭도와 순위에는 반영되지 않아요');
     expect(button('추천순')).toBeTruthy(); expect(text()).not.toContain('AI 추천순');
-    expect(text()).toContain('매칭도 40점 이상인 습득물을 이름이 같은 종류부터'); expect(text()).toContain('이름이 분명히 다른 종류는 빼요');
+    expect(text()).toContain('매칭도 40점 이상인 주운 물건을 이름이 같은 종류부터'); expect(text()).toContain('이름이 분명히 다른 종류는 빼요');
     expect(matchCalls()).toHaveLength(1);
   });
 
@@ -164,7 +164,7 @@ describe('MatchingPage', () => {
     matchesResponse = () => json({ ...RESPONSE, lostItem: { ...RESPONSE.lostItem, nameKind: '우산' },
       matches: [{ ...LQ_MATCH, nameMatch: 'UNKNOWN_KIND' }, { ...POLICE_MATCH, nameMatch: 'UNKNOWN_KIND' }] });
     await renderAndStart();
-    expect(text()).toContain('이름이 ‘우산’인 습득물은 아직 없어요');
+    expect(text()).toContain('이름이 ‘우산’인 주운 물건은 아직 없어요');
     expect(cards()).toHaveLength(2); expect(cards().every(card => card.classList.contains('match-card-compact'))).toBe(true);
   });
 
@@ -216,7 +216,7 @@ describe('MatchingPage', () => {
   it('still offers the AI comparison when the lost item has no photo, comparing by its words', async () => {
     await renderAndStart();
     expect(photoButtons()).toHaveLength(2);
-    expect(text()).toContain('내 분실물은 사진이 없어 글로 비교해요');
+    expect(text()).toContain('내가 잃어버린 물건은 사진이 없어 글로 비교해요');
     await click(photoButtons()[0]);
     expect(container.querySelector('.photo-compare-layer')?.textContent).toContain(`api-lost-12|${LQ_ID}`);
   });
@@ -338,17 +338,17 @@ describe('MatchingPage', () => {
 
   it('shows a failure state when every source failed (no demo data)', async () => {
     matchesResponse = () => json({ ...RESPONSE, matches: [], sources: [
-      { source: 'LOST_QUEST', status: 'UNAVAILABLE', candidateCount: 0, message: 'LOST QUEST 습득물을 불러오지 못했습니다.' },
+      { source: 'LOST_QUEST', status: 'UNAVAILABLE', candidateCount: 0, message: 'LOST QUEST 주인 찾기을 불러오지 못했습니다.' },
       { source: 'POLICE', status: 'UNAVAILABLE', candidateCount: 0, message: '경찰청 공공데이터 연동이 설정되지 않았습니다.' }] });
     await renderAndStart();
-    expect(text()).toContain('지금은 습득물을 비교할 수 없어요');
+    expect(text()).toContain('지금은 주운 물건을 비교할 수 없어요');
     expect(cards()).toHaveLength(0); expect(photoButtons()).toHaveLength(0);
   });
 
   it('shows an empty state when nothing scored high enough', async () => {
     matchesResponse = () => json({ ...RESPONSE, matches: [] });
     await renderAndStart();
-    expect(text()).toContain('아직 비슷한 습득물을 찾지 못했어요');
+    expect(text()).toContain('아직 비슷한 주운 물건을 찾지 못했어요');
     expect(cards()).toHaveLength(0); expect(photoButtons()).toHaveLength(0);
   });
 
@@ -356,14 +356,14 @@ describe('MatchingPage', () => {
     matchesResponse = () => json({ status: 403, code: 'FORBIDDEN', message: '허용되지 않은 요청입니다.' }, 403);
     await renderAndStart('/matches?item=api-lost-13');
     expect(matchCalls()[0][0]).toBe(`${BASE}/api/lost-items/13/matches?limit=10`);
-    expect(text()).toContain('본인이 등록한 분실물의 추천만 볼 수 있어요.');
+    expect(text()).toContain('본인이 등록한 잃어버린 물건의 추천만 볼 수 있어요.');
     expect(cards()).toHaveLength(0);
 
     act(() => root.unmount());
     root = createRoot(container);
-    matchesResponse = () => json({ status: 404, code: 'NOT_FOUND', message: '분실물을 찾을 수 없습니다.' }, 404);
+    matchesResponse = () => json({ status: 404, code: 'NOT_FOUND', message: '잃어버린 물건을 찾을 수 없습니다.' }, 404);
     await renderAndStart('/matches?item=api-lost-999');
-    expect(text()).toContain('분실물을 찾을 수 없어요');
+    expect(text()).toContain('잃어버린 물건을 찾을 수 없어요');
   });
 
   it('shows a retryable error when the request fails', async () => {

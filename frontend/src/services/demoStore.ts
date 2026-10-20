@@ -40,14 +40,14 @@ export function registerItem(data: AppData, input: NewItem): { data: AppData; it
   const updated = notify({
     ...data, items: [item, ...data.items],
     profile: { ...data.profile, xp: data.profile.xp + 10, registeredCount: data.profile.registeredCount + 1 },
-  }, '물품 등록 완료 · +10 XP', `‘${item.title}’ ${item.type === 'lost' ? '분실물' : '습득물'}을 등록했어요.`);
+  }, '물품 등록 완료 · +10 XP', `‘${item.title}’ ${item.type === 'lost' ? '내 물건 찾기' : '주인 찾기'} 글을 등록했어요.`);
   return { data: updated, item };
 }
 
 export function requestReturn(data: AppData, itemId: string, lostItemId?: string): { data: AppData; request: ReturnRequest } {
   const item = data.items.find((entry) => entry.id === itemId);
   if (!item || item.type !== 'found' || item.source !== 'community') {
-    throw new Error('자체 등록된 습득물만 반환을 요청할 수 있어요.');
+    throw new Error('자체 등록된 주운 물건만 반환을 요청할 수 있어요.');
   }
   const existing = data.requests.find((request) => request.itemId === itemId && request.status !== 'rejected');
   if (existing) return { data, request: existing };
@@ -55,15 +55,15 @@ export function requestReturn(data: AppData, itemId: string, lostItemId?: string
 
   let lostItem = lostItemId ? data.items.find((entry) => entry.id === lostItemId) : undefined;
   if (lostItemId && (!lostItem || lostItem.type !== 'lost' || lostItem.status !== 'open' || lostItem.createdBy !== 'demo')) {
-    throw new Error('연결할 분실물 정보를 확인해 주세요.');
+    throw new Error('연결할 잃어버린 물건 정보를 확인해 주세요.');
   }
   if (!lostItemId) {
     const possible = data.items.filter((entry) => entry.type === 'lost' && entry.status === 'open' && entry.createdBy === 'demo' && entry.category === item.category && entry.color === item.color);
     lostItem = possible.find((entry) => entry.region === item.region) ?? possible[0];
   }
-  if (lostItem && lostItem.category !== item.category) throw new Error('같은 종류의 분실물에만 반환 요청을 연결할 수 있어요.');
+  if (lostItem && lostItem.category !== item.category) throw new Error('같은 종류의 잃어버린 물건에만 반환 요청을 연결할 수 있어요.');
   if (lostItem && data.requests.some((entry) => entry.lostItemId === lostItem.id && entry.status !== 'rejected')) {
-    throw new Error('이 분실물은 다른 반환 요청이 진행 중이에요. 마이페이지에서 기존 요청을 먼저 확인해 주세요.');
+    throw new Error('이 잃어버린 물건은 다른 반환 요청이 진행 중이에요. 마이페이지에서 기존 요청을 먼저 확인해 주세요.');
   }
   const timestamp = now();
   const request: ReturnRequest = {

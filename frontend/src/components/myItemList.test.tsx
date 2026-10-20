@@ -37,7 +37,7 @@ const found = (id: number, title: string, extra: Record<string, unknown> = {}) =
   id, userId: 3, title, category: '전자기기', color: '흰색', description: '충전 케이스와 함께 보관 중이에요.',
   foundDate: '2026-09-21', region: '경기', location: '경기 수원시 광교중앙역', imageUrl: null, status: 'STORED', createdAt: '2026-10-01T00:00:00Z', ...extra,
 });
-const MINE = { lostItems: [lost(15, '가장 최근 분실물'), lost(12, '오래된 분실물', { imageUrl: IMAGE })], foundItems: [found(7, '화이트 무선 이어폰')] };
+const MINE = { lostItems: [lost(15, '가장 최근 잃어버린 물건'), lost(12, '오래된 잃어버린 물건', { imageUrl: IMAGE })], foundItems: [found(7, '화이트 무선 이어폰')] };
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 type Handler = (url: string, init: RequestInit) => Response | Promise<Response>;
@@ -122,17 +122,17 @@ describe('MyItemList', () => {
     await renderList();
     expect(container.querySelector('#my-items-title')?.textContent).toBe('내가 등록한 물품3');
     const groups = [...container.querySelectorAll('.my-item-group')];
-    expect(groups.map((group) => group.querySelector('.my-item-group-title')?.textContent)).toEqual(['분실물 2', '습득물 1']);
-    expect(groups[0].querySelector('ul')?.getAttribute('aria-label')).toBe('내 분실물 등록 내역');
+    expect(groups.map((group) => group.querySelector('.my-item-group-title')?.textContent)).toEqual(['내 물건 찾기 2', '주인 찾기 1']);
+    expect(groups[0].querySelector('ul')?.getAttribute('aria-label')).toBe('내 내 물건 찾기 등록 내역');
 
     const [recent, old, earbuds] = cards();
-    expect(recent.textContent).toContain('가장 최근 분실물');
-    expect(recent.textContent).toContain('분실물');
+    expect(recent.textContent).toContain('가장 최근 잃어버린 물건');
+    expect(recent.textContent).toContain('내 물건 찾기');
     expect(recent.textContent).toContain('서울');
     expect(recent.textContent).toContain('분실 2026-09-16');
     expect(recent.textContent).toContain('글 등록 2026. 10. 01 09:00:00 (한국 시간)');
-    expect(old.textContent).toContain('오래된 분실물');
-    expect(earbuds.textContent).toContain('습득물');
+    expect(old.textContent).toContain('오래된 잃어버린 물건');
+    expect(earbuds.textContent).toContain('주인 찾기');
     expect(earbuds.textContent).toContain('경기');
     expect(earbuds.textContent).toContain('습득 2026-09-21');
     // Server order is kept, and the server image / category illustration are used.
@@ -144,7 +144,7 @@ describe('MyItemList', () => {
   it('links each card to the existing detail route with the server item id', async () => {
     await renderList();
     expect(cards().map((card) => card.getAttribute('href'))).toEqual(['/items/api-lost-15', '/items/api-lost-12', '/items/api-found-7']);
-    expect(cards()[0].getAttribute('aria-label')).toBe('가장 최근 분실물 상세 보기');
+    expect(cards()[0].getAttribute('aria-label')).toBe('가장 최근 잃어버린 물건 상세 보기');
   });
 
   it('requests only GET /api/me/items with the Bearer token and never a user id', async () => {
@@ -157,9 +157,9 @@ describe('MyItemList', () => {
   });
 
   it('hides a group that has no items', async () => {
-    handler = (url, init) => (url.endsWith('/api/me/items') ? json({ lostItems: [lost(12, '내 분실물')], foundItems: [] }) : defaultHandler(url, init));
+    handler = (url, init) => (url.endsWith('/api/me/items') ? json({ lostItems: [lost(12, '내가 잃어버린 물건')], foundItems: [] }) : defaultHandler(url, init));
     await renderList();
-    expect([...container.querySelectorAll('.my-item-group-title')].map((heading) => heading.textContent)).toEqual(['분실물 1']);
+    expect([...container.querySelectorAll('.my-item-group-title')].map((heading) => heading.textContent)).toEqual(['내 물건 찾기 1']);
     expect(container.querySelector('#my-items-title')?.textContent).toBe('내가 등록한 물품1');
   });
 
@@ -169,8 +169,8 @@ describe('MyItemList', () => {
     expect(text()).toContain('아직 등록한 물품이 없어요');
     expect(cards()).toHaveLength(0);
     expect(container.querySelector('[role="alert"]')).toBeNull();
-    expect(container.querySelector('.empty-state a[href="/register?type=lost"]')?.textContent).toContain('분실물 등록하기');
-    expect(container.querySelector('.empty-state a[href="/register?type=found"]')?.textContent).toContain('습득물 등록하기');
+    expect(container.querySelector('.empty-state a[href="/register?type=lost"]')?.textContent).toContain('내 물건 찾기 등록하기');
+    expect(container.querySelector('.empty-state a[href="/register?type=found"]')?.textContent).toContain('주인 찾기 등록하기');
     expect(container.querySelector('#my-items-title')?.textContent).toBe('내가 등록한 물품0');
   });
 
@@ -229,7 +229,7 @@ describe('MyPage 등록 내역 tab', () => {
   it('shows the server items and not the browser demo items', async () => {
     await renderMyPage('/mypage');
     expect(cards().map((card) => card.getAttribute('href'))).toEqual(['/items/api-lost-15', '/items/api-lost-12', '/items/api-found-7']);
-    expect(text()).toContain('가장 최근 분실물');
+    expect(text()).toContain('가장 최근 잃어버린 물건');
     expect(text()).not.toContain('브라우저 데모 지갑');
     expect(myItemCalls()).toHaveLength(1);
   });

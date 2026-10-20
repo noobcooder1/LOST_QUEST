@@ -51,7 +51,7 @@ describe('MatchComparePanel (AI combined comparison)', () => {
     // visual 0.6/0.75=0.8, kind 1, text 0.5, color 1 → (0.32 + 0.25 + 0.10 + 0.15) = 82.0
     expect(container.querySelector('.analysis-center-score')?.textContent).toContain('82.0%');
     expect(page()).toContain('사진 외형 40 · 글 ↔ 사진 25 · 텍스트 의미 20 · 색상 일치 15');
-    expect(page()).toContain('습득물 사진이 “black umbrella”인 정도'); expect(page()).toContain('같음');
+    expect(page()).toContain('주운 물건 사진이 “black umbrella”인 정도'); expect(page()).toContain('같음');
     expect(page()).toContain('매칭도 98점과 추천 순서는 바뀌지 않아요');
     expect(vision.release).toHaveBeenCalled();
   });
@@ -60,7 +60,7 @@ describe('MatchComparePanel (AI combined comparison)', () => {
     photos.load.mockResolvedValueOnce({ lost: null, found: jpeg('b.jpg') });
     await render();
     expect(vision.analyze).not.toHaveBeenCalled();
-    expect(page()).toContain('분실물 사진 없음 · 글로 비교해요'); expect(page()).toContain('사진 없음');
+    expect(page()).toContain('잃어버린 물건 사진 없음 · 글로 비교해요'); expect(page()).toContain('사진 없음');
     // kind 1, text 0.5, color 1 over weights 25/20/15 → (0.25 + 0.10 + 0.15) / 0.60 = 83.3
     expect(container.querySelector('.analysis-center-score')?.textContent).toContain('83.3%');
   });
@@ -73,13 +73,21 @@ describe('MatchComparePanel (AI combined comparison)', () => {
   });
 
   it('reports a failure without a score, and re-runs on 다시 비교', async () => {
-    photos.load.mockRejectedValueOnce(new Error('이 습득물에는 비교할 사진이 없어요.'));
+    photos.load.mockRejectedValueOnce(new Error('이 주운 물건에는 비교할 사진이 없어요.'));
     await render();
-    expect(page()).toContain('이 습득물에는 비교할 사진이 없어요.'); expect(container.querySelector('.analysis-center-score')).toBeNull();
+    expect(page()).toContain('이 주운 물건에는 비교할 사진이 없어요.'); expect(container.querySelector('.analysis-center-score')).toBeNull();
     const again = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('다시 비교'))!;
     await act(async () => again.click());
     for (let i = 0; i < 8; i++) await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
     expect(container.querySelector('.analysis-center-score')?.textContent).toContain('82.0%');
+  });
+
+  it('still gives a photo-based score when the text model cannot load', async () => {
+    text.embed.mockRejectedValueOnce(new Error('model missing'));
+    await render();
+    // visual 0.8 (40), kind 1 (25), color 1 (15) over 80 → 90.0; text left out
+    expect(container.querySelector('.analysis-center-score')?.textContent).toContain('90.0%');
+    expect(page()).toContain('텍스트 모델을 불러오지 못했어요'); expect(page()).not.toContain('비교를 완료하지 못했어요');
   });
 
   it('asks to sign in when signed out', async () => {

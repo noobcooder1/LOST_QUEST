@@ -30,7 +30,7 @@ export function textEmbeddings(texts:string[],onProgress:((completed:number,tota
 export async function compareMatchTexts(data:ItemMatches,signal:AbortSignal,onProgress?:(completed:number,total:number)=>void):Promise<Record<string,number>> {
   signal.throwIfAborted();
   if(!data.matches.length)return {};
-  if(!data.target)throw new Error('텍스트 비교에 필요한 분실물 정보를 불러올 수 없어요.');
+  if(!data.target)throw new Error('텍스트 비교에 필요한 잃어버린 물건 정보를 불러올 수 없어요.');
   const texts=[matchText(data.target),...data.matches.map(matchText)];
   const vectors=await textEmbeddings(texts,onProgress,signal);
   signal.throwIfAborted();

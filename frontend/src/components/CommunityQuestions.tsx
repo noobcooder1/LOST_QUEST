@@ -54,7 +54,7 @@ export default function CommunityQuestions({ item }: { item?: Item }) {
           <label className="form-field"><span>{entry.itemTitle} 질문 답변</span><textarea required maxLength={1000} rows={3} value={answers[entry.id] ?? ''} onChange={event => setAnswers(previous => ({ ...previous, [entry.id]: event.target.value }))} /></label>
           <button className="button button-secondary" disabled={busy}>답변 저장</button>
         </form>}
-        {entry.answer && <p className="community-next">{entry.itemType === 'found' ? <Link className="text-link" to={`/items/api-found-${entry.itemId}`}>물품 확인·기존 반환 절차로 이동</Link> : <><span>습득했다면 습득물글과 소유자 확인 질문을 등록하고 분실자에게 알려 주세요.</span><Link className="text-link" to="/register?type=found">습득물 등록하기</Link></>}</p>}
+        {entry.answer && <p className="community-next">{entry.itemType === 'found' ? <Link className="text-link" to={`/items/api-found-${entry.itemId}`}>물품 확인·기존 반환 절차로 이동</Link> : <><span>습득했다면 주운 물건 글과 소유자 확인 질문을 등록하고 분실자에게 알려 주세요.</span><Link className="text-link" to="/register?type=found">주인 찾기 등록하기</Link></>}</p>}
       </article>)}
       <div className="button-row"><button className="button button-secondary" disabled={busy || result.page === 0} onClick={() => { void load(result.page - 1); }}>이전 질문</button><span>{result.page + 1}페이지</span><button className="button button-secondary" disabled={busy || !result.hasNext} onClick={() => { void load(result.page + 1); }}>다음 질문</button><button className="text-link" disabled={busy} onClick={() => { void load(result.page); }}>새로고침</button></div>
     </>}
