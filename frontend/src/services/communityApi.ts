@@ -14,7 +14,10 @@ export interface DiscussionPost {
   id: number; category: DiscussionCategory; title: string; content: string;
   authorNickname: string; createdAt: string; imageUrl: string | null;
   linkedItem: { id: number; type: 'lost' | 'found'; title: string } | null;
+  commentCount: number;
 }
+export interface DiscussionComment { id: number; content: string; authorNickname: string; createdAt: string; mine: boolean }
+export const MAX_COMMENT_LENGTH = 1000;
 export interface CreateDiscussionInput {
   category: DiscussionCategory; title: string; content: string;
   linkedItemType?: 'lost' | 'found'; linkedItemId?: number;
@@ -119,8 +122,43 @@ export function parseDiscussionPost(value: unknown): DiscussionPost {
     if (!positive(link.id) || !['lost', 'found'].includes(String(link.type)) || typeof link.title !== 'string') throw invalid();
     linkedItem = { id: link.id, type: link.type as 'lost' | 'found', title: link.title };
   }
+  // Older servers did not send a count; treat it as no replies rather than rejecting the post.
+  const commentCount = r.commentCount === undefined ? 0 : r.commentCount;
+  if (typeof commentCount !== 'number' || !Number.isSafeInteger(commentCount) || commentCount < 0) throw invalid();
   return { id: r.id, category: r.category, title: r.title, content: r.content,
-    authorNickname: r.authorNickname, createdAt: r.createdAt, imageUrl: r.imageUrl as string | null, linkedItem };
+    authorNickname: r.authorNickname, createdAt: r.createdAt, imageUrl: r.imageUrl as string | null, linkedItem, commentCount };
+}
+function parseComment(value: unknown): DiscussionComment {
+  const r = object(value);
+  if (!positive(r.id) || typeof r.content !== 'string' || typeof r.authorNickname !== 'string'
+    || !isTimestamp(r.createdAt) || typeof r.mine !== 'boolean') throw invalid();
+  return { id: r.id, content: r.content, authorNickname: r.authorNickname, createdAt: r.createdAt, mine: r.mine };
+}
+const commentsPath = (postId: number) => `/api/community/posts/${recordId(postId)}/comments`;
+/** Replies are public. A signed-in viewer's token only marks which replies they may delete. */
+export async function listDiscussionComments(postId: number): Promise<DiscussionComment[]> {
+  const path = commentsPath(postId);
+  const session = loadAuthSession();
+  let value: unknown;
+  try {
+    value = await apiRequest(path, { accessToken: session?.accessToken });
+  } catch (error) {
+    // An expired token must not hide public replies; read them anonymously instead.
+    if (!session || !(error instanceof ApiClientError) || error.status !== 401) throw error;
+    value = await apiRequest(path);
+  }
+  if (!Array.isArray(value) || value.length > 300) throw invalid();
+  return value.map(parseComment);
+}
+export async function addDiscussionComment(postId: number, content: string): Promise<DiscussionComment> {
+  const auth = options();
+  const text = content.trim();
+  if (!text || text.length > MAX_COMMENT_LENGTH) throw new ApiClientError('INVALID_INPUT', `댓글은 1~${MAX_COMMENT_LENGTH.toLocaleString('ko-KR')}자로 입력해 주세요.`);
+  return parseComment(await apiRequest(commentsPath(postId), { ...auth, method: 'POST', body: { content: text } }));
+}
+export async function deleteDiscussionComment(postId: number, commentId: number): Promise<void> {
+  const auth = options();
+  await apiRequest(`${commentsPath(postId)}/${recordId(commentId)}`, { ...auth, method: 'DELETE' });
 }
 export async function listDiscussionPosts(filters: DiscussionFilters = {}): Promise<CommunityPage<DiscussionPost>> {
   const params = new URLSearchParams();

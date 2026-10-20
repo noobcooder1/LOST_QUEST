@@ -1,0 +1,22 @@
+/* Replies under a discussion post, sized for the phone-width app shell. */
+.discussion-comments{margin:0 17px 22px;padding-top:22px;border-top:1px solid var(--line)}
+.discussion-comments h2{display:flex;align-items:center;gap:7px;font-size:1.0625rem;color:#15364e}
+.discussion-comments h2>span{color:#2874ed}
+.discussion-comments-status{display:flex;align-items:center;gap:8px;margin-top:16px;padding:18px;border-radius:10px;background:#f6f9fc;color:#7b8f9f;font-size:.9375rem}
+.discussion-comments-error{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;padding:14px 16px;border-radius:10px;background:#fff4f2;color:#b64136;font-size:.875rem}
+.discussion-comment-list{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:10px}
+.discussion-comment-list>li{padding:14px 16px;border:1px solid #e6edf4;border-radius:12px;background:#fff}
+.discussion-comment-list>li.mine{background:#f6faff;border-color:#d6e6fb}
+.discussion-comment-meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;font-size:.8125rem;color:#8395a4}
+.discussion-comment-meta strong{display:inline-flex;align-items:center;gap:5px;color:#35546c;font-weight:650}
+.discussion-comment-meta>span{display:inline-flex;align-items:center;gap:4px}
+.discussion-comment-delete{margin-left:auto;display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:7px;color:#9a5a52;font-size:.8125rem}
+.discussion-comment-delete:hover{background:#fbeeec}
+.discussion-comment-list p{margin-top:8px;color:#405a6e;font-size:.9375rem;line-height:1.75;white-space:pre-line;word-break:break-word}
+.discussion-comment-form{margin-top:18px}
+.discussion-comment-form textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:88px;padding:12px 14px;border:1px solid #dbe5ee;border-radius:12px;font:inherit;font-size:1rem;line-height:1.6;background:#fff}
+.discussion-comment-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px}
+.discussion-comment-actions small{color:#9aa9b5;font-size:.8125rem}
+.discussion-comment-login{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:18px;padding:16px;border-radius:12px;background:#f4f8fc;color:#5f788c;font-size:.9375rem}
+.discussion-comments .spin{animation:discussion-comment-spin 1s linear infinite}
+@keyframes discussion-comment-spin{to{transform:rotate(360deg)}}

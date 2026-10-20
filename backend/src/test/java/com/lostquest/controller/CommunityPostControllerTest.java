@@ -198,4 +198,59 @@ class CommunityPostControllerTest {
         create(input(), token).andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After", "60"));
         assertThat(posts.count()).isEqualTo(10);
     }
+
+    ResultActions comment(long postId, String content, String bearer) throws Exception {
+        var request = post(PATH + "/" + postId + "/comments").contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsBytes(Map.of("content", content)));
+        if (bearer != null) request.header("Authorization", "Bearer " + bearer);
+        return mvc.perform(request);
+    }
+
+    @Test void commentsArePublicToReadMemberOnlyToWriteAndCountedOnCards() throws Exception {
+        CommunityPost post = save(CommunityCategory.QUESTION, "우산 보관 기간", "며칠 보관하나요?", "2026-10-19T00:00:00Z");
+        User other = users.saveAndFlush(new User("discussion-replier@lostquest.test", author.getPassword(), "답변자", UserRole.USER));
+        String otherToken = tokens.issueAccessToken(other).value();
+
+        mvc.perform(get(PATH + "/" + post.getId() + "/comments")).andExpect(status().isOk()).andExpect(jsonPath("$").isEmpty());
+        comment(post.getId(), "로그인 없이", null).andExpect(status().isUnauthorized());
+        comment(post.getId(), "  역무실에 문의해 보세요.  ", otherToken).andExpect(status().isCreated())
+            .andExpect(jsonPath("$.content").value("역무실에 문의해 보세요.")).andExpect(jsonPath("$.authorNickname").value("답변자"))
+            .andExpect(jsonPath("$.mine").value(true)).andExpect(jsonPath("$.authorId").doesNotExist());
+        comment(post.getId(), "감사합니다!", token).andExpect(status().isCreated());
+
+        mvc.perform(get(PATH + "/" + post.getId() + "/comments")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(2)).andExpect(jsonPath("$[0].authorNickname").value("답변자"))
+            .andExpect(jsonPath("$[1].content").value("감사합니다!")).andExpect(jsonPath("$[0].mine").value(false));
+        mvc.perform(get(PATH + "/" + post.getId() + "/comments").header("Authorization", "Bearer " + token))
+            .andExpect(jsonPath("$[0].mine").value(false)).andExpect(jsonPath("$[1].mine").value(true));
+        mvc.perform(get(PATH + "/" + post.getId())).andExpect(jsonPath("$.commentCount").value(2));
+        mvc.perform(get(PATH)).andExpect(jsonPath("$.items[0].commentCount").value(2));
+        mvc.perform(get(PATH + "/999999/comments")).andExpect(status().isNotFound());
+        comment(999999, "없는 글", token).andExpect(status().isNotFound());
+    }
+
+    @Test void commentsRejectMarkupContactsAndOversizedTextAndOnlyTheAuthorOrAdminDeletes() throws Exception {
+        CommunityPost post = save(CommunityCategory.CHAT, "잡담", "본문", "2026-10-19T00:00:00Z");
+        comment(post.getId(), "<b>굵게</b>", token).andExpect(status().isBadRequest());
+        comment(post.getId(), "연락 주세요 010-1234-5678", token).andExpect(status().isBadRequest());
+        comment(post.getId(), "   ", token).andExpect(status().isBadRequest());
+        comment(post.getId(), "가".repeat(1001), token).andExpect(status().isBadRequest());
+
+        long id = body(comment(post.getId(), "지울 댓글", token).andExpect(status().isCreated())).get("id").asLong();
+        User other = users.saveAndFlush(new User("discussion-other@lostquest.test", author.getPassword(), "다른 이웃", UserRole.USER));
+        mvc.perform(delete(PATH + "/" + post.getId() + "/comments/" + id).header("Authorization", "Bearer " + tokens.issueAccessToken(other).value()))
+            .andExpect(status().isForbidden());
+        CommunityPost otherPost = save(CommunityCategory.CHAT, "다른 글", "본문", "2026-10-19T00:00:01Z");
+        mvc.perform(delete(PATH + "/" + otherPost.getId() + "/comments/" + id).header("Authorization", "Bearer " + token))
+            .andExpect(status().isNotFound());
+        mvc.perform(delete(PATH + "/" + post.getId() + "/comments/" + id)).andExpect(status().isUnauthorized());
+        mvc.perform(delete(PATH + "/" + post.getId() + "/comments/" + id).header("Authorization", "Bearer " + token))
+            .andExpect(status().isNoContent());
+        mvc.perform(get(PATH + "/" + post.getId() + "/comments")).andExpect(jsonPath("$").isEmpty());
+
+        long second = body(comment(post.getId(), "관리자가 지울 댓글", token)).get("id").asLong();
+        User admin = users.saveAndFlush(new User("discussion-admin@lostquest.test", author.getPassword(), "관리자", UserRole.ADMIN));
+        mvc.perform(delete(PATH + "/" + post.getId() + "/comments/" + second).header("Authorization", "Bearer " + tokens.issueAccessToken(admin).value()))
+            .andExpect(status().isNoContent());
+    }
 }

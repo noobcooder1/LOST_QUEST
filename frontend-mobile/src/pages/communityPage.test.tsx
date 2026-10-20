@@ -20,7 +20,7 @@ vi.mock('../services/itemApi', async original => ({ ...await original<typeof imp
 vi.mock('../services/publicItemApi', async original => ({ ...await original<typeof import('../services/publicItemApi')>(), getPoliceFilters: vi.fn(), listPoliceItems: vi.fn() }));
 vi.mock('../services/communityApi', async original => ({ ...await original<typeof import('../services/communityApi')>(), listDiscussionPosts: vi.fn(), listCommunityQuestions: vi.fn(async () => ({ items: [], page: 0, hasNext: false })) }));
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-const post: DiscussionPost = { id: 1, category: 'info', title: '분실물 센터 이용 팁', content: '서울역 센터 방문 전에 준비할 것들을 공유해요.', authorNickname: '이웃', createdAt: '2026-10-20T01:00:00Z', imageUrl: null, linkedItem: null };
+const post: DiscussionPost = { id: 1, category: 'info', title: '분실물 센터 이용 팁', content: '서울역 센터 방문 전에 준비할 것들을 공유해요.', authorNickname: '이웃', createdAt: '2026-10-20T01:00:00Z', imageUrl: null, linkedItem: null, commentCount: 0 };
 const story: DiscussionPost = { ...post, id: 2, category: 'story', title: '도와주신 분께 감사드려요', linkedItem: { type: 'lost', id: 1, title: '검정 분실 지갑' } };
 const lost: Item = { id: 'api-lost-1', title: '검정 분실 지갑', type: 'lost', category: '지갑', color: '검정', date: '2026-10-14', createdAt: '2026-10-12T01:00:00Z', region: '서울', location: '서울역', description: '안쪽에 작은 스티커', image: '/images/wallet.svg', source: 'community', status: 'open', createdBy: 'server', ownerId: 1, serverId: 1 };
 const police: Item = { ...lost, id: 'police-lost-X', title: '경찰청 전용 게시물', source: 'public', createdBy: 'police' };
