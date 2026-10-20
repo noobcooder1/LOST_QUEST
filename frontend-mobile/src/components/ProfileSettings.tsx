@@ -50,7 +50,7 @@ export default function ProfileSettings() {
     if (passwordState.error || passwordState.done) setPasswordState(previous => ({ ...previous, error: '', done: '' }));
   };
 
-  return <section className="profile-settings" aria-labelledby="profile-settings-title">
+  return <section id="profile-settings" className="profile-settings" aria-labelledby="profile-settings-title">
     <div className="workflow-section-heading"><h2 id="profile-settings-title">내 정보</h2><span className="muted">로그인 이메일 {authUser?.email}</span></div>
     <form className="card profile-settings-card" onSubmit={event => void saveNickname(event)} noValidate>
       <h3><UserRound size={18} aria-hidden="true" />닉네임</h3>

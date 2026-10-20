@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MatchNotificationProvider } from '../context/MatchNotificationContext';
 import MyPage from '../pages/MyPage';
+import ProfileSectionPage from '../pages/ProfileSectionPage';
+import Layout from './Layout';
 import { clearAuthSession, saveAuthSession } from '../services/authSession';
 import { REFRESH_POLICE_DOWN } from '../services/notificationApi.fixtures';
 import type { Item } from '../types';
@@ -54,6 +56,7 @@ const defaultHandler: Handler = (url) => {
 };
 
 beforeEach(() => {
+  vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
   vi.stubEnv('VITE_API_BASE_URL', BASE);
   saveAuthSession(TOKEN, 3600);
   app.value = baseApp();
@@ -71,6 +74,7 @@ afterEach(() => {
   clearAuthSession();
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
 });
 
 async function settle() {
@@ -80,8 +84,22 @@ async function renderList() {
   await act(async () => { root.render(<MemoryRouter><MyItemList /></MemoryRouter>); });
   await settle();
 }
+function CurrentLocation() {
+  const { pathname, search } = useLocation();
+  return <output data-testid="location">{pathname}{search}</output>;
+}
 async function renderMyPage(path = '/mypage') {
-  await act(async () => { root.render(<MemoryRouter initialEntries={[path]}><MatchNotificationProvider><MyPage /></MatchNotificationProvider></MemoryRouter>); });
+  await act(async () => { root.render(<MemoryRouter initialEntries={[path]}><MatchNotificationProvider><Layout><Routes>
+    <Route path="/mypage" element={<MyPage />} />
+    <Route path="/mypage/settings" element={<ProfileSectionPage section="settings" />} />
+    <Route path="/mypage/badges" element={<ProfileSectionPage section="badges" />} />
+  </Routes></Layout><CurrentLocation /></MatchNotificationProvider></MemoryRouter>); });
+  await settle();
+}
+const currentLocation = () => container.querySelector('[data-testid="location"]')?.textContent;
+async function click(element: HTMLElement | null) {
+  expect(element).not.toBeNull();
+  await act(async () => element!.click());
   await settle();
 }
 
@@ -226,6 +244,93 @@ describe('MyItemList', () => {
 });
 
 describe('MyPage 등록 내역 tab', () => {
+  it('opens achievements on a separate screen and returns to the previous history tab', async () => {
+    await renderMyPage('/mypage?tab=returns');
+    expect([...container.querySelectorAll('.profile-tabs > button')].map(button => button.textContent))
+      .toEqual(['등록 내역', '반환 내역']);
+    expect(text()).not.toContain('이웃과 이야기 나누기');
+    const achievements = container.querySelector<HTMLAnchorElement>('a.profile-stat-action');
+    expect(achievements?.getAttribute('aria-label')).toBe('획득 업적 3개 보기');
+    await click(achievements);
+    expect(currentLocation()).toBe('/mypage/badges');
+    expect(container.querySelector('.app-bar-title')?.textContent).toBe('획득 업적');
+    expect(container.querySelector('#profile-badges-title')?.textContent).toBe('친절의 발자국');
+    expect(container.querySelectorAll('.achievement-earned')).toHaveLength(3);
+    expect(container.querySelectorAll('.achievement.locked')).toHaveLength(3);
+    expect(container.querySelector('.profile-card')).toBeNull();
+    expect(container.querySelector('.profile-tabs')).toBeNull();
+    await click(container.querySelector('button[aria-label="뒤로 가기"]'));
+    expect(currentLocation()).toBe('/mypage?tab=returns');
+    expect(text()).toContain('내 반환 요청');
+    expect(container.querySelector('.profile-tabs > button.active')?.textContent).toBe('반환 내역');
+    expect(myItemCalls()).toHaveLength(0);
+  });
+
+  it('continues to open notifications from the header destination without a duplicate tab', async () => {
+    handler = (url, init) => url.startsWith(`${BASE}/api/notifications?`)
+      ? json({ notifications: [], unreadCount: 0 }) : defaultHandler(url, init);
+    await renderMyPage('/mypage?tab=notifications');
+    expect(text()).toContain('매칭 알림');
+    expect(text()).toContain('활동 소식');
+    expect([...container.querySelectorAll('.profile-tabs > button')].map(button => button.textContent))
+      .toEqual(['등록 내역', '반환 내역']);
+    expect(myItemCalls()).toHaveLength(0);
+  });
+
+  it('opens nickname and password settings on a separate screen and returns to registration history', async () => {
+    app.value = { ...app.value, authUser: { id: 3, email: 'member@lostquest.test', nickname: '나', role: 'USER' } };
+    await renderMyPage();
+    const settings = container.querySelector<HTMLAnchorElement>('a[aria-label="내 정보 수정"]');
+    expect(settings?.closest('.profile-card')).not.toBeNull();
+    expect(container.querySelector('.profile-settings')).toBeNull();
+    await click(settings);
+    expect(currentLocation()).toBe('/mypage/settings');
+    expect(container.querySelector('.app-bar-title')?.textContent).toBe('내 정보 수정');
+    expect(container.querySelector('#profile-settings-title')?.textContent).toBe('내 정보');
+    expect(container.querySelector<HTMLInputElement>('#profile-nickname')?.value).toBe('나');
+    expect(container.querySelector('#profile-current-password')).not.toBeNull();
+    expect(container.querySelector('#profile-new-password')).not.toBeNull();
+    expect(container.querySelector('.profile-card')).toBeNull();
+    expect(container.querySelector('.profile-tabs')).toBeNull();
+    await click(container.querySelector('button[aria-label="뒤로 가기"]'));
+    expect(currentLocation()).toBe('/mypage');
+    expect(container.querySelector('.profile-tabs > button.active')?.textContent).toBe('등록 내역');
+    expect(cards()).toHaveLength(3);
+    expect(container.querySelector('.profile-settings')).toBeNull();
+  });
+
+  it('keeps registration and return history inline on MyPage', async () => {
+    await renderMyPage();
+    await click([...container.querySelectorAll<HTMLButtonElement>('.profile-tabs > button')].find(button => button.textContent === '반환 내역')!);
+    expect(currentLocation()).toBe('/mypage?tab=returns');
+    expect(container.querySelector('.profile-card')).not.toBeNull();
+    expect(text()).toContain('내 반환 요청');
+    await click([...container.querySelectorAll<HTMLButtonElement>('.profile-tabs > button')].find(button => button.textContent === '등록 내역')!);
+    expect(currentLocation()).toBe('/mypage');
+    expect(container.querySelector('.profile-card')).not.toBeNull();
+    expect(cards()).toHaveLength(3);
+  });
+
+  it.each(['settings', 'badges'])('protects the standalone %s screen and retains its login destination', async section => {
+    app.value = { ...app.value, isLoggedIn: false, authUser: null };
+    await renderMyPage(`/mypage/${section}`);
+    expect(container.querySelector('.profile-settings')).toBeNull();
+    expect(container.querySelector('#profile-badges')).toBeNull();
+    expect(container.querySelector('.workflow-auth a')?.getAttribute('href'))
+      .toBe(`/login?returnTo=${encodeURIComponent(`/mypage/${section}`)}`);
+    expect(myItemCalls()).toHaveLength(0);
+  });
+
+  it.each(['settings', 'badges'])('redirects the old %s tab URL to its standalone screen without a back loop', async section => {
+    await renderMyPage(`/mypage?tab=${section}`);
+    expect(currentLocation()).toBe(`/mypage/${section}`);
+    expect(container.querySelector('.profile-card')).toBeNull();
+    expect(myItemCalls()).toHaveLength(0);
+    await click(container.querySelector('button[aria-label="뒤로 가기"]'));
+    expect(currentLocation()).toBe('/mypage');
+    expect(cards()).toHaveLength(3);
+  });
+
   it('shows the server items and not the browser demo items', async () => {
     await renderMyPage('/mypage');
     expect(cards().map((card) => card.getAttribute('href'))).toEqual(['/items/api-lost-15', '/items/api-lost-12', '/items/api-found-7']);
@@ -249,12 +354,9 @@ describe('MyPage 등록 내역 tab', () => {
     expect(text()).not.toContain('브라우저 데모 지갑');
   });
 
-  it.each([
-    ['badges', '친절의 발자국'],
-    ['returns', '내 반환 요청'],
-  ])('does not load the list on the %s tab, which keeps its demo content', async (tab, heading) => {
-    await renderMyPage(`/mypage?tab=${tab}`);
+  it('does not load registration history on the return history tab', async () => {
+    await renderMyPage('/mypage?tab=returns');
     expect(myItemCalls()).toHaveLength(0);
-    expect(text()).toContain(heading);
+    expect(text()).toContain('내 반환 요청');
   });
 });

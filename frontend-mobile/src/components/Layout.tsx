@@ -15,6 +15,8 @@ const screenTitles: [pattern: string, title: string][] = [
   ['/register', '물품 등록'],
   ['/matches', '매칭 추천'],
   ['/mypage', '마이페이지'],
+  ['/mypage/settings', '내 정보 수정'],
+  ['/mypage/badges', '획득 업적'],
   ['/community', '커뮤니티'],
   ['/community/write', '게시글 작성'],
   ['/community/posts/:id', '커뮤니티 게시글'],
@@ -49,7 +51,7 @@ function titleFor(pathname: string): string | null {
 export default function Layout({ children }: { children: ReactNode }) {
   const { isLoggedIn, profile, storageError } = useApp();
   const { unreadCount } = useMatchNotifications();
-  const { pathname, key: locationKey } = useLocation();
+  const { pathname, key: locationKey, state: locationState } = useLocation();
   const navigate = useNavigate();
   const [dismissedError, setDismissedError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -70,7 +72,13 @@ export default function Layout({ children }: { children: ReactNode }) {
   const title = titleFor(pathname);
   const showTabBar = !hideTabBarOn.some((pattern) => matchPath(pattern, pathname));
   // React Router gives the entry the app was opened on the key 'default'; there is nothing in-app to go back to.
-  const goBack = () => { if (locationKey === 'default') navigate('/'); else navigate(-1); };
+  const goBack = () => {
+    const isProfileSection = pathname === '/mypage/settings' || pathname === '/mypage/badges';
+    if (isProfileSection && (locationKey === 'default' || locationState?.fromMyPage !== true)) {
+      navigate('/mypage', { replace: true });
+    } else if (locationKey === 'default') navigate('/');
+    else navigate(-1);
+  };
 
   return <div className={`app-shell ${showTabBar ? 'has-tabbar' : ''}`}>
     <a className="skip-link" href="#main-content">본문 바로가기</a>

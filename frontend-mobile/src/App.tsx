@@ -10,6 +10,7 @@ const EditItemPage = lazy(() => import('./pages/EditItemPage'));
 const MatchingPage = lazy(() => import('./pages/MatchingPage'));
 const ReturnPage = lazy(() => import('./pages/ReturnPage'));
 const MyPage = lazy(() => import('./pages/MyPage'));
+const ProfileSectionPage = lazy(() => import('./pages/ProfileSectionPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 const GuidePage = lazy(() => import('./pages/GuidePage'));
 const CommunityInboxPage = lazy(() => import('./pages/CommunityInboxPage'));
@@ -36,6 +37,8 @@ export default function App() {
       <Route path="/matches" element={<MatchingPage />} />
       <Route path="/returns/:id" element={<ReturnPage />} />
       <Route path="/mypage" element={<MyPage />} />
+      <Route path="/mypage/settings" element={<ProfileSectionPage section="settings" />} />
+      <Route path="/mypage/badges" element={<ProfileSectionPage section="badges" />} />
       <Route path="/admin" element={<AdminPage />} />
       <Route path="/guide" element={<GuidePage />} />
       <Route path="/quest-game" element={<QuestGamePage />} />

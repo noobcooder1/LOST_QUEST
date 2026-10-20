@@ -95,6 +95,16 @@ describe('app shell navigation', () => {
     expect(where()).toBe('/');
   });
 
+  it.each([
+    ['/mypage/settings', '내 정보 수정'],
+    ['/mypage/badges', '획득 업적'],
+  ])('returns to MyPage when %s is opened directly', async (path, title) => {
+    await render(path);
+    expect(appBarTitle()).toBe(title);
+    await click(container.querySelector('button[aria-label="뒤로 가기"]'));
+    expect(where()).toBe('/mypage');
+  });
+
   it('hides the tab bar on focused flows and keeps it elsewhere', async () => {
     await render('/login');
     expect(container.querySelector('.app-tabbar')).toBeNull();
