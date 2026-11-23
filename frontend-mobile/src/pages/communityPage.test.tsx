@@ -15,7 +15,6 @@ const auth = vi.hoisted(() => ({ loggedIn: false }));
 vi.mock('../context/AppContext', () => ({ useApp: () => ({ isLoggedIn: auth.loggedIn, authUser: auth.loggedIn ? { id: 7, role: 'USER' } : null,
   profile: { name: '검증 회원', xp: 0, returnedCount: 0, registeredCount: 0 }, storageError: null, requests: [], items: [], notifications: [] }) }));
 vi.mock('../context/MatchNotificationContext', () => ({ useMatchNotifications: () => ({ unreadCount: 0, refresh: vi.fn() }) }));
-vi.mock('../components/ApiHealthStatus', () => ({ default: () => null }));
 vi.mock('../services/itemApi', async original => ({ ...await original<typeof import('../services/itemApi')>(), listServerItems: vi.fn(), getServerItem: vi.fn() }));
 vi.mock('../services/publicItemApi', async original => ({ ...await original<typeof import('../services/publicItemApi')>(), getPoliceFilters: vi.fn(), listPoliceItems: vi.fn() }));
 vi.mock('../services/communityApi', async original => ({ ...await original<typeof import('../services/communityApi')>(), listDiscussionPosts: vi.fn(), listCommunityQuestions: vi.fn(async () => ({ items: [], page: 0, hasNext: false })) }));

@@ -8,7 +8,6 @@ import Layout from './Layout';
 const state = vi.hoisted(() => ({ storageError: null as string | null }));
 vi.mock('../context/AppContext', () => ({ useApp: () => ({ isLoggedIn: false, profile: {}, storageError: state.storageError }) }));
 vi.mock('../context/MatchNotificationContext', () => ({ useMatchNotifications: () => ({ unreadCount: 0 }) }));
-vi.mock('./ApiHealthStatus', () => ({ default: () => null }));
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let container: HTMLDivElement;
 let root: Root;

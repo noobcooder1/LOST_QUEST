@@ -4,7 +4,6 @@ import { Bell, BookOpen, ChevronLeft, ChevronRight, ClipboardCheck, Gamepad2, Ho
 import { useApp } from '../context/AppContext';
 import { useMatchNotifications } from '../context/MatchNotificationContext';
 import Logo from './Logo';
-import ApiHealthStatus from './ApiHealthStatus';
 import './Navigation.css';
 
 /** Tab roots show the menu button; every other screen gets a back button. */
@@ -151,7 +150,6 @@ export default function Layout({ children }: { children: ReactNode }) {
         <nav className="app-sheet-grid" aria-label="전체 메뉴 바로가기">
           {menuLinks.map(({ to, label, icon: Icon, tone }) => <Link key={to} to={to}><span className={`app-sheet-icon tone-${tone}`}><Icon size={22} aria-hidden="true" /></span>{label}</Link>)}
         </nav>
-        <ApiHealthStatus />
         <p className="app-sheet-footer">© 2026 LOST QUEST · Find it. Together.</p>
       </div>
     </div>}
