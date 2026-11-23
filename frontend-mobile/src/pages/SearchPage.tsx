@@ -1,6 +1,6 @@
 import { useSearchParams, Link } from 'react-router-dom';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { ArrowRight, ChevronDown, Clock3, Globe2, ListFilter, RotateCcw, Search, SlidersHorizontal, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronDown, Clock3, Globe2, ListFilter, RotateCcw, Search, SlidersHorizontal, X } from 'lucide-react';
 import ItemCard from '../components/ItemCard';
 import PublicListStatus from '../components/PublicListStatus';
 import { categories, regions } from '../data/seed';
@@ -225,7 +225,7 @@ export default function SearchPage() {
   const anyLoading = relevantSources.some(key => sources[key].status === 'loading' || sources[key].status === 'idle');
   const retry = (key: SourceKey) => key.startsWith('community') ? void loadCommunityItems(key as 'communityLost' | 'communityFound') : void loadPolice(key as 'policeLost' | 'policeFound', 1);
 
-  return <div className="page-container search-page"><div className="page-heading"><span className="eyebrow"><Globe2 size={15}/>{source === 'community' ? 'LOST QUEST 물품 검색' : '경찰청 공공데이터 검색'}</span><h1>당신의 소중한 물건, 함께 찾아볼까요?</h1><p>{source === 'community' ? '‘내 물건 찾기’에서는 누군가 주워서 주인을 기다리는 물건을, ‘주인 찾기’에서는 물건을 잃어버려 찾고 있는 글을 볼 수 있어요. 경찰청 자료는 경찰청 분실물·습득물 탭에서 따로 조회할 수 있어요.' : '경찰청에 접수된 분실물·습득물을 찾아보세요. 회원이 등록한 물품은 LOST QUEST 탭에서 확인할 수 있어요.'}</p><div className="search-shortcuts"><Link to="/community-inbox">내 비공개 질문함</Link><Link to="/community">이웃과 이야기 나누기</Link></div></div>
+  return <div className="page-container search-page"><div className="page-heading"><span className="eyebrow"><Globe2 size={15}/>{source === 'community' ? 'LOST QUEST 물품 검색' : '경찰청 공공데이터 · 보조 조회'}</span><h1>당신의 소중한 물건, 함께 찾아볼까요?</h1><p>{source === 'community' ? '‘내 물건 찾기’에서는 누군가 주워서 주인을 기다리는 물건을, ‘주인 찾기’에서는 물건을 잃어버려 찾고 있는 글을 볼 수 있어요. 경찰청에 접수된 분실·습득물은 「경찰청 공공데이터」에서 따로 조회할 수 있어요.' : '경찰청에 접수된 분실물·습득물을 찾아보세요. 회원이 등록한 LOST QUEST 물품은 「LOST QUEST 검색」으로 돌아가 확인할 수 있어요.'}</p><div className="search-shortcuts"><Link to="/community-inbox">내 비공개 질문함</Link><Link to="/community">이웃과 이야기 나누기</Link></div></div>
     <div className="catalog-search-wrap">
       <form className="catalog-search" onSubmit={submit}><Search size={22} aria-hidden="true"/><input aria-label="물품 이름 또는 특징 검색" value={draft} onChange={e=>setDraft(e.target.value)} onFocus={openRecentSearches} onBlur={scheduleHideRecentSearches} placeholder="물품 이름, 색상, 장소로 검색해 보세요" maxLength={100} autoComplete="off"/><button className="button button-primary" type="submit">검색</button></form>
       {showRecentSearches && <div className="recent-searches" role="listbox" aria-label="최근 검색어">
@@ -236,16 +236,26 @@ export default function SearchPage() {
         </li>)}</ul>
       </div>}
     </div>
-    <div className="source-tabs" role="group" aria-label="데이터 출처">{(['found', 'lost'] as const).map(communityType => {
-      // Named from the visitor's side: 내 물건 찾기 lists found posts (주인을 찾아요), 주인 찾기 lists lost posts (찾고 있어요).
-      // Without a type both LOST QUEST lists are shown, so both tabs read as selected.
-      const selected = source === 'community' && (!type || type === communityType);
-      const count = sources[communityType === 'lost' ? 'communityLost' : 'communityFound'].items.length;
-      return <button key={`community-${communityType}`} aria-pressed={selected} className={selected ? 'active' : ''} onClick={()=>selectSource('community', communityType)}>{communityType === 'found' ? '내 물건 찾기' : '주인 찾기'}{count > 0 && <span>{count}</span>}</button>;
-    })}{(['lost', 'found'] as const).map(policeType => {
-      const selected = source === 'public' && type === policeType;
-      return <button key={policeType} aria-pressed={selected} className={selected ? 'active' : ''} onClick={()=>selectSource('public', policeType)}>경찰청 {policeType === 'lost' ? '분실물' : '습득물'}{selected && !anyLoading && sources[policeSource].status === 'ready' && <span>불러온 {policeLoaded}건</span>}</button>;
-    })}</div>
+    {source === 'community' ? <>
+      <div className="source-tabs" role="group" aria-label="LOST QUEST 검색">{(['found', 'lost'] as const).map(communityType => {
+        // Named from the visitor's side: 내 물건 찾기 lists found posts (주인을 찾아요), 주인 찾기 lists lost posts (찾고 있어요).
+        // Without a type both LOST QUEST lists are shown, so both tabs read as selected.
+        const selected = !type || type === communityType;
+        const count = sources[communityType === 'lost' ? 'communityLost' : 'communityFound'].items.length;
+        return <button key={`community-${communityType}`} aria-pressed={selected} className={selected ? 'active' : ''} onClick={()=>selectSource('community', communityType)}>{communityType === 'found' ? '내 물건 찾기' : '주인 찾기'}{count > 0 && <span>{count}</span>}</button>;
+      })}</div>
+      <div className="search-secondary-source">
+        <button type="button" className="text-link search-police-entry" onClick={() => selectSource('public', 'lost')}>경찰청 공공데이터<ArrowRight size={16} aria-hidden="true"/></button>
+      </div>
+    </> : <>
+      <div className="search-police-bar">
+        <button type="button" className="text-link search-back-community" onClick={() => selectSource('community')}><ArrowLeft size={16} aria-hidden="true"/>LOST QUEST 검색</button>
+      </div>
+      <div className="source-tabs" role="group" aria-label="경찰청 공공데이터">{(['lost', 'found'] as const).map(policeType => {
+        const selected = type === policeType;
+        return <button key={policeType} aria-pressed={selected} className={selected ? 'active' : ''} onClick={()=>selectSource('public', policeType)}>{policeType === 'lost' ? '분실물' : '습득물'}{selected && !anyLoading && sources[policeSource].status === 'ready' && <span>불러온 {policeLoaded}건</span>}</button>;
+      })}</div>
+    </>}
     <ul className="public-list-status-grid" aria-label="데이터 출처별 상태">{relevantSources.map(key => <PublicListStatus key={key} label={SOURCE_LABELS[key]} state={sources[key]} clearKeyword={isPoliceLostKeywordOutage(key, sources[key], query) ? clearKeyword : undefined} retry={() => retry(key)} refresh={key.startsWith('police') ? () => { void loadPolice(key as 'policeLost' | 'policeFound', 1, true); } : undefined} retryPage={key.startsWith('police') ? page => { void loadPolice(key as 'policeLost' | 'policeFound', page); } : undefined} />)}</ul>
     <div className="catalog-result-toolbar"><p>{query && <strong>‘{query}’ </strong>}검색 결과 <b>{invalidRange ? 0 : filtered.length}</b>개</p><div className="catalog-result-actions"><button className="button button-secondary filter-toggle" aria-expanded={filtersOpen} onClick={()=>setFiltersOpen(!filtersOpen)}><SlidersHorizontal size={16}/>필터{activeCount > 0 && <b>{activeCount}</b>}</button><select aria-label="검색 결과 정렬" value={sort} onChange={e=>update('sort',e.target.value)}><option value="registered">최근 등록순</option><option value="latest">최신 날짜순</option><option value="oldest">오래된 날짜순</option></select></div></div>
     <div className={`search-filter-panel ${filtersOpen?'filters-open':''}`}><div className="filter-panel-label"><ListFilter size={17}/><strong>상세 조건</strong><button className="text-link" onClick={()=>reset(true)}>초기화<RotateCcw size={13}/></button></div><div className={`search-filter-fields ${source === 'public' ? 'police-date-fields' : ''}`}>
