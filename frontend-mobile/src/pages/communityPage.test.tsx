@@ -154,7 +154,7 @@ describe('separate community discussion board', () => {
   it('keeps /search item results separate and police requests lazy', async () => {
     await mount('/search'); expect(listDiscussionPosts).not.toHaveBeenCalled(); expect(getPoliceFilters).not.toHaveBeenCalled();
     expect(container.querySelector('h1')?.textContent).toBe('당신의 소중한 물건, 함께 찾아볼까요?');
-    await click(container.querySelectorAll<HTMLButtonElement>('.source-tabs > button')[2]);  // 경찰청 분실물
+    await click(container.querySelector<HTMLButtonElement>('.search-police-entry')!);
     expect(getPoliceFilters).toHaveBeenCalledOnce(); expect(listPoliceItems).toHaveBeenCalledOnce(); expect(text()).toContain(police.title);
   });
   it('preserves legacy item-source links in search without mixing discussion posts', async () => {

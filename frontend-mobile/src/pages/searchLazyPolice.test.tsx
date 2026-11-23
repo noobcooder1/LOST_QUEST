@@ -45,14 +45,18 @@ async function mount(path = '/search', strict = false) {
   const app = <MemoryRouter initialEntries={[path]}><MatchNotificationProvider><Routes><Route path="/" element={<HomePage />} /><Route path="/search" element={<SearchPage />} /><Route path="/mypage" element={<p>알림 화면</p>} /></Routes><Controls /></MatchNotificationProvider></MemoryRouter>;
   await act(async () => root.render(strict ? <StrictMode>{app}</StrictMode> : app)); await flush();
 }
-const allTabs = () => [...container.querySelectorAll<HTMLButtonElement>('.source-tabs > button')];
-// [주인 찾기 (LOST QUEST lost posts), 경찰청 분실물, 경찰청 습득물]: the positions these tests were written for
-// (내 물건 찾기, the found posts, has its own test).
-const tabs = () => { const all = allTabs(); return [all[1], all[2], all[3]]; };
+const sourceTabs = () => [...container.querySelectorAll<HTMLButtonElement>('.source-tabs > button')];
+const policeEntry = () => container.querySelector<HTMLButtonElement>('.search-police-entry');
+const backToCommunity = () => container.querySelector<HTMLButtonElement>('.search-back-community');
+// Community mode: [내 물건 찾기, 주인 찾기]. Police mode: [분실물, 습득물].
+const communityLostTab = () => sourceTabs().find(tab => tab.textContent?.startsWith('주인 찾기'))!;
+const policeLostTab = () => sourceTabs().find(tab => tab.textContent?.startsWith('분실물'))!;
+const policeFoundTab = () => sourceTabs().find(tab => tab.textContent?.startsWith('습득물'))!;
 const cards = () => [...container.querySelectorAll('a.item-card')].map(card => card.textContent);
 const statusRows = () => [...container.querySelectorAll('.public-list-status-grid > li')];
 const moreButtons = () => [...container.querySelectorAll<HTMLButtonElement>('.catalog-load-more > button')];
 async function click(element: HTMLElement) { expect(element).toBeTruthy(); await act(async () => element.click()); await flush(); }
+async function openPolice() { await click(policeEntry()!); }
 async function change(element: HTMLInputElement | HTMLSelectElement, value: string) {
   await act(async () => { const prototype = element instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
     Object.getOwnPropertyDescriptor(prototype, 'value')!.set!.call(element, value); element.dispatchEvent(new Event(element instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true })); }); await flush();
@@ -65,8 +69,11 @@ function expectNoPolice() { expect(listPoliceItems).not.toHaveBeenCalled(); expe
 
 describe('explicit police source loading', () => {
   it.each(['/search', '/search?source=all', '/search?source=community', '/search?source=unknown'])('defaults %s safely to LOST QUEST without police requests', async path => {
-    await mount(path); expect(tabs()).toHaveLength(3); expect(tabs()[0].getAttribute('aria-pressed')).toBe('true');
-    expect(tabs()[1].textContent).toBe('경찰청 분실물'); expect(tabs()[2].textContent).toBe('경찰청 습득물'); expect(container.textContent).not.toContain('전체 물품');
+    await mount(path);
+    expect(sourceTabs().map(tab => tab.textContent?.replace(/\d+$/, ''))).toEqual(['내 물건 찾기', '주인 찾기']);
+    expect(sourceTabs().map(tab => tab.getAttribute('aria-pressed'))).toEqual(['true', 'true']);
+    expect(policeEntry()?.textContent).toContain('경찰청 공공데이터');
+    expect(policeLostTab()).toBeUndefined(); expect(container.textContent).not.toContain('전체 물품');
     expect(cards()).toEqual([expect.stringContaining(own.title)]); expectNoPolice();
     expect(container.querySelector('select[aria-label="경찰청 지역"]')).toBeNull();
     expect(container.querySelector('select[aria-label="물품 유형"]')).not.toBeNull();
@@ -80,16 +87,17 @@ describe('explicit police source loading', () => {
     await change(container.querySelector<HTMLInputElement>('input[aria-label="시작 날짜"]')!, '2026-10-01');
     expect(cards()).toHaveLength(1); expectNoPolice();
     await click([...container.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === '초기화')!);
-    expectNoPolice(); expect(tabs()[0].getAttribute('aria-pressed')).toBe('true');
+    expectNoPolice(); expect(communityLostTab().getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('starts list and code requests only when clicked, with truthful loaded counts and source-specific controls', async () => {
-    await mount(); expectNoPolice(); await click(tabs()[1]);
+  it('starts list and code requests only when the secondary police entry is opened, with truthful loaded counts and source-specific controls', async () => {
+    await mount(); expectNoPolice(); await openPolice();
     expect(getPoliceFilters).toHaveBeenCalledOnce(); expect(listPoliceItems).toHaveBeenCalledOnce();
     expect(listPoliceItems).toHaveBeenCalledWith('lost', expect.objectContaining({ page: 1, size: 50 }));
     expect(vi.mocked(listPoliceItems).mock.calls.some(([type]) => type === 'found')).toBe(false);
-    expect(cards()).toEqual([expect.stringContaining(police.title)]); expect(tabs()[1].textContent).toContain('불러온 1건');
-    expect(tabs()[1].textContent).not.toContain('300');
+    expect(cards()).toEqual([expect.stringContaining(police.title)]); expect(policeLostTab().textContent).toContain('불러온 1건');
+    expect(policeLostTab().textContent).not.toContain('300');
+    expect(backToCommunity()?.textContent).toContain('LOST QUEST 검색');
     expect(container.querySelector('select[aria-label="LOST QUEST 지역"]')).toBeNull();
     expect(container.querySelector('select[aria-label="물품 유형"]')).toBeNull();
     expect(statusRows()).toHaveLength(1); expect(statusRows()[0].textContent).toContain('경찰청 분실물');
@@ -101,15 +109,16 @@ describe('explicit police source loading', () => {
   });
 
   it.each([
-    ['/search?source=public', 'lost', 1],
-    ['/search?source=public&type=lost', 'lost', 1],
-    ['/search?source=public&type=unknown', 'lost', 1],
-    ['/search?source=public&type=found', 'found', 2],
-  ] as const)('shares only the selected StrictMode request for %s', async (path, type, tabIndex) => {
+    ['/search?source=public', 'lost'],
+    ['/search?source=public&type=lost', 'lost'],
+    ['/search?source=public&type=unknown', 'lost'],
+    ['/search?source=public&type=found', 'found'],
+  ] as const)('shares only the selected StrictMode request for %s', async (path, type) => {
     await mount(path, true);
     expect(listPoliceItems).toHaveBeenCalledOnce(); expect(listPoliceItems).toHaveBeenCalledWith(type, { page: 1, size: 50 });
     expect(getPoliceFilters).toHaveBeenCalledOnce(); expect(cards()).toHaveLength(1);
-    expect(tabs()[tabIndex].getAttribute('aria-pressed')).toBe('true'); expect(statusRows()).toHaveLength(1);
+    expect((type === 'lost' ? policeLostTab() : policeFoundTab()).getAttribute('aria-pressed')).toBe('true');
+    expect(statusRows()).toHaveLength(1);
     expect(cards()[0]).toContain(type === 'lost' ? police.title : policeFound.title);
   });
 
@@ -125,8 +134,8 @@ describe('explicit police source loading', () => {
     expect(listPoliceItems).toHaveBeenCalledWith('found', expect.objectContaining({ page: 1, size: 50 }));
     expect(getPoliceFilters).not.toHaveBeenCalled(); expect(refreshMatchNotifications).not.toHaveBeenCalled();
     expect(cards()).toEqual([expect.stringContaining(own.title)]);
-    await click(tabs()[1]); expect(cards()).toEqual([expect.stringContaining(police.title)]);
-    await click(tabs()[2]); expect(cards()).toEqual([expect.stringContaining(policeFound.title)]);
+    await openPolice(); expect(cards()).toEqual([expect.stringContaining(police.title)]);
+    await click(policeFoundTab()); expect(cards()).toEqual([expect.stringContaining(policeFound.title)]);
     expect(listPoliceItems).toHaveBeenCalledTimes(2);
   });
 
@@ -135,19 +144,19 @@ describe('explicit police source loading', () => {
     await mount('/search');
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 1300)); }); await flush();
     expect(listPoliceItems).toHaveBeenCalledTimes(2);
-    await click(tabs()[1]);
+    await openPolice();
     expect(listPoliceItems).toHaveBeenCalledTimes(3);
     expect(cards()).toEqual([expect.stringContaining(police.title)]);
   });
 
   it('applies only supported keyword filters after switching from own search', async () => {
     await mount('/search?q=지갑&region=부산&category=휴대폰&from=2026-10-14&to=2026-10-15&pRegion=LCA000&pColor=CL1002');
-    expectNoPolice(); await click(tabs()[1]);
+    expectNoPolice(); await openPolice();
     expect(listPoliceItems).toHaveBeenCalledWith('lost', { q: '지갑', page: 1, size: 50 });
     expect(vi.mocked(listPoliceItems).mock.calls.some(([type]) => type === 'found')).toBe(false);
     expect(cards()).toHaveLength(1); expect(container.querySelector<HTMLInputElement>('input[aria-label="시작 날짜"]')?.disabled).toBe(true);
     await search('가방'); expect(listPoliceItems).toHaveBeenLastCalledWith('lost', { q: '가방', page: 1, size: 50 });
-    await click(tabs()[2]); expect(listPoliceItems).toHaveBeenLastCalledWith('found', { q: '가방', page: 1, size: 50 });
+    await click(policeFoundTab()); expect(listPoliceItems).toHaveBeenLastCalledWith('found', { q: '가방', page: 1, size: 50 });
     expect(cards()).toEqual([expect.stringContaining(policeFound.title)]);
     expect(getPoliceFilters).toHaveBeenCalledOnce();
   });
@@ -165,38 +174,41 @@ describe('explicit police source loading', () => {
 
   it('switches police types without mixing rows, status or pagination and preserves common filters', async () => {
     await mount('/search?source=public&from=2026-10-01&to=2026-10-15&pRegion=LCA000');
-    await click(tabs()[2]);
+    await click(policeFoundTab());
     expect(listPoliceItems).toHaveBeenLastCalledWith('found', { from: '2026-10-01', to: '2026-10-15', region: 'LCA000', page: 1, size: 50 });
     expect(cards()).toEqual([expect.stringContaining(policeFound.title)]);
     expect(statusRows()).toHaveLength(1); expect(statusRows()[0].textContent).toContain('경찰청 습득물');
     expect(statusRows()[0].textContent).not.toContain('경찰청 분실물');
-    expect(tabs()[2].textContent).toContain('불러온 1건'); expect(tabs()[1].textContent).not.toContain('불러온');
+    expect(policeFoundTab().textContent).toContain('불러온 1건'); expect(policeLostTab().textContent).not.toContain('불러온');
     expect(moreButtons()).toHaveLength(1); expect(moreButtons()[0].textContent).toBe('경찰청 습득물 더 보기');
     expect(getPoliceFilters).toHaveBeenCalledOnce();
   });
 
-  it('uses color only for found items and switches to 주인 찾기 when leaving the police tabs', async () => {
+  it('uses color only for found items and returns to LOST QUEST when leaving police mode', async () => {
     await mount('/search?source=public&type=found&pRegion=LCA000&pColor=CL1002');
     expect(listPoliceItems).toHaveBeenLastCalledWith('found', { region: 'LCA000', color: 'CL1002', page: 1, size: 50 });
     expect(container.querySelector<HTMLSelectElement>('select[aria-label="경찰청 습득물 색상"]')?.value).toBe('CL1002');
-    await click(tabs()[1]);
+    await click(policeLostTab());
     expect(listPoliceItems).toHaveBeenLastCalledWith('lost', { region: 'LCA000', page: 1, size: 50 });
     expect(container.querySelector('select[aria-label="경찰청 습득물 색상"]')).toBeNull();
-    await click(tabs()[2]);
+    await click(policeFoundTab());
     expect(listPoliceItems).toHaveBeenLastCalledWith('found', { region: 'LCA000', color: 'CL1002', page: 1, size: 50 });
-    await click(tabs()[0]);
-    expect(container.querySelector<HTMLSelectElement>('select[aria-label="물품 유형"]')?.value).toBe('lost');
+    await click(backToCommunity()!);
+    expect(container.querySelector('output')?.textContent).toContain('source=community');
+    expect(container.querySelector('output')?.textContent).not.toContain('type=');
+    expect(policeEntry()?.textContent).toContain('경찰청 공공데이터');
     expect(cards()).toEqual([expect.stringContaining(own.title)]);
   });
-  it('names the LOST QUEST tabs from the visitor\'s side: 내 물건 찾기 lists found posts, 주인 찾기 lists lost posts', async () => {
+  it('names the LOST QUEST tabs from the visitor\'s side and keeps police as a secondary entry', async () => {
     await mount('/search');
-    expect(allTabs().map(tab => tab.textContent)).toEqual(['내 물건 찾기', '주인 찾기1', '경찰청 분실물', '경찰청 습득물']);
-    expect(allTabs().slice(0, 2).map(tab => tab.getAttribute('aria-pressed'))).toEqual(['true', 'true']);
-    await click(allTabs()[0]);
+    expect(sourceTabs().map(tab => tab.textContent)).toEqual(['내 물건 찾기', '주인 찾기1']);
+    expect(sourceTabs().map(tab => tab.getAttribute('aria-pressed'))).toEqual(['true', 'true']);
+    expect(policeEntry()?.textContent).toContain('경찰청 공공데이터');
+    await click(sourceTabs()[0]);
     expect(container.querySelector('output')?.textContent).toBe('/search?source=community&type=found');
-    expect(allTabs().slice(0, 2).map(tab => tab.getAttribute('aria-pressed'))).toEqual(['true', 'false']);
+    expect(sourceTabs().map(tab => tab.getAttribute('aria-pressed'))).toEqual(['true', 'false']);
     expect(cards()).toEqual([]);
-    await click(allTabs()[1]);
+    await click(sourceTabs()[1]);
     expect(container.querySelector('output')?.textContent).toBe('/search?source=community&type=lost');
     expect(cards()).toEqual([expect.stringContaining(own.title)]);
     expectNoPolice();
@@ -206,7 +218,7 @@ describe('explicit police source loading', () => {
     let finish!: (value: PolicePage) => void;
     vi.mocked(listPoliceItems).mockImplementation(async type => type === 'lost' ? new Promise(resolve => { finish = resolve; }) : page(type));
     await mount('/search?source=public');
-    await click(tabs()[2]);
+    await click(policeFoundTab());
     expect(cards()).toEqual([expect.stringContaining(policeFound.title)]);
     await act(async () => finish(page('lost', '이전 잃어버린 물건 응답'))); await flush();
     expect(cards()).toEqual([expect.stringContaining(policeFound.title)]);
@@ -218,8 +230,8 @@ describe('explicit police source loading', () => {
   it('shows loading and drops a late police response after returning to own search', async () => {
     let finish!: (value: PolicePage) => void;
     vi.mocked(listPoliceItems).mockImplementation(async type => type === 'lost' ? new Promise(resolve => { finish = resolve; }) : page(type));
-    await mount(); await click(tabs()[1]); expect(container.textContent).toContain('공개 목록을 불러오고 있어요.');
-    await click(tabs()[0]); await search('회원'); expect(cards()).toHaveLength(1);
+    await mount(); await openPolice(); expect(container.textContent).toContain('공개 목록을 불러오고 있어요.');
+    await click(backToCommunity()!); await search('회원'); expect(cards()).toHaveLength(1);
     await act(async () => finish(page('lost', '늦은 경찰청 결과'))); await flush();
     expect(cards()).toEqual([expect.stringContaining(own.title)]); expect(container.textContent).not.toContain('늦은 경찰청 결과');
     expect(container.querySelector('.public-list-status-grid')?.textContent).not.toContain('경찰청');
@@ -229,7 +241,7 @@ describe('explicit police source loading', () => {
   it('joins the same pending request across fast police/own/police switches', async () => {
     let finish!: (value: PolicePage) => void;
     vi.mocked(listPoliceItems).mockImplementation(async type => type === 'lost' ? new Promise(resolve => { finish = resolve; }) : page(type));
-    await mount(); await click(tabs()[1]); await click(tabs()[0]); await click(tabs()[1]);
+    await mount(); await openPolice(); await click(backToCommunity()!); await openPolice();
     expect(vi.mocked(listPoliceItems).mock.calls.filter(([type]) => type === 'lost')).toHaveLength(1);
     expect(vi.mocked(listPoliceItems).mock.calls.some(([type]) => type === 'found')).toBe(false);
     await act(async () => finish(page('lost'))); await flush();
@@ -239,15 +251,16 @@ describe('explicit police source loading', () => {
   it.each(['lost', 'found'] as const)('keeps the selected %s tab when clearing a police filter', async type => {
     await mount(`/search?source=public&type=${type}&pRegion=LCA000`);
     await click([...container.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === '초기화')!);
-    expect(tabs()[type === 'lost' ? 1 : 2].getAttribute('aria-pressed')).toBe('true'); expect(container.querySelector('output')?.textContent).toContain('source=public');
+    expect((type === 'lost' ? policeLostTab() : policeFoundTab()).getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelector('output')?.textContent).toContain('source=public');
     expect(listPoliceItems).toHaveBeenLastCalledWith(type, { page: 1, size: 50 });
     expect(vi.mocked(listPoliceItems).mock.calls.every(([requestedType]) => requestedType === type)).toBe(true);
   });
 
   it('keeps a police error inside the selected source', async () => {
     vi.mocked(listPoliceItems).mockRejectedValue(new ApiClientError('HTTP_ERROR', '경찰청 장애', 503));
-    await mount(); expectNoPolice(); await click(tabs()[1]);
-    expect(container.textContent).toContain('서버 연결 불가'); await click(tabs()[0]);
+    await mount(); expectNoPolice(); await openPolice();
+    expect(container.textContent).toContain('서버 연결 불가'); await click(backToCommunity()!);
     expect(container.textContent).not.toContain('서버 연결 불가'); expect(cards()).toHaveLength(1);
   });
   it('explains a failed 경찰청 분실물 keyword search and clears the keyword back to the date listing', async () => {
