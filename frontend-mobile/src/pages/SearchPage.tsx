@@ -1,11 +1,12 @@
 import { useSearchParams, Link } from 'react-router-dom';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { ArrowRight, ChevronDown, Globe2, ListFilter, RotateCcw, Search, SlidersHorizontal } from 'lucide-react';
+import { ArrowRight, ChevronDown, Clock3, Globe2, ListFilter, RotateCcw, Search, SlidersHorizontal, X } from 'lucide-react';
 import ItemCard from '../components/ItemCard';
 import PublicListStatus from '../components/PublicListStatus';
 import { categories, regions } from '../data/seed';
 import { getPoliceFilters, type PoliceFilterOptions } from '../services/publicItemApi';
 import { loadCommunityPublicList, loadPolicePublicList } from '../services/publicListLoader';
+import { clearRecentSearches, loadRecentSearches, rememberSearch, removeRecentSearch } from '../services/recentSearches';
 import { SOURCE_LABELS, applyPolicePage, buildPoliceQuery, describeSourceError, idleSource, isPoliceLostKeywordOutage, type SourceKey, type SourceState } from '../services/searchSources';
 import './SearchPage.css';
 
@@ -27,6 +28,9 @@ export default function SearchPage() {
   const query = params.get('q') ?? '';
   const [draft, setDraft] = useState(query);
   useEffect(() => { setDraft(query); }, [query]);
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => loadRecentSearches());
+  const [searchFocused, setSearchFocused] = useState(false);
+  const blurHideTimer = useRef<number | null>(null);
   const region = params.get('region') ?? '';
   const category = params.get('category') ?? '';
   // Only an explicit police selection opts into the external source. Legacy all/unknown URLs use LOST QUEST.
@@ -164,7 +168,25 @@ export default function SearchPage() {
     paramsRef.current = next;
     setParams(next);
   };
-  const submit = (e: FormEvent) => { e.preventDefault(); update('q', draft.trim()); };
+  const applyQuery = (raw: string) => {
+    const nextQuery = raw.trim();
+    setDraft(nextQuery);
+    update('q', nextQuery);
+    if (nextQuery) setRecentSearches(rememberSearch(nextQuery));
+    setSearchFocused(false);
+  };
+  const submit = (e: FormEvent) => { e.preventDefault(); applyQuery(draft); };
+  const showRecentSearches = searchFocused && recentSearches.length > 0 && !draft.trim();
+  const openRecentSearches = () => {
+    if (blurHideTimer.current != null) { window.clearTimeout(blurHideTimer.current); blurHideTimer.current = null; }
+    setRecentSearches(loadRecentSearches());
+    setSearchFocused(true);
+  };
+  const scheduleHideRecentSearches = () => {
+    if (blurHideTimer.current != null) window.clearTimeout(blurHideTimer.current);
+    blurHideTimer.current = window.setTimeout(() => { setSearchFocused(false); blurHideTimer.current = null; }, 120);
+  };
+  useEffect(() => () => { if (blurHideTimer.current != null) window.clearTimeout(blurHideTimer.current); }, []);
   // Back to the normal 경찰청 분실물 listing (dates, region, category) when its keyword search API is down.
   const clearKeyword = () => { setDraft(''); update('q', ''); };
   const selectSource = (nextSource: 'community' | 'public', nextType?: 'lost' | 'found') => {
@@ -204,7 +226,16 @@ export default function SearchPage() {
   const retry = (key: SourceKey) => key.startsWith('community') ? void loadCommunityItems(key as 'communityLost' | 'communityFound') : void loadPolice(key as 'policeLost' | 'policeFound', 1);
 
   return <div className="page-container search-page"><div className="page-heading"><span className="eyebrow"><Globe2 size={15}/>{source === 'community' ? 'LOST QUEST 물품 검색' : '경찰청 공공데이터 검색'}</span><h1>당신의 소중한 물건, 함께 찾아볼까요?</h1><p>{source === 'community' ? '‘내 물건 찾기’에서는 누군가 주워서 주인을 기다리는 물건을, ‘주인 찾기’에서는 물건을 잃어버려 찾고 있는 글을 볼 수 있어요. 경찰청 자료는 경찰청 분실물·습득물 탭에서 따로 조회할 수 있어요.' : '경찰청에 접수된 분실물·습득물을 찾아보세요. 회원이 등록한 물품은 LOST QUEST 탭에서 확인할 수 있어요.'}</p><div className="search-shortcuts"><Link to="/community-inbox">내 비공개 질문함</Link><Link to="/community">이웃과 이야기 나누기</Link></div></div>
-    <form className="catalog-search" onSubmit={submit}><Search size={22}/><input aria-label="물품 이름 또는 특징 검색" value={draft} onChange={e=>setDraft(e.target.value)} placeholder="물품 이름, 색상, 장소로 검색해 보세요" maxLength={100}/><button className="button button-primary" type="submit">검색</button></form>
+    <div className="catalog-search-wrap">
+      <form className="catalog-search" onSubmit={submit}><Search size={22} aria-hidden="true"/><input aria-label="물품 이름 또는 특징 검색" value={draft} onChange={e=>setDraft(e.target.value)} onFocus={openRecentSearches} onBlur={scheduleHideRecentSearches} placeholder="물품 이름, 색상, 장소로 검색해 보세요" maxLength={100} autoComplete="off"/><button className="button button-primary" type="submit">검색</button></form>
+      {showRecentSearches && <div className="recent-searches" role="listbox" aria-label="최근 검색어">
+        <div className="recent-searches-header"><span>최근 검색</span><button type="button" className="text-link recent-searches-clear" onMouseDown={e => e.preventDefault()} onClick={() => { setRecentSearches(clearRecentSearches()); setSearchFocused(false); }}>전체 삭제</button></div>
+        <ul>{recentSearches.map(term => <li key={term} role="option">
+          <button type="button" className="recent-search-term" onMouseDown={e => e.preventDefault()} onClick={() => applyQuery(term)}><Clock3 size={16} aria-hidden="true"/><span>{term}</span></button>
+          <button type="button" className="recent-search-remove" aria-label={`${term} 최근 검색에서 삭제`} onMouseDown={e => e.preventDefault()} onClick={() => setRecentSearches(removeRecentSearch(term))}><X size={16} aria-hidden="true"/></button>
+        </li>)}</ul>
+      </div>}
+    </div>
     <div className="source-tabs" role="group" aria-label="데이터 출처">{(['found', 'lost'] as const).map(communityType => {
       // Named from the visitor's side: 내 물건 찾기 lists found posts (주인을 찾아요), 주인 찾기 lists lost posts (찾고 있어요).
       // Without a type both LOST QUEST lists are shown, so both tabs read as selected.
