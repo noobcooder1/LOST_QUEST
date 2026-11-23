@@ -8,7 +8,7 @@
 .public-list-status-refresh:disabled{opacity:.5;cursor:not-allowed}.public-list-status-refresh:hover:not(:disabled){background:#e5effa}
 .public-list-status .public-list-status-label{margin-left:auto;font-size:.75rem;white-space:nowrap;gap:4px}
 .public-list-status-details{position:relative;flex-shrink:0;color:#8497a8}
-.public-list-status-details>summary{display:flex;align-items:center;justify-content:center;cursor:pointer;list-style:none;border-radius:4px;width:22px;height:22px}
+.public-list-status-details>summary{display:flex;align-items:center;justify-content:center;cursor:pointer;list-style:none;border-radius:8px;min-width:44px;min-height:44px;width:44px;height:44px}
 .public-list-status-details>summary::-webkit-details-marker{display:none}
 .public-list-status-details>summary:hover,.public-list-status-details[open]>summary{background:#e7eff8;color:#245d96}
 .public-list-status-details>summary:focus-visible{outline:2px solid #2874ed;outline-offset:2px}
