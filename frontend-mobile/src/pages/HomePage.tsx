@@ -1,26 +1,30 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, BookOpen, ChevronRight, Gamepad2, Globe2, HeartHandshake, PackageSearch, ScanSearch, Search, ShieldCheck, Sparkles, UsersRound, Wallet } from 'lucide-react';
+import { ArrowRight, BookOpen, ChevronDown, ChevronRight, ChevronUp, Gamepad2, Globe2, HeartHandshake, PackageSearch, ScanSearch, Search, ShieldCheck, Sparkles, UsersRound, Wallet } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import ItemCard from '../components/ItemCard';
 
-const quickActions = [
-  // Browsing from the visitor's side; registering stays on the bottom bar's + button.
+/** Primary home shortcuts stay at four choices to reduce Hick load; the rest open under 더보기. */
+const primaryActions = [
   { icon: PackageSearch, label: '내 물건 찾기', link: '/search?source=community&type=found', tone: 'blue' },
   { icon: Wallet, label: '주인 찾기', link: '/search?source=community&type=lost', tone: 'mint' },
   { icon: Sparkles, label: '매칭 추천', link: '/matches', tone: 'purple' },
-  { icon: Globe2, label: '전국 검색', link: '/search?source=public&type=lost', tone: 'orange' },
   { icon: ScanSearch, label: '사진으로 찾기', link: '/photo-search', tone: 'purple' },
+] as const;
+
+const moreActions = [
+  { icon: Globe2, label: '전국 검색', link: '/search?source=public&type=lost', tone: 'orange' },
   { icon: UsersRound, label: '커뮤니티', link: '/community', tone: 'blue' },
   { icon: Gamepad2, label: '탐정 게임', link: '/quest-game', tone: 'orange' },
   { icon: BookOpen, label: '이용 안내', link: '/guide', tone: 'mint' },
-];
+] as const;
 
 const popularKeywords = ['지갑', '이어폰', '스마트폰', '가방', '카드', '열쇠'];
 
 export default function HomePage() {
   const { profile, items, isLoggedIn, itemsReady } = useApp();
   const [query, setQuery] = useState('');
+  const [showMore, setShowMore] = useState(false);
   const navigate = useNavigate();
   const search = (e: FormEvent) => { e.preventDefault(); navigate(`/search?q=${encodeURIComponent(query.trim())}`); };
   const level = Math.floor(profile.xp / 100) + 1;
@@ -46,8 +50,14 @@ export default function HomePage() {
 
     <section className="home-section">
       <nav className="home-quick-grid" aria-label="빠른 메뉴">
-        {quickActions.map(({ icon: Icon, label, link, tone }) => <Link key={link} to={link}><span className={`home-quick-icon tone-${tone}`}><Icon size={24} strokeWidth={1.8} aria-hidden="true" /></span>{label}</Link>)}
+        {primaryActions.map(({ icon: Icon, label, link, tone }) => <Link key={link} to={link}><span className={`home-quick-icon tone-${tone}`}><Icon size={24} strokeWidth={1.8} aria-hidden="true" /></span>{label}</Link>)}
       </nav>
+      <button type="button" className="home-quick-more" aria-expanded={showMore} onClick={() => setShowMore((open) => !open)}>
+        {showMore ? <>접기 <ChevronUp size={16} aria-hidden="true" /></> : <>더보기 <ChevronDown size={16} aria-hidden="true" /></>}
+      </button>
+      {showMore && <nav className="home-quick-grid home-quick-more-grid" aria-label="추가 메뉴">
+        {moreActions.map(({ icon: Icon, label, link, tone }) => <Link key={link} to={link}><span className={`home-quick-icon tone-${tone}`}><Icon size={24} strokeWidth={1.8} aria-hidden="true" /></span>{label}</Link>)}
+      </nav>}
     </section>
 
     <Link to="/mypage" className="home-section home-quest-card">

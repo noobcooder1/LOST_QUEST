@@ -145,12 +145,14 @@ describe('MyItemList', () => {
 
     const [recent, old, earbuds] = cards();
     expect(recent.textContent).toContain('가장 최근 잃어버린 물건');
-    expect(recent.textContent).toContain('내 물건 찾기');
+    expect(recent.textContent).toContain('찾고 있어요');
+    expect(recent.querySelector('.badge-blue')?.textContent).toBe('찾고 있어요');
     expect(recent.textContent).toContain('서울');
     expect(recent.textContent).toContain('분실 2026-09-16');
     expect(recent.textContent).toContain('글 등록 2026. 10. 01 09:00:00 (한국 시간)');
     expect(old.textContent).toContain('오래된 잃어버린 물건');
-    expect(earbuds.textContent).toContain('주인 찾기');
+    expect(earbuds.textContent).toContain('주인을 찾아요');
+    expect(earbuds.querySelector('.badge-green')?.textContent).toBe('주인을 찾아요');
     expect(earbuds.textContent).toContain('경기');
     expect(earbuds.textContent).toContain('습득 2026-09-21');
     // Server order is kept, and the server image / category illustration are used.
@@ -247,7 +249,7 @@ describe('MyPage 등록 내역 tab', () => {
   it('opens achievements on a separate screen and returns to the previous history tab', async () => {
     await renderMyPage('/mypage?tab=returns');
     expect([...container.querySelectorAll('.profile-tabs > button')].map(button => button.textContent))
-      .toEqual(['등록 내역', '반환 내역']);
+      .toEqual(['등록 내역', '반환 내역', '알림']);
     expect(text()).not.toContain('이웃과 이야기 나누기');
     const achievements = container.querySelector<HTMLAnchorElement>('a.profile-stat-action');
     expect(achievements?.getAttribute('aria-label')).toBe('획득 업적 3개 보기');
@@ -266,14 +268,15 @@ describe('MyPage 등록 내역 tab', () => {
     expect(myItemCalls()).toHaveLength(0);
   });
 
-  it('continues to open notifications from the header destination without a duplicate tab', async () => {
+  it('exposes the notifications tab so the header bell destination matches MyPage IA', async () => {
     handler = (url, init) => url.startsWith(`${BASE}/api/notifications?`)
       ? json({ notifications: [], unreadCount: 0 }) : defaultHandler(url, init);
     await renderMyPage('/mypage?tab=notifications');
     expect(text()).toContain('매칭 알림');
     expect(text()).toContain('활동 소식');
     expect([...container.querySelectorAll('.profile-tabs > button')].map(button => button.textContent))
-      .toEqual(['등록 내역', '반환 내역']);
+      .toEqual(['등록 내역', '반환 내역', '알림']);
+    expect(container.querySelector('.profile-tabs > button.active')?.textContent).toBe('알림');
     expect(myItemCalls()).toHaveLength(0);
   });
 

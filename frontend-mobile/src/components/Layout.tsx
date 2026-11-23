@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, matchPath, useLocation, useNavigate } from 'react-router-dom';
 import { Bell, BookOpen, ChevronLeft, ChevronRight, ClipboardCheck, Gamepad2, Home, Inbox, Menu, Plus, ScanSearch, Search, Sparkles, UserRound, UsersRound, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -46,6 +46,8 @@ const menuLinks = [
   { to: '/admin', label: '반환 관리', icon: ClipboardCheck, tone: 'mint' },
 ] as const;
 
+const SHEET_FOCUSABLE = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+
 function titleFor(pathname: string): string | null {
   return screenTitles.find(([pattern]) => matchPath(pattern, pathname))?.[1] ?? null;
 }
@@ -57,6 +59,9 @@ export default function Layout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const [dismissedError, setDismissedError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
   // A recovered connection resets dismissal so a later failure can be shown again.
   useEffect(() => { if (!storageError) setDismissedError(null); }, [storageError]);
   // The header counts match notifications; persisted activity messages have their own list on MyPage.
@@ -64,9 +69,39 @@ export default function Layout({ children }: { children: ReactNode }) {
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); setMenuOpen(false); }, [pathname]);
   useEffect(() => {
     if (!menuOpen) return;
-    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setMenuOpen(false); };
-    window.addEventListener('keydown', close);
-    return () => window.removeEventListener('keydown', close);
+    restoreFocusRef.current = (document.activeElement as HTMLElement | null) ?? menuButtonRef.current;
+    const sheet = sheetRef.current;
+    const focusables = () => sheet
+      ? [...sheet.querySelectorAll<HTMLElement>(SHEET_FOCUSABLE)].filter((el) => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true')
+      : [];
+    const closeButton = sheet?.querySelector<HTMLElement>('button[aria-label="메뉴 닫기"]');
+    closeButton?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setMenuOpen(false);
+        return;
+      }
+      if (event.key !== 'Tab' || !sheet) return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      const restore = restoreFocusRef.current ?? menuButtonRef.current;
+      restore?.focus?.();
+      restoreFocusRef.current = null;
+    };
   }, [menuOpen]);
 
   const isHome = pathname === '/';
@@ -92,7 +127,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       </div>
       <div className="app-bar-actions">
         <Link to="/mypage?tab=notifications" className="app-bar-icon notification-button" aria-label={unread > 0 ? `알림, 읽지 않은 매칭 알림 ${unread}개` : '알림'}><Bell size={22} aria-hidden="true" />{unread > 0 && <i className="notification-badge" aria-hidden="true">{unread > 99 ? '99+' : unread}</i>}</Link>
-        <button type="button" className="app-bar-icon" aria-label="전체 메뉴" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}><Menu size={23} aria-hidden="true" /></button>
+        <button type="button" ref={menuButtonRef} className="app-bar-icon" aria-label="전체 메뉴" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}><Menu size={23} aria-hidden="true" /></button>
       </div>
     </header>
     {storageError && storageError !== dismissedError && <div role="alert" className="storage-alert"><span>{storageError}</span><button type="button" className="storage-alert-close" aria-label="오류 안내 닫기" onClick={() => setDismissedError(storageError)}><X size={18} aria-hidden="true" /></button></div>}
@@ -105,9 +140,9 @@ export default function Layout({ children }: { children: ReactNode }) {
       <NavLink to="/mypage"><UserRound size={22} aria-hidden="true" /><span>마이</span></NavLink>
     </nav>}
     {menuOpen && <div className="app-sheet-layer" onClick={() => setMenuOpen(false)}>
-      <div className="app-sheet" role="dialog" aria-modal="true" aria-label="전체 메뉴" onClick={(event) => event.stopPropagation()}>
+      <div ref={sheetRef} className="app-sheet" role="dialog" aria-modal="true" aria-label="전체 메뉴" onClick={(event) => event.stopPropagation()}>
         <div className="app-sheet-handle" aria-hidden="true" />
-        <div className="app-sheet-header"><strong>전체 메뉴</strong><button type="button" className="app-bar-icon" aria-label="메뉴 닫기" onClick={() => setMenuOpen(false)} autoFocus><X size={22} aria-hidden="true" /></button></div>
+        <div className="app-sheet-header"><strong>전체 메뉴</strong><button type="button" className="app-bar-icon" aria-label="메뉴 닫기" onClick={() => setMenuOpen(false)}><X size={22} aria-hidden="true" /></button></div>
         <Link className="app-sheet-profile" to={isLoggedIn ? '/mypage' : '/login'}>
           <span className="app-sheet-avatar"><UserRound size={22} aria-hidden="true" /></span>
           <span className="app-sheet-profile-copy">{isLoggedIn ? <><strong>{profile.name}</strong><small>Lv.{Math.floor(profile.xp / 100) + 1} · {profile.xp} XP</small></> : <><strong>로그인하기</strong><small>등록 내역과 알림을 확인해요</small></>}</span>

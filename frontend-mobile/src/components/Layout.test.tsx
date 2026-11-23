@@ -123,4 +123,30 @@ describe('app shell navigation', () => {
     expect(container.querySelector('[role="dialog"]')).toBeNull();
     expect(appBarTitle()).toBe('이용 안내');
   });
+
+  it('traps Tab focus inside the menu sheet and restores focus to the menu button on close', async () => {
+    await render('/');
+    const menuButton = container.querySelector<HTMLButtonElement>('button[aria-label="전체 메뉴"]');
+    expect(menuButton).not.toBeNull();
+    menuButton!.focus();
+    await click(menuButton);
+    const sheet = container.querySelector<HTMLElement>('[role="dialog"][aria-label="전체 메뉴"]');
+    expect(sheet).not.toBeNull();
+    expect(document.activeElement?.getAttribute('aria-label')).toBe('메뉴 닫기');
+    const focusables = [...sheet!.querySelectorAll<HTMLElement>('a[href], button:not([disabled])')];
+    expect(focusables.length).toBeGreaterThan(2);
+    focusables.at(-1)!.focus();
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    });
+    expect(document.activeElement).toBe(focusables[0]);
+    focusables[0].focus();
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true }));
+    });
+    expect(document.activeElement).toBe(focusables.at(-1));
+    await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(menuButton);
+  });
 });

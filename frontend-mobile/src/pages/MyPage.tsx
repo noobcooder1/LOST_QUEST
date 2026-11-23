@@ -40,7 +40,7 @@ export default function MyPage() {
       <Link to="/guide"><Sparkles size={19} aria-hidden="true" />경험치 안내<ChevronRight size={17} aria-hidden="true" /></Link>
     </nav>
     <div className="workflow-tabs profile-tabs" aria-label="마이페이지 메뉴">{([
-      ['items', '등록 내역', Package], ['returns', '반환 내역', HeartHandshake],
+      ['items', '등록 내역', Package], ['returns', '반환 내역', HeartHandshake], ['notifications', '알림', Bell],
     ] as const).map(([value, label, Icon]) => <button key={value} className={tab === value ? 'active' : ''} aria-pressed={tab === value} onClick={() => setTab(value)}><Icon size={17} />{label}</button>)}</div>
     {tab === 'items' && <MyItemList />}
     {tab === 'returns' && <section><div className="workflow-section-heading"><h2>내 반환 요청 <span>{requests.length}</span></h2><span className="muted">요청한 반환과 등록한 주운 물건의 반환</span></div>{requests.length ? <div className="profile-return-list">{requests.map((request) => {
