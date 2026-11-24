@@ -27,7 +27,10 @@ const page = (type: 'lost' | 'found', title?: string): PolicePage => ({ items: [
 let root: Root, container: HTMLDivElement;
 function Controls() {
   const location = useLocation(), { runRefresh } = useMatchNotifications();
-  return <><output>{location.pathname}{location.search}</output><Link to="/search">기본 검색 이동</Link><Link to="/">홈 이동</Link><Link to="/mypage?tab=notifications">알림 화면 이동</Link><button onClick={() => void runRefresh()}>명시적 매칭 갱신</button></>;
+  // Drive URL source changes independently of the global navigation, which is tested with Layout.
+  const policeParams = new URLSearchParams(location.search);
+  policeParams.set('source', 'public'); policeParams.set('type', 'lost');
+  return <><output>{location.pathname}{location.search}</output><Link to="/search">기본 검색 이동</Link><Link data-testid="police-source-navigation" to={`/search?${policeParams}`}>경찰청 조회 이동</Link><Link to="/">홈 이동</Link><Link to="/mypage?tab=notifications">알림 화면 이동</Link><button onClick={() => void runRefresh()}>명시적 매칭 갱신</button></>;
 }
 beforeEach(() => {
   vi.resetAllMocks(); account.user = null;
@@ -46,7 +49,7 @@ async function mount(path = '/search', strict = false) {
   await act(async () => root.render(strict ? <StrictMode>{app}</StrictMode> : app)); await flush();
 }
 const sourceTabs = () => [...container.querySelectorAll<HTMLButtonElement>('.source-tabs > button')];
-const policeEntry = () => container.querySelector<HTMLButtonElement>('.search-police-entry');
+const policeNavigation = () => container.querySelector<HTMLAnchorElement>('[data-testid="police-source-navigation"]');
 const backToCommunity = () => container.querySelector<HTMLButtonElement>('.search-back-community');
 // Community mode: [내 물건 찾기, 주인 찾기]. Police mode: [분실물, 습득물].
 const communityLostTab = () => sourceTabs().find(tab => tab.textContent?.startsWith('주인 찾기'))!;
@@ -56,7 +59,7 @@ const cards = () => [...container.querySelectorAll('a.item-card')].map(card => c
 const statusRows = () => [...container.querySelectorAll('.public-list-status-grid > li')];
 const moreButtons = () => [...container.querySelectorAll<HTMLButtonElement>('.catalog-load-more > button')];
 async function click(element: HTMLElement) { expect(element).toBeTruthy(); await act(async () => element.click()); await flush(); }
-async function openPolice() { await click(policeEntry()!); }
+async function openPolice() { await click(policeNavigation()!); }
 async function change(element: HTMLInputElement | HTMLSelectElement, value: string) {
   await act(async () => { const prototype = element instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
     Object.getOwnPropertyDescriptor(prototype, 'value')!.set!.call(element, value); element.dispatchEvent(new Event(element instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true })); }); await flush();
@@ -72,7 +75,7 @@ describe('explicit police source loading', () => {
     await mount(path);
     expect(sourceTabs().map(tab => tab.textContent?.replace(/\d+$/, ''))).toEqual(['내 물건 찾기', '주인 찾기']);
     expect(sourceTabs().map(tab => tab.getAttribute('aria-pressed'))).toEqual(['true', 'true']);
-    expect(policeEntry()?.textContent).toContain('경찰청 공공데이터');
+    expect(container.querySelector('.search-police-entry')).toBeNull();
     expect(policeLostTab()).toBeUndefined(); expect(container.textContent).not.toContain('전체 물품');
     expect(cards()).toEqual([expect.stringContaining(own.title)]); expectNoPolice();
     expect(container.querySelector('select[aria-label="경찰청 지역"]')).toBeNull();
@@ -90,7 +93,7 @@ describe('explicit police source loading', () => {
     expectNoPolice(); expect(communityLostTab().getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('starts list and code requests only when the secondary police entry is opened, with truthful loaded counts and source-specific controls', async () => {
+  it('starts list and code requests only when the police source URL is opened, with truthful loaded counts and source-specific controls', async () => {
     await mount(); expectNoPolice(); await openPolice();
     expect(getPoliceFilters).toHaveBeenCalledOnce(); expect(listPoliceItems).toHaveBeenCalledOnce();
     expect(listPoliceItems).toHaveBeenCalledWith('lost', expect.objectContaining({ page: 1, size: 50 }));
@@ -196,14 +199,14 @@ describe('explicit police source loading', () => {
     await click(backToCommunity()!);
     expect(container.querySelector('output')?.textContent).toContain('source=community');
     expect(container.querySelector('output')?.textContent).not.toContain('type=');
-    expect(policeEntry()?.textContent).toContain('경찰청 공공데이터');
+    expect(container.querySelector('.search-police-entry')).toBeNull();
     expect(cards()).toEqual([expect.stringContaining(own.title)]);
   });
-  it('names the LOST QUEST tabs from the visitor\'s side and keeps police as a secondary entry', async () => {
+  it('names the LOST QUEST tabs from the visitor\'s side without a duplicate police entry', async () => {
     await mount('/search');
     expect(sourceTabs().map(tab => tab.textContent)).toEqual(['내 물건 찾기', '주인 찾기1']);
     expect(sourceTabs().map(tab => tab.getAttribute('aria-pressed'))).toEqual(['true', 'true']);
-    expect(policeEntry()?.textContent).toContain('경찰청 공공데이터');
+    expect(container.querySelector('.search-police-entry')).toBeNull();
     await click(sourceTabs()[0]);
     expect(container.querySelector('output')?.textContent).toBe('/search?source=community&type=found');
     expect(sourceTabs().map(tab => tab.getAttribute('aria-pressed'))).toEqual(['true', 'false']);

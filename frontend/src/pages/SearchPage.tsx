@@ -225,7 +225,7 @@ export default function SearchPage() {
   const anyLoading = relevantSources.some(key => sources[key].status === 'loading' || sources[key].status === 'idle');
   const retry = (key: SourceKey) => key.startsWith('community') ? void loadCommunityItems(key as 'communityLost' | 'communityFound') : void loadPolice(key as 'policeLost' | 'policeFound', 1);
 
-  return <div className="page-container search-page"><div className="page-heading"><span className="eyebrow"><Globe2 size={15}/>{source === 'community' ? 'LOST QUEST 물품 검색' : '경찰청 공공데이터 · 보조 조회'}</span><h1>당신의 소중한 물건, 함께 찾아볼까요?</h1><p>{source === 'community' ? '‘내 물건 찾기’에서는 누군가 주워서 주인을 기다리는 물건을, ‘주인 찾기’에서는 물건을 잃어버려 찾고 있는 글을 볼 수 있어요. 경찰청에 접수된 분실·습득물은 「경찰청 공공데이터」에서 따로 조회할 수 있어요.' : '경찰청에 접수된 분실물·습득물을 찾아보세요. 회원이 등록한 LOST QUEST 물품은 「LOST QUEST 검색」으로 돌아가 확인할 수 있어요.'}</p><div className="search-shortcuts"><Link to="/community-inbox">내 비공개 질문함</Link><Link to="/community">이웃과 이야기 나누기</Link></div></div>
+  return <div className="page-container search-page"><div className="page-heading"><span className="eyebrow"><Globe2 size={15}/>{source === 'community' ? 'LOST QUEST 물품 검색' : '경찰청 공공데이터 · 보조 조회'}</span><h1>당신의 소중한 물건, 함께 찾아볼까요?</h1><p>{source === 'community' ? '‘내 물건 찾기’에서는 누군가 주워서 주인을 기다리는 물건을, ‘주인 찾기’에서는 물건을 잃어버려 찾고 있는 글을 볼 수 있어요. 경찰청에 접수된 분실·습득물은 내비게이션의 「물건 검색 → 경찰청 공공데이터」에서 따로 조회할 수 있어요.' : '경찰청에 접수된 분실물·습득물을 찾아보세요. 회원이 등록한 LOST QUEST 물품은 「LOST QUEST 검색」으로 돌아가 확인할 수 있어요.'}</p><div className="search-shortcuts"><Link to="/community-inbox">내 비공개 질문함</Link><Link to="/community">이웃과 이야기 나누기</Link></div></div>
     <div className="catalog-search-wrap">
       <form className="catalog-search" onSubmit={submit}><Search size={22} aria-hidden="true"/><input aria-label="물품 이름 또는 특징 검색" value={draft} onChange={e=>setDraft(e.target.value)} onFocus={openRecentSearches} onBlur={scheduleHideRecentSearches} placeholder="물품 이름, 색상, 장소로 검색해 보세요" maxLength={100} autoComplete="off"/><button className="button button-primary" type="submit">검색</button></form>
       {showRecentSearches && <div className="recent-searches" role="listbox" aria-label="최근 검색어">
@@ -244,9 +244,6 @@ export default function SearchPage() {
         const count = sources[communityType === 'lost' ? 'communityLost' : 'communityFound'].items.length;
         return <button key={`community-${communityType}`} aria-pressed={selected} className={selected ? 'active' : ''} onClick={()=>selectSource('community', communityType)}>{communityType === 'found' ? '내 물건 찾기' : '주인 찾기'}{count > 0 && <span>{count}</span>}</button>;
       })}</div>
-      <div className="search-secondary-source">
-        <button type="button" className="text-link search-police-entry" onClick={() => selectSource('public', 'lost')}>경찰청 공공데이터<ArrowRight size={16} aria-hidden="true"/></button>
-      </div>
     </> : <>
       <div className="search-police-bar">
         <button type="button" className="text-link search-back-community" onClick={() => selectSource('community')}><ArrowLeft size={16} aria-hidden="true"/>LOST QUEST 검색</button>
