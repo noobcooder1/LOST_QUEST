@@ -64,16 +64,8 @@ export default function GoogleSignInButton({ mode, disabled = false, variant = '
     return () => { cancelled = true; };
   }, [clientId, mode, variant]);
 
-  if (!clientId) {
-    if (variant !== 'entry') return null;
-    return (
-      <button type="button" className="auth-entry-btn auth-entry-google" disabled>
-        <GoogleMark />
-        <span>Google로 시작하기</span>
-        <span className="auth-entry-soon">설정 필요</span>
-      </button>
-    );
-  }
+  // No VITE_GOOGLE_CLIENT_ID in this build → hide Google entirely (do not show a "설정 필요" stub).
+  if (!clientId) return null;
 
   if (variant === 'entry') {
     return (

@@ -58,12 +58,11 @@ it('loads the Google script once and explains when it cannot be loaded', async (
   expect(document.head.querySelector('script')).toBeNull();
 });
 
-it('shows a disabled entry stub when Google is not configured', async () => {
+it('hides the entry Google path when no client id is configured', async () => {
   vi.stubEnv('VITE_GOOGLE_CLIENT_ID', '');
   await act(async () => root.render(<GoogleSignInButton variant="entry" mode="signin" onCredential={vi.fn()} />));
-  const button = container.querySelector<HTMLButtonElement>('.auth-entry-google');
-  expect(button?.disabled).toBe(true);
-  expect(button?.textContent).toContain('Google로 시작하기');
+  expect(container.innerHTML).toBe('');
+  expect(container.querySelector('.auth-entry-soon')).toBeNull();
 });
 
 it('draws an entry-stack Google path with a rectangular GIS button', async () => {
