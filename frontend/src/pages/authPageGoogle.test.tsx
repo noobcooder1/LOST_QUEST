@@ -68,13 +68,14 @@ it('keeps the email step open when the entered email is already registered', asy
   expect(container.querySelector('#auth-google-email')).not.toBeNull();
 });
 
-it('goes back to the login form when the Google token is rejected or the user cancels', async () => {
+it('goes back to the login entry paths when the Google token is rejected or the user cancels', async () => {
   app.loginWithGoogle.mockResolvedValueOnce('EMAIL_REQUIRED')
     .mockRejectedValueOnce(new ApiClientError('HTTP_ERROR', '구글 로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.', 401, { serverCode: 'INVALID_SOCIAL_TOKEN' }));
   await click('.fake-google');
   await enter('#auth-google-email', 'hunter@example.com'); await submit();
   expect(container.querySelector('#auth-google-email')).toBeNull();
-  expect(container.querySelector('#auth-password')).not.toBeNull();
+  expect(container.querySelector('.fake-google')).not.toBeNull();
+  expect(container.querySelector('.auth-entry-kakao')).not.toBeNull();
   expect(alertText()).toContain('구글 로그인 정보를 확인하지 못했어요');
 
   app.loginWithGoogle.mockResolvedValueOnce('EMAIL_REQUIRED');
@@ -82,4 +83,11 @@ it('goes back to the login form when the Google token is rejected or the user ca
   await click('.auth-google-email button[type="button"]');
   expect(container.querySelector('#auth-google-email')).toBeNull();
   expect(container.querySelector('.fake-google')).not.toBeNull();
+});
+
+it('reveals the email and password form from 일반 로그인', async () => {
+  expect(container.querySelector('#auth-password')).toBeNull();
+  await click('.auth-entry-general');
+  expect(container.querySelector('#auth-password')).not.toBeNull();
+  expect(container.querySelector('.auth-entry-kakao')).toBeNull();
 });

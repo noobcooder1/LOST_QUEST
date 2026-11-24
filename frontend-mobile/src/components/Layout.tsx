@@ -106,7 +106,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   const isHome = pathname === '/';
   const isTabRoot = tabRoots.includes(pathname);
   const title = titleFor(pathname);
-  const showTabBar = !hideTabBarOn.some((pattern) => matchPath(pattern, pathname));
+  const isAuthScreen = pathname === '/login' || pathname === '/signup';
+  const showTabBar = !isAuthScreen && !hideTabBarOn.some((pattern) => matchPath(pattern, pathname));
   // React Router gives the entry the app was opened on the key 'default'; there is nothing in-app to go back to.
   const goBack = () => {
     const isProfileSection = pathname === '/mypage/settings' || pathname === '/mypage/badges';
@@ -116,9 +117,9 @@ export default function Layout({ children }: { children: ReactNode }) {
     else navigate(-1);
   };
 
-  return <div className={`app-shell ${showTabBar ? 'has-tabbar' : ''}`}>
+  return <div className={`app-shell${showTabBar ? ' has-tabbar' : ''}${isAuthScreen ? ' auth-screen' : ''}`}>
     <a className="skip-link" href="#main-content">본문 바로가기</a>
-    <header className="app-bar">
+    {!isAuthScreen && <header className="app-bar">
       <div className="app-bar-leading">
         {isTabRoot
           ? isHome ? <Link to="/" aria-label="LOST QUEST 홈"><Logo /></Link> : <strong className="app-bar-title">{title}</strong>
@@ -128,7 +129,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <Link to="/mypage?tab=notifications" className="app-bar-icon notification-button" aria-label={unread > 0 ? `알림, 읽지 않은 매칭 알림 ${unread}개` : '알림'}><Bell size={22} aria-hidden="true" />{unread > 0 && <i className="notification-badge" aria-hidden="true">{unread > 99 ? '99+' : unread}</i>}</Link>
         <button type="button" ref={menuButtonRef} className="app-bar-icon" aria-label="전체 메뉴" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}><Menu size={23} aria-hidden="true" /></button>
       </div>
-    </header>
+    </header>}
     {storageError && storageError !== dismissedError && <div role="alert" className="storage-alert"><span>{storageError}</span><button type="button" className="storage-alert-close" aria-label="오류 안내 닫기" onClick={() => setDismissedError(storageError)}><X size={18} aria-hidden="true" /></button></div>}
     <main id="main-content">{children}</main>
     {showTabBar && <nav className="app-tabbar" aria-label="하단 탭 내비게이션">

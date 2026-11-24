@@ -4,3 +4,15 @@
 .google-signin-slot { display:flex; justify-content:center; min-height:44px; }
 .google-signin-slot.is-disabled { pointer-events:none; opacity:.55; }
 .google-signin-note { margin:0; font-size:0.8125rem; line-height:1.7; text-align:center; }
+
+/* Full-width Google entry: custom face + invisible GIS overlay that receives the click. */
+.auth-entry-google-wrap { position:relative; width:100%; min-height:52px; }
+.auth-entry-google-wrap.is-disabled { pointer-events:none; opacity:.55; }
+.auth-entry-google-wrap .google-signin-overlay {
+  position:absolute; inset:0; z-index:1; display:block; min-height:52px; overflow:hidden; opacity:0.011;
+}
+.auth-entry-google-wrap .google-signin-overlay > div,
+.auth-entry-google-wrap .google-signin-overlay iframe {
+  width:100% !important; height:100% !important; min-height:52px;
+}
+.auth-entry-google-mark { flex-shrink:0; }
