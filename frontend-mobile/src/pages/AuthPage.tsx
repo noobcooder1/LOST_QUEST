@@ -1,12 +1,21 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Check, Compass, HeartHandshake, LockKeyhole, Mail, ShieldCheck, Sparkles, UserRound } from 'lucide-react'
+import { ArrowLeft, Check, LockKeyhole, Mail, UserRound } from 'lucide-react'
 import GoogleSignInButton from '../components/GoogleSignInButton'
+import Logo from '../components/Logo'
 import { useApp } from '../context/AppContext'
 import { ApiClientError } from '../services/apiClient'
 import { describeAuthError } from '../services/authApi'
 import { EMAIL_MESSAGE, isValidSignupEmail } from '../services/emailValidation'
 import './JourneyPages.css'
+
+function KakaoMark() {
+  return (
+    <svg className="auth-entry-kakao-mark" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#191919" d="M12 3C6.48 3 2 6.58 2 10.9c0 2.74 1.78 5.15 4.5 6.55-.15.54-.54 1.96-.62 2.27-.09.36.13.35.27.26.11-.07 1.78-1.21 2.5-1.7.77.11 1.56.17 2.35.17 5.52 0 10-3.58 10-7.9S17.52 3 12 3z" />
+    </svg>
+  )
+}
 
 export default function AuthPage() {
   const { isLoggedIn, login, loginWithGoogle, signup, profile, authUser } = useApp()
@@ -19,6 +28,7 @@ export default function AuthPage() {
   const [agreed, setAgreed] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [showPasswordLogin, setShowPasswordLogin] = useState(false)
   /** Held only in memory while a new Google account waits for an email; Google's ID token expires within an hour. */
   const [googleCredential, setGoogleCredential] = useState<string | null>(null)
   const [googleEmail, setGoogleEmail] = useState('')
@@ -26,6 +36,11 @@ export default function AuthPage() {
   const requestedPath = params.get('returnTo') || '/mypage'
   const returnTo = requestedPath.startsWith('/') && !requestedPath.startsWith('//') && !requestedPath.includes('\\') ? requestedPath : '/mypage'
   const authSearch = params.has('returnTo') ? `?returnTo=${encodeURIComponent(returnTo)}` : ''
+
+  useEffect(() => {
+    setShowPasswordLogin(false)
+    setError('')
+  }, [isSignup])
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
@@ -79,61 +94,102 @@ export default function AuthPage() {
 
   const edit = (setter: (value: string) => void) => (event: React.ChangeEvent<HTMLInputElement>) => { setter(event.target.value); setError('') }
 
+  const brandHeader = (
+    <div className="auth-brand-block">
+      <Logo />
+      <p className="auth-tagline">잃어버린 순간에서,<br />다시 만나는 순간까지.</p>
+    </div>
+  )
+
+  const secondaryLinks = (
+    <nav className="auth-secondary-links" aria-label="계정 안내">
+      {isSignup
+        ? <Link to={`/login${authSearch}`}>로그인</Link>
+        : <Link to={`/signup${authSearch}`}>회원가입</Link>}
+      <Link to="/search">로그인 없이 물품 찾기</Link>
+    </nav>
+  )
+
+  const passwordForm = (
+    <form onSubmit={submit} className="auth-form auth-form-minimal" noValidate>
+      {isSignup && <div className="form-field">
+        <label className="sr-only" htmlFor="auth-nickname">닉네임</label>
+        <div className="auth-input"><UserRound size={18} aria-hidden="true" /><input id="auth-nickname" value={nickname} onChange={edit(setNickname)} maxLength={20} autoComplete="nickname" placeholder="닉네임" /></div>
+      </div>}
+      <div className="form-field">
+        <label className="sr-only" htmlFor="auth-email">이메일</label>
+        <div className="auth-input"><Mail size={18} aria-hidden="true" /><input id="auth-email" type="email" value={email} onChange={edit(setEmail)} maxLength={254} autoComplete="email" placeholder="이메일" /></div>
+      </div>
+      <div className="form-field">
+        <label className="sr-only" htmlFor="auth-password">비밀번호</label>
+        <div className="auth-input"><LockKeyhole size={18} aria-hidden="true" /><input id="auth-password" type="password" value={password} onChange={edit(setPassword)} maxLength={64} autoComplete={isSignup ? 'new-password' : 'current-password'} placeholder={isSignup ? '비밀번호 (8자 이상)' : '비밀번호'} /></div>
+      </div>
+      {isSignup && <label className="auth-agree"><input type="checkbox" checked={agreed} onChange={event => { setAgreed(event.target.checked); setError('') }} /><span>이메일과 닉네임 저장에 동의해요.</span></label>}
+      {error && <p className="field-error" role="alert" style={{ whiteSpace: 'pre-line' }}>{error}</p>}
+      <button type="submit" className="button button-primary auth-submit" disabled={submitting} aria-busy={submitting}>{submitting ? '처리 중이에요…' : isSignup ? '가입하기' : '로그인'}</button>
+    </form>
+  )
+
   return <div className="page-container auth-page">
-    <Link to="/" className="text-link auth-back"><ArrowLeft size={17} /> 홈으로 돌아가기</Link>
-    <div className="auth-layout card">
-      <section className="auth-story">
-        <div className="auth-story-brand"><Compass size={26} /> LOST QUEST</div>
-        <span className="auth-kicker">함께 찾는 소중한 일상</span>
-        <h1>잃어버린 순간에서,<br />다시 만나는 순간까지.</h1>
-        <p>당신의 소중한 물건을 찾는 여정.<br />이제 혼자가 아닌, 우리 함께해요.</p>
-        <div className="auth-orbit" aria-hidden="true">
-          <div className="auth-orbit-ring" /><div className="auth-orbit-ring inner" />
-          <div className="auth-compass"><Compass size={76} strokeWidth={1.3} /></div>
-          <span className="auth-orbit-chip one"><Sparkles size={16} /> 소중한 연결</span>
-          <span className="auth-orbit-chip two"><HeartHandshake size={17} /> 작은 친절의 시작</span>
-        </div>
-        <div className="auth-story-foot"><ShieldCheck size={18} /> 함께 찾고, 안전하게 돌려주는 공간</div>
-      </section>
-      <section className="auth-form-side">
+    <div className="auth-layout">
+      <section className="auth-panel">
         {isLoggedIn ? <div className="auth-welcome">
+          {brandHeader}
           <span className="auth-welcome-icon"><Check size={29} /></span>
-          <span className="eyebrow">당신의 여정이 준비됐어요</span>
           <h2>{profile.name}님,<br />다시 만나 반가워요!</h2>
-          <p className="muted">{authUser?.email} 계정으로 로그인되어 있어요.<br />소중한 물건을 찾는 여정을 이어가세요.</p>
-          <Link className="button button-primary" to={returnTo}>계속 둘러보기 <ArrowRight size={17} /></Link>
+          <p className="muted">{authUser?.email}</p>
+          <Link className="button button-primary auth-submit" to={returnTo}>계속 둘러보기</Link>
         </div> : googleCredential ? <>
-          <span className="eyebrow">구글 계정으로 시작하기</span>
-          <h2>이메일을 알려 주세요</h2>
-          <p className="muted">구글 계정에서 확인된 이메일을 받지 못했어요.<br />로그인 계정에 저장할 이메일을 입력하면 가입이 끝나요.</p>
-          <form onSubmit={submitGoogleEmail} className="auth-form auth-google-email" noValidate>
-            <div className="form-field"><label htmlFor="auth-google-email">이메일</label><div className="auth-input"><Mail size={18} /><input id="auth-google-email" type="email" value={googleEmail} onChange={edit(setGoogleEmail)} maxLength={254} autoComplete="email" placeholder="you@example.com" /></div><small className="muted">이메일과 구글 계정의 이름(닉네임)이 저장돼요. 다음부터는 구글 버튼으로 바로 로그인해요.</small></div>
+          {brandHeader}
+          <form onSubmit={submitGoogleEmail} className="auth-form auth-form-minimal auth-google-email" noValidate>
+            <div className="form-field">
+              <label className="sr-only" htmlFor="auth-google-email">이메일</label>
+              <div className="auth-input"><Mail size={18} aria-hidden="true" /><input id="auth-google-email" type="email" value={googleEmail} onChange={edit(setGoogleEmail)} maxLength={254} autoComplete="email" placeholder="이메일" /></div>
+            </div>
             {error && <p className="field-error" role="alert" style={{ whiteSpace: 'pre-line' }}>{error}</p>}
-            <button type="submit" className="button button-primary auth-submit" disabled={submitting} aria-busy={submitting}>{submitting ? '처리 중이에요…' : '이메일 등록하고 시작하기'} <ArrowRight size={18} /></button>
+            <button type="submit" className="button button-primary auth-submit" disabled={submitting} aria-busy={submitting}>{submitting ? '처리 중이에요…' : '시작하기'}</button>
             <button type="button" className="button button-secondary auth-submit" disabled={submitting} onClick={cancelGoogleSignup}>취소</button>
           </form>
+        </> : isSignup ? <>
+          {brandHeader}
+          {passwordForm}
+          {secondaryLinks}
+        </> : showPasswordLogin ? <>
+          {brandHeader}
+          <button type="button" className="auth-step-back" onClick={() => { setShowPasswordLogin(false); setError('') }}>
+            <ArrowLeft size={16} aria-hidden="true" /> 다른 방법으로
+          </button>
+          {passwordForm}
+          {secondaryLinks}
         </> : <>
-          <span className="eyebrow">로스트퀘스트에 오신 것을 환영해요</span>
-          <h2>{isSignup ? '함께 찾는 여정의 시작' : '다시 만나 반가워요'}</h2>
-          <p className="muted">{isSignup ? '계정을 만들고 LOST QUEST를 시작해 보세요.' : '작은 친절이 모여, 소중한 일상을 되찾아요.'}</p>
-          <div className="auth-tabs">
-            <Link className={!isSignup ? 'active' : ''} to={`/login${authSearch}`}>로그인</Link>
-            <Link className={isSignup ? 'active' : ''} to={`/signup${authSearch}`}>회원가입</Link>
+          {brandHeader}
+          <div className="auth-entry-stack">
+            <GoogleSignInButton variant="entry" mode="signin" disabled={submitting} onCredential={credential => void continueWithGoogle(credential)} />
+            <button
+              type="button"
+              className="auth-entry-btn auth-entry-kakao"
+              disabled
+              aria-disabled="true"
+              title="카카오 로그인은 준비 중이에요"
+            >
+              <KakaoMark />
+              <span>카카오로 시작하기</span>
+              <span className="auth-entry-soon">준비 중</span>
+            </button>
+            <button
+              type="button"
+              className="auth-entry-btn auth-entry-general"
+              disabled={submitting}
+              onClick={() => { setShowPasswordLogin(true); setError('') }}
+            >
+              <Mail size={18} aria-hidden="true" />
+              <span>일반 로그인</span>
+            </button>
           </div>
-          <form onSubmit={submit} className="auth-form" noValidate>
-            {isSignup && <div className="form-field"><label htmlFor="auth-nickname">닉네임</label><div className="auth-input"><UserRound size={18} /><input id="auth-nickname" value={nickname} onChange={edit(setNickname)} maxLength={20} autoComplete="nickname" placeholder="사용할 닉네임" /></div></div>}
-            <div className="form-field"><label htmlFor="auth-email">이메일</label><div className="auth-input"><Mail size={18} /><input id="auth-email" type="email" value={email} onChange={edit(setEmail)} maxLength={254} autoComplete="email" placeholder="you@example.com" /></div></div>
-            <div className="form-field"><label htmlFor="auth-password">비밀번호</label><div className="auth-input"><LockKeyhole size={18} /><input id="auth-password" type="password" value={password} onChange={edit(setPassword)} maxLength={64} autoComplete={isSignup ? 'new-password' : 'current-password'} placeholder={isSignup ? '8자 이상' : '비밀번호'} /></div>{isSignup && <small className="muted">8~64자로 입력해 주세요. 비밀번호는 암호화되어 저장돼요.</small>}</div>
-            {isSignup && <label className="auth-agree"><input type="checkbox" checked={agreed} onChange={event => { setAgreed(event.target.checked); setError('') }} /><span>로그인을 위해 이메일과 닉네임이 저장되는 것에 동의해요.</span></label>}
-            {error && <p className="field-error" role="alert" style={{ whiteSpace: 'pre-line' }}>{error}</p>}
-            <button type="submit" className="button button-primary auth-submit" disabled={submitting} aria-busy={submitting}>{submitting ? '처리 중이에요…' : isSignup ? '가입하고 시작하기' : '로그인'} <ArrowRight size={18} /></button>
-          </form>
-          <GoogleSignInButton mode={isSignup ? 'signup' : 'signin'} disabled={submitting} onCredential={credential => void continueWithGoogle(credential)} />
-          <div className="auth-demo-note"><ShieldCheck size={20} /><div><strong>안전하게 로그인해요</strong><p>회원·등록 물품·반환 기록과 경험치는 계정에 저장돼요. 로그인 상태는 이 브라우저 탭에서만 유지됩니다.</p></div></div>
-          <p className="auth-browse">아직 둘러보는 중인가요? <Link to="/search">로그인 없이 물품 찾기 <ArrowRight size={14} /></Link></p>
+          {error && <p className="field-error auth-entry-error" role="alert" style={{ whiteSpace: 'pre-line' }}>{error}</p>}
+          {secondaryLinks}
         </>}
       </section>
     </div>
   </div>
 }
-

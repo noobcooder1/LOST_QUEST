@@ -57,3 +57,26 @@ it('loads the Google script once and explains when it cannot be loaded', async (
   expect(container.querySelector('[role="status"]')?.textContent).toContain('구글 로그인 버튼을 불러오지 못했어요');
   expect(document.head.querySelector('script')).toBeNull();
 });
+
+it('hides the entry Google path when no client id is configured', async () => {
+  vi.stubEnv('VITE_GOOGLE_CLIENT_ID', '');
+  await act(async () => root.render(<GoogleSignInButton variant="entry" mode="signin" onCredential={vi.fn()} />));
+  expect(container.innerHTML).toBe('');
+  expect(container.querySelector('.auth-entry-soon')).toBeNull();
+});
+
+it('draws an entry-stack Google path with a rectangular GIS button', async () => {
+  vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'lost-quest.apps.googleusercontent.com');
+  const initialize = vi.fn();
+  const renderButton = vi.fn();
+  window.google = { accounts: { id: { initialize, renderButton } } };
+
+  await act(async () => root.render(<GoogleSignInButton variant="entry" mode="signin" onCredential={vi.fn()} />));
+  await settle();
+
+  expect(container.querySelector('.auth-entry-google')?.textContent).toContain('Google로 시작하기');
+  expect(renderButton).toHaveBeenCalledWith(
+    container.querySelector('.google-signin-overlay'),
+    expect.objectContaining({ shape: 'rectangular', text: 'signin_with' }),
+  );
+});
