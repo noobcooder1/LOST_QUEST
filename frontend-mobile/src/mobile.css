@@ -106,11 +106,12 @@ body{background:#e7edf2;overscroll-behavior-y:none}
 .app-shell .detail-related{margin:24px 0 8px}
 .app-shell .detail-related .section-heading{margin-bottom:12px}
 
-/* Login / signup: centered Joonggonara-style entry stack; no story panel. */
+/* Login / signup: true viewport center; no story panel / app chrome. */
 .app-shell.auth-screen{--app-bar-height:0px}
-.app-shell .auth-page{padding:8px 0 28px;min-height:0;background:transparent}
-.app-shell .auth-layout{display:block;max-width:none;margin:0;border:0;border-radius:0;box-shadow:none;background:transparent;overflow:visible}
-.app-shell .auth-panel{padding:20px 4px 12px}
+.app-shell.auth-screen>main{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:0;padding:24px 0;box-sizing:border-box}
+.app-shell .page-container.auth-page{display:flex;flex-direction:column;align-items:center;justify-content:center;width:calc(100% - 32px);max-width:420px;margin:0 auto;padding:0;min-height:0;background:transparent}
+.app-shell .auth-layout{display:block;width:100%;max-width:none;margin:0;border:0;border-radius:0;box-shadow:none;background:transparent;overflow:visible}
+.app-shell .auth-panel{padding:0}
 .app-shell .auth-brand-block{margin-bottom:28px;gap:14px}
 .app-shell .auth-brand-block .brand{font-size:1.5rem}
 .app-shell .auth-tagline{font-size:0.975rem}
