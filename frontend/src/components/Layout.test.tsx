@@ -25,8 +25,8 @@ afterEach(() => {
   container.remove();
   vi.restoreAllMocks();
 });
-async function render() {
-  await act(async () => root.render(<MemoryRouter><Layout><p>본문</p></Layout></MemoryRouter>));
+async function render(path = '/') {
+  await act(async () => root.render(<MemoryRouter initialEntries={[path]}><Layout><p>본문</p></Layout></MemoryRouter>));
 }
 async function dismiss() {
   const button = container.querySelector<HTMLButtonElement>('button[aria-label="오류 안내 닫기"]');
@@ -62,5 +62,19 @@ describe('dismissible layout error notice', () => {
     state.storageError = connectionError;
     await render();
     expect(container.querySelector('[role="alert"]')?.textContent).toContain(connectionError);
+  });
+});
+
+describe('auth screen chrome', () => {
+  it('hides the site header, footer, and mobile nav on login and signup', async () => {
+    await render('/login');
+    expect(container.querySelector('.site-header')).toBeNull();
+    expect(container.querySelector('.site-footer')).toBeNull();
+    expect(container.querySelector('.mobile-nav')).toBeNull();
+    expect(container.querySelector('.app-shell')?.classList.contains('auth-screen')).toBe(true);
+
+    await render('/signup');
+    expect(container.querySelector('.site-header')).toBeNull();
+    expect(container.querySelector('.app-shell')?.classList.contains('auth-screen')).toBe(true);
   });
 });

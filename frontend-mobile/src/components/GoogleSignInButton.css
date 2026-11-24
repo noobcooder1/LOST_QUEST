@@ -15,5 +15,4 @@
 .auth-entry-google-wrap .google-signin-overlay iframe {
   width:100% !important; height:100% !important; min-height:52px;
 }
-.auth-entry-google { border-color:#dfe6ec; background:#fff; color:#1b3a52; }
 .auth-entry-google-mark { flex-shrink:0; }

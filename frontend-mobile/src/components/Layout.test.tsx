@@ -104,10 +104,18 @@ describe('app shell navigation', () => {
     expect(where()).toBe('/mypage');
   });
 
-  it('hides the tab bar on focused flows and keeps it elsewhere', async () => {
+  it('hides the app bar and tab bar on login', async () => {
     await render('/login');
     expect(container.querySelector('.app-tabbar')).toBeNull();
-    expect(appBarTitle()).toBe('로그인');
+    expect(container.querySelector('.app-bar')).toBeNull();
+    expect(container.querySelector('.app-shell')?.classList.contains('auth-screen')).toBe(true);
+  });
+
+  it('keeps the app bar while hiding the tab bar on other focused flows', async () => {
+    await render('/returns/1');
+    expect(container.querySelector('.app-tabbar')).toBeNull();
+    expect(container.querySelector('.app-bar')).not.toBeNull();
+    expect(appBarTitle()).toBe('반환 진행');
   });
 
   it('opens the full menu sheet, closes it with Escape, and closes it on navigation', async () => {

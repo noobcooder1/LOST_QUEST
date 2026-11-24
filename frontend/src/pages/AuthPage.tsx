@@ -122,7 +122,6 @@ export default function AuthPage() {
   )
 
   return <div className="page-container auth-page">
-    <Link to="/" className="text-link auth-back"><ArrowLeft size={17} /> 홈으로 돌아가기</Link>
     <div className="auth-layout">
       <section className="auth-panel">
         {isLoggedIn ? <div className="auth-welcome">

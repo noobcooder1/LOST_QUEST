@@ -107,8 +107,8 @@ body{background:#e7edf2;overscroll-behavior-y:none}
 .app-shell .detail-related .section-heading{margin-bottom:12px}
 
 /* Login / signup: centered Joonggonara-style entry stack; no story panel. */
+.app-shell.auth-screen{--app-bar-height:0px}
 .app-shell .auth-page{padding:8px 0 28px;min-height:0;background:transparent}
-.app-shell .auth-back{display:none}
 .app-shell .auth-layout{display:block;max-width:none;margin:0;border:0;border-radius:0;box-shadow:none;background:transparent;overflow:visible}
 .app-shell .auth-panel{padding:20px 4px 12px}
 .app-shell .auth-brand-block{margin-bottom:28px;gap:14px}
