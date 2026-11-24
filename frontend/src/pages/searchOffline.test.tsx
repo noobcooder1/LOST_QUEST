@@ -163,7 +163,8 @@ describe('public-list offline user flow', () => {
     expect(listPoliceItems).toHaveBeenCalledOnce(); expect(listPoliceItems).toHaveBeenCalledWith('lost', expect.anything());
     expect(rows.some(text => text?.includes('LOST QUEST'))).toBe(false);
     expect(rows.filter(text => text?.includes('경찰청')).every(text => text?.includes('서버 연결 불가'))).toBe(true);
-    // 내 물건 찾기, then 주인 찾기: each LOST QUEST list still loads on its own after the police outage.
+    // Back to LOST QUEST, then 내 물건 찾기 / 주인 찾기: each list still loads after the police outage.
+    await act(async () => container.querySelector<HTMLButtonElement>('.search-back-community')!.click()); await settle();
     for (const index of [0, 1]) {
       await act(async () => container.querySelectorAll<HTMLButtonElement>('.source-tabs > button')[index].click()); await settle();
       expect(statuses().textContent?.match(/최신 데이터/g)).toHaveLength(1);

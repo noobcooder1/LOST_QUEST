@@ -127,12 +127,14 @@ describe('MyItemList', () => {
 
     const [recent, old, earbuds] = cards();
     expect(recent.textContent).toContain('가장 최근 잃어버린 물건');
-    expect(recent.textContent).toContain('내 물건 찾기');
+    expect(recent.textContent).toContain('찾고 있어요');
+    expect(recent.querySelector('.badge-blue')?.textContent).toBe('찾고 있어요');
     expect(recent.textContent).toContain('서울');
     expect(recent.textContent).toContain('분실 2026-09-16');
     expect(recent.textContent).toContain('글 등록 2026. 10. 01 09:00:00 (한국 시간)');
     expect(old.textContent).toContain('오래된 잃어버린 물건');
-    expect(earbuds.textContent).toContain('주인 찾기');
+    expect(earbuds.textContent).toContain('주인을 찾아요');
+    expect(earbuds.querySelector('.badge-green')?.textContent).toBe('주인을 찾아요');
     expect(earbuds.textContent).toContain('경기');
     expect(earbuds.textContent).toContain('습득 2026-09-21');
     // Server order is kept, and the server image / category illustration are used.
