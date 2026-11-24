@@ -5,6 +5,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import SearchNavigation from '../components/SearchNavigation';
 import SearchPage from './SearchPage';
 import type { Item } from '../types';
 import { ApiClientError } from '../services/apiClient';
@@ -48,7 +49,7 @@ async function settle() {
   await waitFor(() => !['공개 목록을 불러오고 있어요.', '추가 페이지를 불러오고 있어요.', '갱신 중'].some(text => container.textContent?.includes(text)), 'Public-list requests did not settle');
 }
 async function mount(path = '/search?source=community') {
-  await act(async () => root.render(<MemoryRouter initialEntries={[path]}><SearchPage /></MemoryRouter>));
+  await act(async () => root.render(<MemoryRouter initialEntries={[path]}><SearchNavigation /><SearchPage /></MemoryRouter>));
   await settle();
 }
 async function revisit(path = '/search?source=community') {
@@ -164,7 +165,8 @@ describe('public-list offline user flow', () => {
     expect(rows.some(text => text?.includes('LOST QUEST'))).toBe(false);
     expect(rows.filter(text => text?.includes('경찰청')).every(text => text?.includes('서버 연결 불가'))).toBe(true);
     // Back to LOST QUEST, then 내 물건 찾기 / 주인 찾기: each list still loads after the police outage.
-    await act(async () => container.querySelector<HTMLButtonElement>('.search-back-community')!.click()); await settle();
+    await act(async () => container.querySelector<HTMLButtonElement>('.search-nav-trigger')!.click());
+    await act(async () => container.querySelector<HTMLAnchorElement>('.search-nav-menu a[href="/search"]')!.click()); await settle();
     for (const index of [0, 1]) {
       await act(async () => container.querySelectorAll<HTMLButtonElement>('.source-tabs > button')[index].click()); await settle();
       expect(statuses().textContent?.match(/최신 데이터/g)).toHaveLength(1);
