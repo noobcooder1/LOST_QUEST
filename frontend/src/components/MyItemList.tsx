@@ -7,15 +7,17 @@ import { describeMyItemsError, listMyItems, type MyItems } from '../services/ite
 import type { Item } from '../types';
 import ItemImage from './ItemImage';
 import { formatRegistrationTime } from '../services/dateTime';
+import { itemTypeBadge } from '../utils/itemTypeBadge';
 
 type State = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; items: MyItems };
 
 function MyItemCard({ item }: { item: Item }) {
   const registeredAt = formatRegistrationTime(item.createdAt);
+  const typeBadge = itemTypeBadge(item.type);
   const content = <>
     <span className="profile-item-photo"><ItemImage src={item.image} fallbackSrc={defaultItemImage(item.category, item.title)} alt={item.title} loading="lazy" /></span>
     <div>
-      <div className="profile-item-badges"><span className={`badge ${item.type === 'lost' ? 'badge-orange' : 'badge-blue'}`}>{item.type === 'lost' ? '내 물건 찾기' : '주인 찾기'}</span>{item.hidden && <span className="badge badge-orange">관리자 숨김</span>}{item.status === 'returned' && <span className="badge badge-green">반환 완료</span>}</div>
+      <div className="profile-item-badges"><span className={`badge ${typeBadge.className}`}>{typeBadge.label}</span>{item.hidden && <span className="badge badge-orange">관리자 숨김</span>}{item.status === 'returned' && <span className="badge badge-green">반환 완료</span>}</div>
       <h3>{item.title}</h3>
       <p>{item.region || item.location}</p>
       <time className="muted" dateTime={item.date}>{item.type === 'lost' ? '분실' : '습득'} {item.date}</time>
