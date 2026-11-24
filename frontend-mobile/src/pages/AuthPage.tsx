@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Check, LockKeyhole, Mail, UserRound } from 'lucide-react'
+import { ArrowLeft, Check, LockKeyhole, Mail, UserRound } from 'lucide-react'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 import Logo from '../components/Logo'
 import { useApp } from '../context/AppContext'
@@ -104,20 +104,29 @@ export default function AuthPage() {
   const secondaryLinks = (
     <nav className="auth-secondary-links" aria-label="계정 안내">
       {isSignup
-        ? <Link to={`/login${authSearch}`}>이미 계정이 있나요? 로그인</Link>
+        ? <Link to={`/login${authSearch}`}>로그인</Link>
         : <Link to={`/signup${authSearch}`}>회원가입</Link>}
       <Link to="/search">로그인 없이 물품 찾기</Link>
     </nav>
   )
 
   const passwordForm = (
-    <form onSubmit={submit} className="auth-form" noValidate>
-      {isSignup && <div className="form-field"><label htmlFor="auth-nickname">닉네임</label><div className="auth-input"><UserRound size={18} /><input id="auth-nickname" value={nickname} onChange={edit(setNickname)} maxLength={20} autoComplete="nickname" placeholder="사용할 닉네임" /></div></div>}
-      <div className="form-field"><label htmlFor="auth-email">이메일</label><div className="auth-input"><Mail size={18} /><input id="auth-email" type="email" value={email} onChange={edit(setEmail)} maxLength={254} autoComplete="email" placeholder="you@example.com" /></div></div>
-      <div className="form-field"><label htmlFor="auth-password">비밀번호</label><div className="auth-input"><LockKeyhole size={18} /><input id="auth-password" type="password" value={password} onChange={edit(setPassword)} maxLength={64} autoComplete={isSignup ? 'new-password' : 'current-password'} placeholder={isSignup ? '8자 이상' : '비밀번호'} /></div>{isSignup && <small className="muted">8~64자로 입력해 주세요. 비밀번호는 암호화되어 저장돼요.</small>}</div>
-      {isSignup && <label className="auth-agree"><input type="checkbox" checked={agreed} onChange={event => { setAgreed(event.target.checked); setError('') }} /><span>로그인을 위해 이메일과 닉네임이 저장되는 것에 동의해요.</span></label>}
+    <form onSubmit={submit} className="auth-form auth-form-minimal" noValidate>
+      {isSignup && <div className="form-field">
+        <label className="sr-only" htmlFor="auth-nickname">닉네임</label>
+        <div className="auth-input"><UserRound size={18} aria-hidden="true" /><input id="auth-nickname" value={nickname} onChange={edit(setNickname)} maxLength={20} autoComplete="nickname" placeholder="닉네임" /></div>
+      </div>}
+      <div className="form-field">
+        <label className="sr-only" htmlFor="auth-email">이메일</label>
+        <div className="auth-input"><Mail size={18} aria-hidden="true" /><input id="auth-email" type="email" value={email} onChange={edit(setEmail)} maxLength={254} autoComplete="email" placeholder="이메일" /></div>
+      </div>
+      <div className="form-field">
+        <label className="sr-only" htmlFor="auth-password">비밀번호</label>
+        <div className="auth-input"><LockKeyhole size={18} aria-hidden="true" /><input id="auth-password" type="password" value={password} onChange={edit(setPassword)} maxLength={64} autoComplete={isSignup ? 'new-password' : 'current-password'} placeholder={isSignup ? '비밀번호 (8자 이상)' : '비밀번호'} /></div>
+      </div>
+      {isSignup && <label className="auth-agree"><input type="checkbox" checked={agreed} onChange={event => { setAgreed(event.target.checked); setError('') }} /><span>이메일과 닉네임 저장에 동의해요.</span></label>}
       {error && <p className="field-error" role="alert" style={{ whiteSpace: 'pre-line' }}>{error}</p>}
-      <button type="submit" className="button button-primary auth-submit" disabled={submitting} aria-busy={submitting}>{submitting ? '처리 중이에요…' : isSignup ? '가입하고 시작하기' : '로그인'} <ArrowRight size={18} /></button>
+      <button type="submit" className="button button-primary auth-submit" disabled={submitting} aria-busy={submitting}>{submitting ? '처리 중이에요…' : isSignup ? '가입하기' : '로그인'}</button>
     </form>
   )
 
@@ -128,26 +137,21 @@ export default function AuthPage() {
           {brandHeader}
           <span className="auth-welcome-icon"><Check size={29} /></span>
           <h2>{profile.name}님,<br />다시 만나 반가워요!</h2>
-          <p className="muted">{authUser?.email} 계정으로 로그인되어 있어요.<br />소중한 물건을 찾는 여정을 이어가세요.</p>
-          <Link className="button button-primary auth-submit" to={returnTo}>계속 둘러보기 <ArrowRight size={17} /></Link>
+          <p className="muted">{authUser?.email}</p>
+          <Link className="button button-primary auth-submit" to={returnTo}>계속 둘러보기</Link>
         </div> : googleCredential ? <>
           {brandHeader}
-          <div className="auth-step-copy">
-            <h2>이메일을 알려 주세요</h2>
-            <p className="muted">구글 계정에서 확인된 이메일을 받지 못했어요.<br />로그인 계정에 저장할 이메일을 입력하면 가입이 끝나요.</p>
-          </div>
-          <form onSubmit={submitGoogleEmail} className="auth-form auth-google-email" noValidate>
-            <div className="form-field"><label htmlFor="auth-google-email">이메일</label><div className="auth-input"><Mail size={18} /><input id="auth-google-email" type="email" value={googleEmail} onChange={edit(setGoogleEmail)} maxLength={254} autoComplete="email" placeholder="you@example.com" /></div><small className="muted">이메일과 구글 계정의 이름(닉네임)이 저장돼요. 다음부터는 구글 버튼으로 바로 로그인해요.</small></div>
+          <form onSubmit={submitGoogleEmail} className="auth-form auth-form-minimal auth-google-email" noValidate>
+            <div className="form-field">
+              <label className="sr-only" htmlFor="auth-google-email">이메일</label>
+              <div className="auth-input"><Mail size={18} aria-hidden="true" /><input id="auth-google-email" type="email" value={googleEmail} onChange={edit(setGoogleEmail)} maxLength={254} autoComplete="email" placeholder="이메일" /></div>
+            </div>
             {error && <p className="field-error" role="alert" style={{ whiteSpace: 'pre-line' }}>{error}</p>}
-            <button type="submit" className="button button-primary auth-submit" disabled={submitting} aria-busy={submitting}>{submitting ? '처리 중이에요…' : '이메일 등록하고 시작하기'} <ArrowRight size={18} /></button>
+            <button type="submit" className="button button-primary auth-submit" disabled={submitting} aria-busy={submitting}>{submitting ? '처리 중이에요…' : '시작하기'}</button>
             <button type="button" className="button button-secondary auth-submit" disabled={submitting} onClick={cancelGoogleSignup}>취소</button>
           </form>
         </> : isSignup ? <>
           {brandHeader}
-          <div className="auth-step-copy">
-            <h2>함께 찾는 여정의 시작</h2>
-            <p className="muted">계정을 만들고 LOST QUEST를 시작해 보세요.</p>
-          </div>
           {passwordForm}
           <div className="auth-signup-google">
             <GoogleSignInButton variant="entry" mode="signup" disabled={submitting} onCredential={credential => void continueWithGoogle(credential)} />
@@ -155,13 +159,9 @@ export default function AuthPage() {
           {secondaryLinks}
         </> : showPasswordLogin ? <>
           {brandHeader}
-          <div className="auth-step-copy">
-            <button type="button" className="auth-step-back" onClick={() => { setShowPasswordLogin(false); setError('') }}>
-              <ArrowLeft size={16} /> 다른 방법으로 로그인
-            </button>
-            <h2>일반 로그인</h2>
-            <p className="muted">이메일과 비밀번호로 로그인해요.</p>
-          </div>
+          <button type="button" className="auth-step-back" onClick={() => { setShowPasswordLogin(false); setError('') }}>
+            <ArrowLeft size={16} aria-hidden="true" /> 다른 방법으로
+          </button>
           {passwordForm}
           {secondaryLinks}
         </> : <>

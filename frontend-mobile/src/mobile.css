@@ -118,7 +118,6 @@ body{background:#e7edf2;overscroll-behavior-y:none}
 .app-shell .auth-entry-btn,.app-shell .auth-entry-google-wrap{min-height:52px;border-radius:12px}
 .app-shell .auth-input{min-height:52px;border-radius:12px}
 .app-shell .auth-submit{width:100%;min-height:52px;border-radius:14px}
-.app-shell .auth-step-copy h2{font-size:1.3125rem}
 .app-shell .auth-secondary-links{margin-top:24px;gap:12px;font-size:0.875rem}
 
 /* Register / edit: compact heading, full-width form card, action bar pinned above the tab bar. */
