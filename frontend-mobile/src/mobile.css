@@ -106,18 +106,19 @@ body{background:#e7edf2;overscroll-behavior-y:none}
 .app-shell .detail-related{margin:24px 0 8px}
 .app-shell .detail-related .section-heading{margin-bottom:12px}
 
-/* Login / signup: the form comes first; the story panel shrinks to a brand header. */
-.app-shell .auth-page{padding:0 0 24px}
+/* Login / signup: centered Joonggonara-style entry stack; no story panel. */
+.app-shell .auth-page{padding:8px 0 28px;min-height:0;background:transparent}
 .app-shell .auth-back{display:none}
-.app-shell .auth-layout{display:block;margin:0 -16px;border:0;border-radius:0;box-shadow:none;background:transparent;overflow:visible}
-.app-shell .auth-story{min-height:0;padding:22px 20px 26px;border-radius:0}
-.app-shell .auth-story h1,.app-shell .auth-story h2{font-size:1.375rem;line-height:1.4}
-.app-shell .auth-story>p,.app-shell .auth-orbit,.app-shell .auth-story-foot{display:none}
-.app-shell .auth-form-side{margin:-14px 0 0;padding:24px 20px 22px;background:#fff;border-radius:22px 22px 0 0;position:relative}
-.app-shell .auth-form-side h1,.app-shell .auth-form-side h2{font-size:1.375rem}
+.app-shell .auth-layout{display:block;max-width:none;margin:0;border:0;border-radius:0;box-shadow:none;background:transparent;overflow:visible}
+.app-shell .auth-panel{padding:20px 4px 12px}
+.app-shell .auth-brand-block{margin-bottom:28px;gap:14px}
+.app-shell .auth-brand-block .brand{font-size:1.5rem}
+.app-shell .auth-tagline{font-size:0.975rem}
+.app-shell .auth-entry-btn,.app-shell .auth-entry-google-wrap{min-height:52px;border-radius:12px}
 .app-shell .auth-input{min-height:52px;border-radius:12px}
 .app-shell .auth-submit{width:100%;min-height:52px;border-radius:14px}
-.app-shell .auth-demo-note{border-radius:12px}
+.app-shell .auth-step-copy h2{font-size:1.3125rem}
+.app-shell .auth-secondary-links{margin-top:24px;gap:12px;font-size:0.875rem}
 
 /* Register / edit: compact heading, full-width form card, action bar pinned above the tab bar. */
 .app-shell .journey-breadcrumb{display:none}
