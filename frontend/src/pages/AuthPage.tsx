@@ -153,9 +153,6 @@ export default function AuthPage() {
         </> : isSignup ? <>
           {brandHeader}
           {passwordForm}
-          <div className="auth-signup-google">
-            <GoogleSignInButton variant="entry" mode="signup" disabled={submitting} onCredential={credential => void continueWithGoogle(credential)} />
-          </div>
           {secondaryLinks}
         </> : showPasswordLogin ? <>
           {brandHeader}

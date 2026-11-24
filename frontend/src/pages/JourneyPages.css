@@ -75,7 +75,6 @@
 .auth-agree { display:flex; align-items:flex-start; gap:9px; font-size:0.875rem!important; font-weight:400!important; line-height:1.7; color:#5f788c; }
 .auth-agree input { width:15px; height:15px; flex-shrink:0; margin-top:2px; accent-color:#2874ed; }
 .auth-google-email { margin-top:0; }
-.auth-signup-google { margin-top:16px; }
 .auth-step-back {
   display:inline-flex; align-items:center; gap:6px; align-self:flex-start;
   margin:0 0 18px; color:#5f788c; font-size:0.875rem; font-weight:600;
