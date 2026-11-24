@@ -39,7 +39,7 @@ describe('dismissible layout error notice', () => {
     await render();
     expect(container.querySelector('[role="alert"]')?.textContent).toContain(connectionError);
     await dismiss();
-    await act(async () => container.querySelector<HTMLAnchorElement>('.desktop-nav a[href="/search"]')!.click());
+    await act(async () => container.querySelector<HTMLAnchorElement>('.desktop-nav a[href="/community"]')!.click());
     expect(container.querySelector('[role="alert"]')).toBeNull();
     expect(state.storageError).toBe(connectionError);
     expect(container.querySelector('main')?.textContent).toBe('본문');
